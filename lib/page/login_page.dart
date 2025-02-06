@@ -3,7 +3,12 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
+import '../locale_provider.dart';
 import 'menu_page.dart';
+import 'dart:io';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+
+
 
 class LoginPage extends StatefulWidget {
   @override
@@ -18,8 +23,9 @@ class _LoginPageState extends State<LoginPage> {
   String? _errorMessage;
 
   Future<void> _login() async {
+    String apiUrl = '';
     try {
-      final apiUrl = EnvironmentConfig.backendUrl;
+      apiUrl = EnvironmentConfig.backendUrl;
 
       final url = Uri.parse(apiUrl);
       final response = await http.post(
@@ -47,6 +53,23 @@ class _LoginPageState extends State<LoginPage> {
           _errorMessage = "Invalid Credentials";
         });
       }
+    } on SocketException {
+      setState(() {
+        final localizations = AppLocalizations.of(context);
+        if (localizations != null) {
+          _errorMessage = localizations.apiError(apiUrl);
+        } else {
+          _errorMessage = 'An error occurred';
+        }
+      });
+    } on HttpException {
+      setState(() {
+        _errorMessage = AppLocalizations.of(context)!.serverError(apiUrl);
+      });
+    } on FormatException {
+      setState(() {
+        _errorMessage = AppLocalizations.of(context)!.formatError(apiUrl);
+      });
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -56,12 +79,37 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final localeProvider = LocaleProvider.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Center(
-          child: Text("Registration and Login"),
+          child: Text(AppLocalizations.of(context)!.titleRegLogin),
         ),
+        actions: [
+          DropdownButton<Locale>(
+            value: localeProvider?.locale,
+            icon: Icon(Icons.language, color: Colors.white),
+            onChanged: (Locale? newLocale) {
+              if (newLocale != null) {
+                localeProvider?.changeLocale(newLocale);
+              }
+            },
+            items: [
+              Locale('en', 'US'),
+              Locale('uk', 'UA'),
+            ].map<DropdownMenuItem<Locale>>((Locale locale) {
+              return DropdownMenuItem<Locale>(
+                value: locale,
+                child: Text(
+                  locale.languageCode == 'en' ? 'English' : 'Українська',
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
+
       body: Container(
         decoration: BoxDecoration(
           image: DecorationImage(
@@ -95,7 +143,7 @@ class _LoginPageState extends State<LoginPage> {
                     onChanged: (Environment? newValue) {
                       setState(() {
                         EnvironmentConfig.currentEnvironment = newValue!;
-                        if (newValue != Environment.custom) {
+                        if (newValue != Environment.customApi) {
                           _customApiController.clear();
                         }
                       });
@@ -107,11 +155,11 @@ class _LoginPageState extends State<LoginPage> {
                       );
                     }).toList(),
                   ),
-                  if (EnvironmentConfig.currentEnvironment == Environment.custom)
+                  if (EnvironmentConfig.currentEnvironment == Environment.customApi)
                     TextField(
                       controller: _customApiController,
                       decoration: InputDecoration(
-                        labelText: "Enter custom API (optional)",
+                        labelText: AppLocalizations.of(context)!.enterCustomAPI,
                         hintText: "http://example.com/api/auth/login",
                       ),
                       onChanged: (value) {
@@ -120,12 +168,12 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   TextField(
                     controller: _usernameController,
-                    decoration: InputDecoration(labelText: "Username"),
+                    decoration: InputDecoration(labelText: AppLocalizations.of(context)!.username),
                   ),
                   TextField(
                     controller: _passwordController,
                     decoration: InputDecoration(
-                      labelText: "Password",
+                      labelText: AppLocalizations.of(context)!.password,
                       suffixIcon: IconButton(
                         icon: Icon(_obscureText
                             ? Icons.visibility
@@ -146,7 +194,7 @@ class _LoginPageState extends State<LoginPage> {
                       style: TextStyle(color: Colors.red),
                     ),
                   SizedBox(height: 10),
-                  ElevatedButton(onPressed: _login, child: Text("Sign In"))
+                  ElevatedButton(onPressed: _login, child: Text(AppLocalizations.of(context)!.signIn))
                 ],
               ),
             ),

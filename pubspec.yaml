@@ -33,6 +33,11 @@ dependencies:
   http: ^1.3.0
   shared_preferences: ^2.2.2
   cupertino_icons: ^1.0.8
+  # localization
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+  provider: ^6.0.0
 
 dev_dependencies:
   flutter_test:
@@ -88,3 +93,6 @@ flutter:
   # see https://flutter.dev/to/font-from-package
   assets:
     - lib/assets/images/
+  # localization
+  generate: true
+

@@ -1,11 +1,11 @@
-enum Environment { local, aws, custom }
+enum Environment { localApi, kubernetesApi, customApi }
 
 class AppConfig {
   static const String localBackend = 'http://localhost:8084';
-  static const String awsBackend = 'https://your-aws-endpoint.amazonaws.com';
+  static const String kubernetesBackend = 'https://your-kubernetes-endpoint.com';
   static const String apiPath = '/api/auth/login';
 
-  static String currentBackend = localBackend; // Значення за замовчуванням
+  static String currentBackend = localBackend; // Default value
 
   static void setBackend(String backend) {
     currentBackend = backend;
@@ -13,16 +13,16 @@ class AppConfig {
 }
 
 class EnvironmentConfig {
-  static Environment currentEnvironment = Environment.local;
-  static String customBackend = ''; // Кастомний URL
+  static Environment currentEnvironment = Environment.localApi;
+  static String customBackend = ''; // custom URL
 
   static String get backendUrl {
     switch (currentEnvironment) {
-      case Environment.local:
+      case Environment.localApi:
         return AppConfig.localBackend + AppConfig.apiPath;
-      case Environment.aws:
-        return AppConfig.awsBackend + AppConfig.apiPath;
-      case Environment.custom:
+      case Environment.kubernetesApi:
+        return AppConfig.kubernetesBackend + AppConfig.apiPath;
+      case Environment.customApi:
         if (customBackend.startsWith('http://') || customBackend.startsWith('https://')) {
           return customBackend + AppConfig.apiPath;
         } else {
