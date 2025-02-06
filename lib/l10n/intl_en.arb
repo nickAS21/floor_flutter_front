@@ -2,6 +2,7 @@
   "apiError": "API: {apiUrl} - no internet connection",
   "serverError": "API: {apiUrl} - invalid server response",
   "formatError": "API: {apiUrl} - invalid response format",
+  "credentialsError": "Invalid Credentials",
   "titleRegLogin": "Registration and Login",
   "signIn": "Sign In",
   "username": "Username",

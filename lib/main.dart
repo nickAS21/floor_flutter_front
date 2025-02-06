@@ -8,7 +8,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
   final String? localeCode = prefs.getString('locale');
-  Locale? locale = localeCode == null || localeCode.isEmpty ? null :
+  Locale? locale = localeCode == null || localeCode.isEmpty ? Locale('uk', 'UA') :
                   (localeCode.replaceAll('uk', '')).isEmpty ? Locale('uk', 'UA') :
                   (localeCode.replaceAll('en', '')).isEmpty ? Locale('uk', 'UA') : null;
   runApp(MyApp(initialLocale: locale));
@@ -53,7 +53,7 @@ class _MyAppState extends State<MyApp> {
             locale: localeState?.locale,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            title: 'My App',
+            title: 'Web Smart Dacha, Solarman and Tuya',
             theme: ThemeData(
               primarySwatch: Colors.blue,
             ),

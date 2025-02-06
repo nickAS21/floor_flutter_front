@@ -50,7 +50,7 @@ class _LoginPageState extends State<LoginPage> {
         );
       } else {
         setState(() {
-          _errorMessage = "Invalid Credentials";
+          _errorMessage = AppLocalizations.of(context)!.credentialsError;
         });
       }
     } on SocketException {
@@ -59,7 +59,7 @@ class _LoginPageState extends State<LoginPage> {
         if (localizations != null) {
           _errorMessage = localizations.apiError(apiUrl);
         } else {
-          _errorMessage = 'An error occurred';
+          _errorMessage = 'An error occurred. AppLocalizations is null';
         }
       });
     } on HttpException {

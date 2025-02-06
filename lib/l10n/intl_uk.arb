@@ -2,9 +2,10 @@
   "apiError": "API: {apiUrl} - немає підключення до інтернету",
   "serverError": "API: {apiUrl} - помилка відповіді від сервера",
   "formatError": "API: {apiUrl} - помилка в форматі запиту",
+  "credentialsError": "Недійсні облікові дані",
   "titleRegLogin": "Реєстрація та вхід",
   "signIn": "Увійти",
-  "username": "Ім'я користувача",
+  "username": "Ім`я користувача",
   "password": "Пароль",
-  "enterCustomAPI": "Введіть API користувача (необов'язково)"
+  "enterCustomAPI": "Введіть API користувача (необов`язково)"
 }
