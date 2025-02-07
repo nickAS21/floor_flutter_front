@@ -6,11 +6,8 @@ import 'locale_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  final String? localeCode = prefs.getString('locale');
-  Locale? locale = localeCode == null || localeCode.isEmpty ? Locale('uk', 'UA') :
-                  (localeCode.replaceAll('uk', '')).isEmpty ? Locale('uk', 'UA') :
-                  (localeCode.replaceAll('en', '')).isEmpty ? Locale('uk', 'UA') : null;
+  // final prefs = await SharedPreferences.getInstance();
+  Locale? locale = WidgetsBinding.instance.platformDispatcher.locale;
   runApp(MyApp(initialLocale: locale));
 }
 
@@ -36,15 +33,14 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       _locale = locale;
     });
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('locale', locale.languageCode);
+    // final prefs = await SharedPreferences.getInstance();
+    // await prefs.setString('locale', locale.languageCode);
   }
 
   @override
   Widget build(BuildContext context) {
     return LocaleProvider(
       locale: _locale,
-      // locale: null,
       changeLocale: _setLocale,
       child: Builder(
         builder: (context) {
