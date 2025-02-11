@@ -7,5 +7,6 @@
   "signIn": "Sign In",
   "username": "Username",
   "password": "Password",
-  "enterCustomAPI": "Enter custom API (optional)"
+  "enterCustomAPI": "Enter custom API (optional)",
+  "windowSize": "Window is"
 }

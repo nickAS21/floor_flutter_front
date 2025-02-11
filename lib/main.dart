@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'locale/LacaleHelper.dart';
+import 'locale/SharedPreferencesHelper.dart';
 import 'page/login_page.dart';
-import 'locale_provider.dart';
+import 'locale/locale_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // final prefs = await SharedPreferences.getInstance();
-  Locale? locale = WidgetsBinding.instance.platformDispatcher.locale;
+  Locale? locale = await LocaleHelper.getValueInit();
   runApp(MyApp(initialLocale: locale));
 }
 
@@ -33,8 +33,7 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       _locale = locale;
     });
-    // final prefs = await SharedPreferences.getInstance();
-    // await prefs.setString('locale', locale.languageCode);
+    SharedPreferencesHelper.saveValueList(LocaleHelper.localeKey, [locale.languageCode, locale.countryCode ?? '']);
   }
 
   @override

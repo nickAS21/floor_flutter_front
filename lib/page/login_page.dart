@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
-import '../locale_provider.dart';
+import '../locale/locale_provider.dart';
 import 'menu_page.dart';
 import 'dart:io';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
@@ -80,11 +80,26 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final localeProvider = LocaleProvider.of(context);
+    final mediaInfo = MediaQuery.of(context);
 
     return Scaffold(
       appBar: AppBar(
         title: Center(
-          child: Text(AppLocalizations.of(context)!.titleRegLogin),
+          // child: Text(AppLocalizations.of(context)!.titleRegLogin),
+          child:
+          Text.rich(
+            TextSpan(
+              text: AppLocalizations.of(context)!.titleRegLogin,
+              style: Theme.of(context).textTheme.headlineSmall,
+              children: [
+                TextSpan(
+                  text: ' (${AppLocalizations.of(context)!.windowSize} ${mediaInfo.size.width.toStringAsFixed(1)} x '
+                      '${mediaInfo.size.height.toStringAsFixed(1)})',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
         ),
         actions: [
           DropdownButton<Locale>(
