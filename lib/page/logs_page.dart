@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LogsPage extends StatefulWidget {
+  const LogsPage({super.key});
+
   @override
   _LogsPageState createState() => _LogsPageState();
 }

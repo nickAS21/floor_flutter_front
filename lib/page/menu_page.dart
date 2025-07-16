@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
 import 'home_page.dart';
 import 'logs_page.dart';
 import 'environment_page.dart';
 import 'login_page.dart';
 
 class MenuPage extends StatefulWidget {
+  const MenuPage({super.key});
+
   @override
   _MenuPageState createState() => _MenuPageState();
 }
@@ -47,8 +48,8 @@ class _MenuPageState extends State<MenuPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _signOut,
-        child: Icon(Icons.exit_to_app),
         tooltip: "Sign Out",
+        child: Icon(Icons.exit_to_app),
       ),
     );
   }

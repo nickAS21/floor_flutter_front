@@ -1,11 +1,15 @@
-enum Environment { localApi, kubernetesApi, customApi }
+enum Environment { localHostApi, localApiChrome, localApiDevice, localApiEmulator, kubernetesApi, customApi }
 
 class AppConfig {
-  static const String localBackend = 'http://localhost:8084';
-  static const String kubernetesBackend = 'https://your-kubernetes-endpoint.com';
+  static const String localBackendHost = 'http://localhost:8084';
+  static const String localBackendChrome = 'http://127.0.0.1:8084';
+  static const String localBackendEmulator = 'http://10.0.2.2:8084'; // Emulator
+  static const String localBackendDevice = 'http://192.168.251.92:8084'; //  Device
+  static const String kubernetesBackend = 'https://tuya.k8s.solk.pl';
   static const String apiPath = '/api/auth/login';
+  // static const String localBackendHost = 'http://192.168.8.141:8084';
 
-  static String currentBackend = localBackend; // Default value
+  static String currentBackend = localBackendHost; // Default value
 
   static void setBackend(String backend) {
     currentBackend = backend;
@@ -13,24 +17,42 @@ class AppConfig {
 }
 
 class EnvironmentConfig {
-  static Environment currentEnvironment = Environment.localApi;
+  static Environment currentEnvironment = Environment.localHostApi;
   static String customBackend = ''; // custom URL
 
   static String get backendUrl {
     switch (currentEnvironment) {
-      case Environment.localApi:
-        return AppConfig.localBackend + AppConfig.apiPath;
+      case Environment.localHostApi:
+        return AppConfig.localBackendHost + AppConfig.apiPath;
+      case Environment.localApiChrome:
+        return AppConfig.localBackendChrome + AppConfig.apiPath;
+      case Environment.localApiDevice:
+        return AppConfig.localBackendDevice + AppConfig.apiPath;
+      case Environment. localApiEmulator:
+        return AppConfig.localBackendEmulator + AppConfig.apiPath;
       case Environment.kubernetesApi:
         return AppConfig.kubernetesBackend + AppConfig.apiPath;
       case Environment.customApi:
-        if (customBackend.startsWith('http://') || customBackend.startsWith('https://')) {
+        if (customBackend.startsWith('http://') ||
+            customBackend.startsWith('https://')) {
           return customBackend + AppConfig.apiPath;
         } else {
-          throw Exception("Invalid custom backend URL. Must start with http:// or https://");
+          throw Exception(
+              "Invalid custom backend URL. Must start with http:// or https://");
         }
-      default:
-        return AppConfig.localBackend + AppConfig.apiPath;
-    }
+      }
   }
-}
 
+  // static String getApiUrl () {
+  //   // try {
+  //   //   if (Platform.isAndroid) {
+  //   //     return AppConfig.localBackendAndroid; // Device/Emulator
+  //   //   } else {
+  //   //     return AppConfig.localBackendHost; // web, linux
+  //   //   }
+  //   // } catch (e) {
+  //     return AppConfig.localBackendHost; // web, linux
+  //   // }
+  //
+  // }
+}

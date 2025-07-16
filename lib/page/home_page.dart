@@ -3,7 +3,11 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
+
 class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
   @override
   _HomePageState createState() => _HomePageState();
 }
@@ -14,9 +18,10 @@ class _HomePageState extends State<HomePage> {
   Future<void> _fetchData() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken') ?? '';
+    String apiUrl = EnvironmentConfig.backendUrl;
 
     final response = await http.get(
-      Uri.parse('http://localhost:8084/api/home'),
+      Uri.parse('$apiUrl/api/home'),
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer $token"

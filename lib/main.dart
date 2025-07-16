@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-import 'locale/LacaleHelper.dart';
-import 'locale/SharedPreferencesHelper.dart';
+import 'locale/locale_helper.dart';
+import 'locale/shared_preferences_helper.dart';
 import 'page/login_page.dart';
 import 'locale/locale_provider.dart';
 
@@ -14,7 +14,7 @@ void main() async {
 class MyApp extends StatefulWidget {
   final Locale? initialLocale;
 
-  MyApp({this.initialLocale});
+  const MyApp({super.key, this.initialLocale});
 
   @override
   _MyAppState createState() => _MyAppState();

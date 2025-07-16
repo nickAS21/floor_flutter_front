@@ -5,11 +5,11 @@ class LocaleProvider extends InheritedWidget {
   final Function(Locale) changeLocale;
 
   const LocaleProvider({
-    Key? key,
+    super.key,
     required this.locale,
     required this.changeLocale,
-    required Widget child,
-  }) : super(key: key, child: child);
+    required super.child,
+  });
 
   static LocaleProvider? of(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<LocaleProvider>();

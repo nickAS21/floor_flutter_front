@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class EnvironmentPage extends StatefulWidget {
+  const EnvironmentPage({super.key});
+
   @override
   _EnvironmentPageState createState() => _EnvironmentPageState();
 }

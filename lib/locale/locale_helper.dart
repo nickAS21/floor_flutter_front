@@ -1,4 +1,4 @@
-import 'package:floor_front/locale/SharedPreferencesHelper.dart';
+import 'package:floor_front/locale/shared_preferences_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 
