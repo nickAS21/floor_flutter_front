@@ -3,10 +3,10 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
+import '../l10n/app_localizations.dart';
 import '../locale/locale_provider.dart';
 import 'menu_page.dart';
 import 'dart:io';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 
 
