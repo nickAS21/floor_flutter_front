@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
+
 class LogsPage extends StatefulWidget {
   const LogsPage({super.key});
 
@@ -16,9 +18,11 @@ class _LogsPageState extends State<LogsPage> {
   Future<void> _fetchLogs() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken') ?? '';
+    String apiUrl = EnvironmentConfig.backendUrl + AppConfig.apiPathSmart + AppConfig.pathLogs;
+    final url = Uri.parse(apiUrl);
 
     final response = await http.get(
-      Uri.parse('http://localhost:8084/api/logs'),
+      url,
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer $token"

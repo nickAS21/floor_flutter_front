@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
+
 class EnvironmentPage extends StatefulWidget {
   const EnvironmentPage({super.key});
 
@@ -16,9 +18,10 @@ class _EnvironmentPageState extends State<EnvironmentPage> {
   Future<void> _fetchEnvironment() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken') ?? '';
-
+    String apiUrl = EnvironmentConfig.backendUrl + AppConfig.apiPathSmart + AppConfig.pathConfig;
+    final url = Uri.parse(apiUrl);
     final response = await http.get(
-      Uri.parse('http://localhost:8084/api/logs'),
+      url,
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer $token"

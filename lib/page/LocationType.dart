@@ -1,0 +1,1 @@
+enum LocationType { dacha, golego }

@@ -27,7 +27,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _login() async {
     String apiUrl = '';
     try {
-      apiUrl = EnvironmentConfig.backendUrl;
+      apiUrl = EnvironmentConfig.backendUrl + AppConfig.apiPathLogin;
 
       final url = Uri.parse(apiUrl);
       final response = await http.post(

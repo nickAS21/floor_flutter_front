@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'home_page.dart';
+import 'LocationType.dart';
+import 'data_home/data_home_page.dart';
 import 'logs_page.dart';
 import 'environment_page.dart';
 import 'login_page.dart';
@@ -13,7 +14,23 @@ class MenuPage extends StatefulWidget {
 
 class _MenuPageState extends State<MenuPage> {
   int _selectedIndex = 0;
-  final List<Widget> _pages = [HomePage(), LogsPage(), EnvironmentPage()];
+  LocationType _selectedLocation = LocationType.dacha;
+
+  late List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _buildPages();
+  }
+
+  void _buildPages() {
+    _pages = [
+      HomePage(location: _selectedLocation),
+      const LogsPage(),
+      const EnvironmentPage(),
+    ];
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -21,35 +38,96 @@ class _MenuPageState extends State<MenuPage> {
     });
   }
 
+  void _onLocationChanged(LocationType? value) {
+    if (value == null) return;
+    setState(() {
+      _selectedLocation = value;
+      _buildPages(); // оновлюємо HomePage з новою локацією
+    });
+  }
+
   void _signOut() {
-    // Закриття додатку
-    // Для мобільного – закриває додаток
-    // Для Web – повертає на LoginPage
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => LoginPage()),
-      (route) => false,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+          (route) => false,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Menu")),
+      appBar: AppBar(
+        centerTitle: true, // Центрируем заголовок
+        title: DropdownButton<LocationType>(
+          value: _selectedLocation,
+          underline: const SizedBox(),
+          icon: const SizedBox.shrink(), // Скрываем стандартную стрелку, так как добавим свою иконку
+          dropdownColor: Colors.white,
+          // Отображение выбранного элемента в AppBar
+          selectedItemBuilder: (BuildContext context) {
+            return [LocationType.dacha, LocationType.golego].map((LocationType loc) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    loc == LocationType.dacha ? "Dacha" : "Golego",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.swap_horiz, size: 20, color: Colors.blueGrey), // Значок смены
+                ],
+              );
+            }).toList();
+          },
+          // Элементы выпадающего списка
+          items: const [
+            DropdownMenuItem(
+              value: LocationType.dacha,
+              child: Row(
+                children: [
+                  Text("Dacha"),
+                  SizedBox(width: 8),
+                  Icon(Icons.swap_horiz, size: 18, color: Colors.grey),
+                ],
+              ),
+            ),
+            DropdownMenuItem(
+              value: LocationType.golego,
+              child: Row(
+                children: [
+                  Text("Golego"),
+                  SizedBox(width: 8),
+                  Icon(Icons.swap_horiz, size: 18, color: Colors.grey),
+                ],
+              ),
+            ),
+          ],
+          onChanged: _onLocationChanged,
+        ),
+      ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        items: [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.list), label: "Logs"),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: "Environment"),
-        ],
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        items: [
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.home),
+            label: _selectedLocation == LocationType.dacha ? "Dacha" : "Golego",
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.list),
+            label: "Logs",
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: "Environment",
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _signOut,
-        tooltip: "Sign Out",
-        child: Icon(Icons.exit_to_app),
+        child: const Icon(Icons.exit_to_app),
       ),
     );
   }
