@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 class CometFlowPainter extends CustomPainter {
   final double progress;
-  final double solarPower, batteryPower, loadPower;
+  final double solarPower, batteryPower, loadPower, gridPower;
   final bool gridActive;
   final double solarY, inverterY, gridY, bottomNodesY, sideNodesX;
 
@@ -12,6 +12,7 @@ class CometFlowPainter extends CustomPainter {
     required this.solarPower,
     required this.batteryPower,
     required this.loadPower,
+    required this.gridPower,
     required this.gridActive,
     required this.solarY,
     required this.inverterY,
@@ -28,16 +29,7 @@ class CometFlowPainter extends CustomPainter {
     const double step = 15.0;
     const double hOffset = -30.0;
 
-    final defaultRoutePaint = Paint()..color = Colors.blueGrey.withOpacity(0.6);
-
-    final gridRoutePaint = Paint()
-      ..color = gridActive
-          ? Colors.green.withOpacity(0.8) // Зелені крапочки, якщо є мережа
-          : Colors.red.withOpacity(0.8);  // Червоні крапочки, якщо немає
-
-    Offset getOffset(double x, double y) {
-      return Offset((x + 1) * size.width / 2, (y + 1) * size.height / 2);
-    }
+    Offset getOffset(double x, double y) => Offset((x + 1) * size.width / 2, (y + 1) * size.height / 2);
 
     final solarC = getOffset(0, solarY);
     final invC = getOffset(0, inverterY);
@@ -45,19 +37,24 @@ class CometFlowPainter extends CustomPainter {
     final gridC = getOffset(0, gridY);
     final loadC = getOffset(sideNodesX, bottomNodesY);
 
-    final routePaint = Paint()..color = Colors.blueGrey.withOpacity(0.6);
+    final defaultPaint = Paint()..color = Colors.blueGrey.withOpacity(0.6);
+    final gridPaint = Paint()..color = gridActive ? Colors.green.withOpacity(0.8) : Colors.red.withOpacity(0.8);
 
-    _drawStraightRoute(canvas, solarC, invC, defaultRoutePaint, nodeRadius, invRadius, step);
-    _drawStraightRoute(canvas, gridC, invC, gridRoutePaint, nodeRadius, invRadius, step);
-    _drawRoundedRoute(canvas, invC, batC, defaultRoutePaint, true, invRadius, nodeRadius, cornerR, step, hOffset);
-    _drawRoundedRoute(canvas, invC, loadC, defaultRoutePaint, false, invRadius, nodeRadius, cornerR, step, hOffset);
+    // Маршрути
+    _drawStraightRoute(canvas, solarC, invC, defaultPaint, nodeRadius, invRadius, step);
+    _drawStraightRoute(canvas, gridC, invC, gridPaint, nodeRadius, invRadius, step);
+    _drawRoundedRoute(canvas, invC, batC, defaultPaint, true, invRadius, nodeRadius, cornerR, step, hOffset);
+    _drawRoundedRoute(canvas, invC, loadC, defaultPaint, false, invRadius, nodeRadius, cornerR, step, hOffset);
 
-    if (solarPower > 5) {
-      _drawStraightComet(canvas, solarC, invC, progress, false, nodeRadius, invRadius);
+    // Комети
+    if (solarPower > 5) _drawStraightComet(canvas, solarC, invC, progress, false, nodeRadius, invRadius);
+
+    // Комета Мережі: ВІД вежі ДО інвертора (rev: true)
+    if (gridActive && gridPower > 5) {
+      _drawStraightComet(canvas, gridC, invC, progress, false, nodeRadius, invRadius);
     }
 
     if (batteryPower.abs() > 5) {
-      // power < 0 (розрядка) -> енергія ВІД батареї ДО інвертора (toInv = true)
       _drawRoundedComet(canvas, invC, batC, progress, batteryPower < 0, true, invRadius, nodeRadius, cornerR, hOffset);
     }
 
@@ -67,6 +64,8 @@ class CometFlowPainter extends CustomPainter {
 
     if (!gridActive) _drawX(canvas, Offset.lerp(gridC, invC, 0.5)!);
   }
+
+  // ... (Допоміжні методи _drawStraightRoute, _drawRoundedRoute, _drawStraightComet, _drawRoundedComet, _drawArrowHead, _drawX залишаються такими ж, як були раніше)
 
   void _drawStraightRoute(Canvas canvas, Offset p1, Offset p2, Paint paint, double r1, double r2, double step) {
     double dist = (p2 - p1).distance;
@@ -79,22 +78,14 @@ class CometFlowPainter extends CustomPainter {
     double horizLen = (end.dx - start.dx).abs() - rCurve + hOffset;
     double curveLen = (math.pi / 2) * rCurve;
     double pivotX = start.dx + horizLen * (isLeft ? -1 : 1);
-
-    for (double i = rStart; i < horizLen; i += step) {
-      canvas.drawCircle(Offset(start.dx + i * (isLeft ? -1 : 1), start.dy), 1.5, paint);
-    }
+    for (double i = rStart; i < horizLen; i += step) canvas.drawCircle(Offset(start.dx + i * (isLeft ? -1 : 1), start.dy), 1.5, paint);
     int curvePts = (curveLen / step).floor();
     for (int i = 0; i <= curvePts; i++) {
       double a = (i * step / curveLen) * (math.pi / 2);
-      canvas.drawCircle(Offset(
-          pivotX + (isLeft ? -rCurve * math.sin(a) : rCurve * math.sin(a)),
-          start.dy + rCurve * (1 - math.cos(a))
-      ), 1.5, paint);
+      canvas.drawCircle(Offset(pivotX + (isLeft ? -rCurve * math.sin(a) : rCurve * math.sin(a)), start.dy + rCurve * (1 - math.cos(a))), 1.5, paint);
     }
     double finalX = pivotX + (isLeft ? -rCurve : rCurve);
-    for (double i = start.dy + rCurve; i <= end.dy - rEnd; i += step) {
-      canvas.drawCircle(Offset(finalX, i), 1.5, paint);
-    }
+    for (double i = start.dy + rCurve; i <= end.dy - rEnd; i += step) canvas.drawCircle(Offset(finalX, i), 1.5, paint);
   }
 
   void _drawStraightComet(Canvas canvas, Offset start, Offset end, double t, bool rev, double r1, double r2) {
@@ -117,45 +108,28 @@ class CometFlowPainter extends CustomPainter {
     double vertLen = (end.dy - start.dy).abs() - rCurve;
     double curveLen = (math.pi / 2) * rCurve;
     double totalLen = horizLen + vertLen + curveLen;
-
     double effT = toInv ? (1.0 - t) : t;
     double curD = rStart + (totalLen - rStart - rEnd) * effT;
 
-    // Допоміжна функція для отримання точки на маршруті в будь-якій дистанції d
     Offset getPointAt(double d) {
-      if (d < horizLen) {
-        return Offset(start.dx + d * (isLeft ? -1 : 1), start.dy);
-      } else if (d < horizLen + curveLen) {
+      if (d < horizLen) return Offset(start.dx + d * (isLeft ? -1 : 1), start.dy);
+      if (d < horizLen + curveLen) {
         double a = ((d - horizLen) / curveLen) * (math.pi / 2);
         double pivotX = start.dx + horizLen * (isLeft ? -1 : 1);
-        return Offset(
-            pivotX + (isLeft ? -rCurve * math.sin(a) : rCurve * math.sin(a)),
-            start.dy + rCurve * (1 - math.cos(a))
-        );
-      } else {
-        double pivotX = start.dx + horizLen * (isLeft ? -1 : 1);
-        double finalX = pivotX + (isLeft ? -rCurve : rCurve);
-        return Offset(finalX, start.dy + rCurve + (d - horizLen - curveLen));
+        return Offset(pivotX + (isLeft ? -rCurve * math.sin(a) : rCurve * math.sin(a)), start.dy + rCurve * (1 - math.cos(a)));
       }
+      double pivotX = start.dx + horizLen * (isLeft ? -1 : 1);
+      return Offset(pivotX + (isLeft ? -rCurve : rCurve), start.dy + rCurve + (d - horizLen - curveLen));
     }
 
     for (int i = 0; i < 20; i++) {
-      // Хвіст слідує за головою
       double tailShift = toInv ? (i * 4.5) : -(i * 4.5);
       double d = curD + tailShift;
       if (d < rStart || d > totalLen - rEnd) continue;
-
       Offset pos = getPointAt(d);
       double opacity = (1.0 - (i / 20)).clamp(0, 1);
       canvas.drawCircle(pos, 4.0 * opacity, Paint()..color = Colors.blue.withOpacity(opacity * 0.7));
-
-      if (i == 0) {
-        // Векторна логіка: порівнюємо поточну точку з точкою на мить попереду
-        double delta = toInv ? -0.5 : 0.5;
-        Offset nextPos = getPointAt(d + delta);
-        double angle = (nextPos - pos).direction;
-        _drawArrowHead(canvas, pos, angle);
-      }
+      if (i == 0) _drawArrowHead(canvas, pos, (getPointAt(d + (toInv ? -0.5 : 0.5)) - pos).direction);
     }
   }
 

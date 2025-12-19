@@ -5,10 +5,13 @@ class DataHome {
   final double batteryCurrent;
   final bool gridStatusRealTime;
   final double solarPower;
-  // Додаємо ці поля для розрахунку потоків
-  final double consumptionPower;
+  final double homePower;
   final double gridPower;
-  final double batteryPower; // Скільки ват йде з/в батарею
+  final double dailyConsumptionPower;
+  final double dailyGridPower;
+  final double dailyBatteryCharge;
+  final double dailyBatteryDischarge;
+  final double dailyProductionSolarPower;
 
   DataHome({
     required this.timestamp,
@@ -17,9 +20,13 @@ class DataHome {
     required this.batteryCurrent,
     required this.gridStatusRealTime,
     required this.solarPower,
-    this.consumptionPower = 0,
-    this.gridPower = 0,
-    this.batteryPower = 0,
+    required this.homePower,
+    required this.gridPower,
+    required this.dailyConsumptionPower,
+    required this.dailyGridPower,
+    required this.dailyBatteryCharge,
+    required this.dailyBatteryDischarge,
+    required this.dailyProductionSolarPower,
   });
 
   factory DataHome.fromJson(Map<String, dynamic> json) {
@@ -30,10 +37,13 @@ class DataHome {
       batteryCurrent: (json['batteryCurrent'] ?? 0).toDouble(),
       gridStatusRealTime: json['gridStatusRealTime'] ?? false,
       solarPower: (json['solarPower'] ?? 0).toDouble(),
-      // Ці дані зазвичай приходять з API, або вираховуються:
-      consumptionPower: (json['consumptionPower'] ?? 0).toDouble(),
+      homePower: (json['homePower'] ?? 0).toDouble(),
       gridPower: (json['gridPower'] ?? 0).toDouble(),
-      batteryPower: (json['batteryPower'] ?? 0).toDouble(),
+      dailyConsumptionPower: (json['dailyConsumptionPower'] ?? json['consumptionPower'] ?? 0).toDouble(),
+      dailyGridPower: (json['dailyGridPower'] ?? 0).toDouble(),
+      dailyBatteryCharge: (json['dailyBatteryCharge'] ?? 0).toDouble(),
+      dailyBatteryDischarge: (json['dailyBatteryDischarge'] ?? 0).toDouble(),
+      dailyProductionSolarPower: (json['dailyProductionSolarPower'] ?? 0).toDouble(),
     );
   }
 }
