@@ -17,7 +17,7 @@ class MyApp extends StatefulWidget {
   const MyApp({super.key, this.initialLocale});
 
   @override
-  _MyAppState createState() => _MyAppState();
+  State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {

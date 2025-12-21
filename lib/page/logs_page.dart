@@ -9,7 +9,7 @@ class LogsPage extends StatefulWidget {
   const LogsPage({super.key});
 
   @override
-  _LogsPageState createState() => _LogsPageState();
+  State<LogsPage> createState() =>  _LogsPageState();
 }
 
 class _LogsPageState extends State<LogsPage> {

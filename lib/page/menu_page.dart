@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'LocationType.dart';
+import 'location_type.dart';
 import 'data_home/data_home_page.dart';
 import 'logs_page.dart';
 import 'environment_page.dart';
@@ -9,7 +9,7 @@ class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
 
   @override
-  _MenuPageState createState() => _MenuPageState();
+  State<MenuPage> createState() =>  _MenuPageState();
 }
 
 class _MenuPageState extends State<MenuPage> {

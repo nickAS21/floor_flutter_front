@@ -10,7 +10,7 @@ class AppConfig {
   static const String apiPathApi = '/api';
   static const String apiPathHome = '$apiPathApi/home';
   static const String apiPathTuya = '$apiPathApi/tuya';
-  static const String apiPathSmart = '${apiPathApi}/smart';
+  static const String apiPathSmart = '$apiPathApi/smart';
   static const String pathGolego = '/golego';
   static const String pathDacha = '/dacha';
   static const String pathConfig = '/config';

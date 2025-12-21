@@ -8,13 +8,11 @@ import '../locale/locale_provider.dart';
 import 'menu_page.dart';
 import 'dart:io';
 
-
-
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
   @override
-  _LoginPageState createState() => _LoginPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
@@ -45,6 +43,8 @@ class _LoginPageState extends State<LoginPage> {
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('accessToken', token);
+
+        if (!mounted) return;
 
         Navigator.pushReplacement(
           context,

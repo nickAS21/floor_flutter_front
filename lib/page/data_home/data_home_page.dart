@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'package:floor_front/page/data_home/сomet_flow_painter.dart';
+import 'package:floor_front/page/data_home/data_home_painter.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:floor_front/page/LocationType.dart';
+import 'package:floor_front/page/location_type.dart';
 import '../../config/app_config.dart';
+import '../../l10n/app_localizations.dart';
 import 'data_home_model.dart';
 
 class HomePage extends StatefulWidget {
@@ -13,7 +14,7 @@ class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.location});
 
   @override
-  _HomePageState createState() => _HomePageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
@@ -92,7 +93,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       children: [
                         Positioned.fill(
                           child: CustomPaint(
-                            painter: CometFlowPainter(
+                            painter: DataHomePainter(
                               progress: _animController!.value,
                               solarPower: _dataHome!.solarPower,
                               batteryPower: batW,
@@ -107,11 +108,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             ),
                           ),
                         ),
-                        _buildNode(0, solarY, "lib/assets/data_home/solar-panel-100.png", "Сонячний", "${_dataHome!.solarPower.toInt()} w"),
+                        _buildNode(0, solarY, "lib/assets/data_home/solar-panel-100.png", AppLocalizations.of(context)!.solarPanel, "${_dataHome!.solarPower.toInt()} W"),
                         _buildNode(0, inverterY, "lib/assets/data_home/solar-inverter.png", "", ""),
-                        _buildNode(-sideNodesX, bottomNodesY, "lib/assets/data_home/accumulator-64.png", "Батарея", "${batW.toInt()} w · ${_dataHome!.batterySoc.toInt()}%"),
-                        _buildNode(0, gridY, "lib/assets/data_home/electric-pole-64.png", "Мережа", _dataHome!.gridStatusRealTime ? "${_dataHome!.gridPower.toInt()} w" : "Off", isGrid: true, status: _dataHome!.gridStatusRealTime),
-                        _buildNode(sideNodesX, bottomNodesY, "lib/assets/data_home/smarthome-64.png", "Споживання", "${_dataHome!.homePower.toInt()} w"),
+                        _buildNode(-sideNodesX, bottomNodesY, "lib/assets/data_home/accumulator-64.png", AppLocalizations.of(context)!.battery, " · ${_dataHome!.batteryCurrent.toInt()} A · ${_dataHome!.batteryVol.toInt()} V\n · ${batW.toInt()} W · ${_dataHome!.batterySoc.toInt()}%"),
+                        _buildNode(
+                            0,
+                            gridY,
+                            // Динамічний вибір іконки залежно від статусу
+                            _dataHome!.gridStatusRealTime
+                                ? "lib/assets/data_home/electric-pole-64_green.png"
+                                : "lib/assets/data_home/electric-pole-64_red.png",
+                            AppLocalizations.of(context)!.grid,
+                            _dataHome!.gridStatusRealTime ? "${_dataHome!.gridPower.toInt()} W" : "Off",
+                            isGrid: true,
+                            status: _dataHome!.gridStatusRealTime
+                        ),                        _buildNode(sideNodesX, bottomNodesY, "lib/assets/data_home/smarthome-64.png",AppLocalizations.of(context)!.load, "${_dataHome!.homePower.toInt()} W"),
                       ],
                     );
                   },
@@ -165,7 +176,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       double cardWidth = screenWidth > 600 ? 180 : (screenWidth / 2) - 20;
       return Container(
         width: cardWidth, padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]),
         child: Row(children: [
           Icon(icon, size: 22, color: Colors.blueGrey),
           const SizedBox(width: 8),

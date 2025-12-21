@@ -8,5 +8,9 @@
   "username": "Username",
   "password": "Password",
   "enterCustomAPI": "Enter custom API (optional)",
-  "windowSize": "Window is"
+  "windowSize": "Window is",
+  "solarPanel": "Solar Panels",
+  "battery": "Battery",
+  "grid": "Grid",
+  "load": "Load"
 }

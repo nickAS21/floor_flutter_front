@@ -9,7 +9,7 @@ class EnvironmentPage extends StatefulWidget {
   const EnvironmentPage({super.key});
 
   @override
-  _EnvironmentPageState createState() => _EnvironmentPageState();
+  State<EnvironmentPage> createState() => _EnvironmentPageState();
 }
 
 class _EnvironmentPageState extends State<EnvironmentPage> {
