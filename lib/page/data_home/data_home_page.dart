@@ -77,6 +77,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     final double batW = _dataHome!.batteryVol * _dataHome!.batteryCurrent;
 
+    // 1. Оголошуємо змінні тут, перед версткою
+    String timePart = _dataHome!.timestampLastUpdateGridStatus.isNotEmpty
+        ? "${_dataHome!.timestampLastUpdateGridStatus}\n"
+        : "";
+
+    String powerPart = _dataHome!.gridStatusRealTime
+        ? "${_dataHome!.gridPower.toInt()} W"
+        : "Off";
+
+    String gridInfo = timePart + powerPart;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
@@ -98,6 +109,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               solarPower: _dataHome!.solarPower,
                               batteryPower: batW,
                               gridActive: _dataHome!.gridStatusRealTime,
+                              timestampLastUpdateGridStatus: _dataHome!.timestampLastUpdateGridStatus,
                               gridPower: _dataHome!.gridPower, // Передаємо потужність мережі
                               loadPower: _dataHome!.homePower,
                               solarY: solarY,
@@ -110,19 +122,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         ),
                         _buildNode(0, solarY, "lib/assets/data_home/solar-panel-100.png", AppLocalizations.of(context)!.solarPanel, "${_dataHome!.solarPower.toInt()} W"),
                         _buildNode(0, inverterY, "lib/assets/data_home/solar-inverter.png", "", ""),
-                        _buildNode(-sideNodesX, bottomNodesY, "lib/assets/data_home/accumulator-64.png", AppLocalizations.of(context)!.battery, " · ${_dataHome!.batteryCurrent.toInt()} A · ${_dataHome!.batteryVol.toInt()} V\n · ${batW.toInt()} W · ${_dataHome!.batterySoc.toInt()}%"),
+                        _buildNode(-sideNodesX, bottomNodesY, "lib/assets/data_home/accumulator-64.png", AppLocalizations.of(context)!.battery, " · ${_dataHome!.batteryCurrent.toDouble().toStringAsFixed(2)} A · ${_dataHome!.batteryVol.toDouble().toStringAsFixed(2)} V\n · ${batW.toInt()} W · ${_dataHome!.batterySoc.toInt()}%"),
                         _buildNode(
-                            0,
-                            gridY,
-                            // Динамічний вибір іконки залежно від статусу
-                            _dataHome!.gridStatusRealTime
-                                ? "lib/assets/data_home/electric-pole-64_green.png"
-                                : "lib/assets/data_home/electric-pole-64_red.png",
-                            AppLocalizations.of(context)!.grid,
-                            _dataHome!.gridStatusRealTime ? "${_dataHome!.gridPower.toInt()} W" : "Off",
-                            isGrid: true,
-                            status: _dataHome!.gridStatusRealTime
-                        ),                        _buildNode(sideNodesX, bottomNodesY, "lib/assets/data_home/smarthome-64.png",AppLocalizations.of(context)!.load, "${_dataHome!.homePower.toInt()} W"),
+                          0,
+                          gridY,
+                          _dataHome!.gridStatusRealTime
+                              ? "lib/assets/data_home/electric-pole-64_green.png"
+                              : "lib/assets/data_home/electric-pole-64_red.png",
+                          AppLocalizations.of(context)!.grid,
+                          gridInfo,
+                          isGrid: true,
+                          status: _dataHome!.gridStatusRealTime,
+                        ),
+                        _buildNode(sideNodesX, bottomNodesY, "lib/assets/data_home/smarthome-64.png", AppLocalizations.of(context)!.load, "${_dataHome!.homePower.toInt()} W"),
                       ],
                     );
                   },
@@ -147,8 +159,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             opacity: (isGrid && !status) ? 0.4 : 1.0,
             child: Image.asset(assetPath, width: 48, height: 48, errorBuilder: (c, e, s) => const Icon(Icons.error)),
           ),
-          if (label.isNotEmpty) Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          if (val.isNotEmpty) Text(val, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: (isGrid && !status) ? Colors.red : Colors.black)),
+          if (label.isNotEmpty)
+            Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          if (val.isNotEmpty)
+            Text(
+              val,
+              textAlign: TextAlign.center, // Центрує час і W
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: (isGrid && !status) ? Colors.red : Colors.black,
+                height: 1.2, // Відступ між рядками
+              ),
+            ),
         ],
       ),
     );
@@ -160,11 +183,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       child: Wrap(
         spacing: 10, runSpacing: 10, alignment: WrapAlignment.center,
         children: [
-          _buildStatCard("${data.dailyProductionSolarPower.toStringAsFixed(1)} kWh", "Виробництво", Icons.wb_sunny_outlined),
-          _buildStatCard("${data.dailyConsumptionPower.toStringAsFixed(1)} kWh", "Споживання", Icons.home_outlined),
-          _buildStatCard("${data.dailyBatteryCharge.toStringAsFixed(1)} kWh", "Заряд АКБ", Icons.battery_charging_full),
-          _buildStatCard("${data.dailyBatteryDischarge.toStringAsFixed(1)} kWh", "Розряд АКБ", Icons.battery_std),
-          _buildStatCard("${data.dailyGridPower.toStringAsFixed(1)} kWh", "Мережа (день)", Icons.electrical_services),
+          _buildStatCard("${data.dailyProductionSolarPower.toStringAsFixed(1)} kWh", AppLocalizations.of(context)!.dailySolarPanel, Icons.wb_sunny_outlined),
+          _buildStatCard("${data.dailyConsumptionPower.toStringAsFixed(1)} kWh", AppLocalizations.of(context)!.dailyLoad, Icons.home_outlined),
+          _buildStatCard("${data.dailyBatteryCharge.toStringAsFixed(1)} kWh", AppLocalizations.of(context)!.dailyBatteryCharge, Icons.battery_charging_full),
+          _buildStatCard("${data.dailyBatteryDischarge.toStringAsFixed(1)} kWh", AppLocalizations.of(context)!.dailyBatteryDischarge, Icons.battery_std),
+          _buildStatCard("${data.dailyGridPower.toStringAsFixed(1)} kWh", AppLocalizations.of(context)!.dailyGrid, Icons.electrical_services),
         ],
       ),
     );

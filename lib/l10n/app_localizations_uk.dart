@@ -55,4 +55,19 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get load => 'Споживання';
+
+  @override
+  String get dailySolarPanel => 'Щоденне Сонячні Панелі';
+
+  @override
+  String get dailyBatteryCharge => 'Щоденний Заряд Батареї';
+
+  @override
+  String get dailyBatteryDischarge => 'Щоденний Розаряд Батареї';
+
+  @override
+  String get dailyGrid => 'Щоденне від Електромережи';
+
+  @override
+  String get dailyLoad => 'Щоденне Споживання';
 }

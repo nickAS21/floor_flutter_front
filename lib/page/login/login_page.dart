@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../config/app_config.dart';
-import '../l10n/app_localizations.dart';
-import '../locale/locale_provider.dart';
-import 'menu_page.dart';
+import '../../config/app_config.dart';
+import '../../l10n/app_localizations.dart';
+import '../../locale/locale_provider.dart';
+import '../menu_page.dart';
 import 'dart:io';
+
+import 'login_helper.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -21,6 +23,39 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _customApiController = TextEditingController();
   bool _obscureText = true;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials(); // // Load saved credentials immediately on page initialization
+  }
+
+  // Метод для завантаження збережених даних
+  Future<void> _loadSavedCredentials() async {
+    // Fetch data map from the LoginHelper
+    final data = await LoginHelper.getAuth();
+    setState(() {
+      // Accessing map via LoginHelper public constants
+      _usernameController.text = data[LoginHelper.kUser] ?? '';
+      _passwordController.text = data[LoginHelper.kPass] ?? '';
+      _customApiController.text = data[LoginHelper.kCustom] ?? '';
+
+      // Check if any environment was previously saved
+      if (data[LoginHelper.kEnv] != null) {
+        // If the saved environment is 'customApi', set it and sync the backend URL
+        if (data[LoginHelper.kEnv] == Environment.customApi.name) {
+          EnvironmentConfig.currentEnvironment = Environment.customApi;
+          EnvironmentConfig.customBackend = _customApiController.text;
+        } else {
+          // Otherwise, restore the specific standard environment from enum
+          EnvironmentConfig.currentEnvironment = Environment.values.firstWhere(
+                (e) => e.name == data[LoginHelper.kEnv],
+            orElse: () => Environment.localHostHome,
+          );
+        }
+      }
+    });
+  }
 
   Future<void> _login() async {
     String apiUrl = '';
@@ -43,9 +78,16 @@ class _LoginPageState extends State<LoginPage> {
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('accessToken', token);
+        // Persist login credentials and API settings for future sessions
+        await LoginHelper.saveAuth(
+          _usernameController.text,
+          _passwordController.text,
+          EnvironmentConfig.currentEnvironment.name,
+          _customApiController.text,
+        );
 
         if (!mounted) return;
-
+        // Navigate to the main menu after successful login and data persistence
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => MenuPage()),

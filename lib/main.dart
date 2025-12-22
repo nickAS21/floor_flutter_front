@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'l10n/app_localizations.dart';
 import 'locale/locale_helper.dart';
 import 'locale/shared_preferences_helper.dart';
-import 'page/login_page.dart';
+import 'page/login/login_page.dart';
 import 'locale/locale_provider.dart';
 
 void main() async {
@@ -45,6 +45,7 @@ class _MyAppState extends State<MyApp> {
         builder: (context) {
           final localeState = LocaleProvider.of(context);
           return MaterialApp(
+            debugShowCheckedModeBanner: false,
             locale: localeState?.locale,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,

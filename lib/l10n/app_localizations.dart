@@ -180,6 +180,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Load'**
   String get load;
+
+  /// No description provided for @dailySolarPanel.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Solar'**
+  String get dailySolarPanel;
+
+  /// No description provided for @dailyBatteryCharge.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Battery Charge'**
+  String get dailyBatteryCharge;
+
+  /// No description provided for @dailyBatteryDischarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Battery Discharge'**
+  String get dailyBatteryDischarge;
+
+  /// No description provided for @dailyGrid.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Grid'**
+  String get dailyGrid;
+
+  /// No description provided for @dailyLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Load'**
+  String get dailyLoad;
 }
 
 class _AppLocalizationsDelegate

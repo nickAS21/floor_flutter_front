@@ -1,7 +1,8 @@
-enum Environment { localHostApi, localApiChrome, localApiDevice, localApiEmulator, kubernetesApi, customApi }
+enum Environment { localHostHome, localHostApi, localApiChrome, localApiDevice, localApiEmulator, kubernetesApi, customApi }
 
 class AppConfig {
   static const String localBackendHost = 'http://localhost:8084';
+  static const String localBackendHostHome = 'http://192.168.8.119:8084';
   static const String localBackendChrome = 'http://127.0.0.1:8084';
   static const String localBackendEmulator = 'http://10.0.2.2:8084'; // Emulator
   static const String localBackendDevice = 'http://192.168.251.92:8084'; //  Device
@@ -17,14 +18,6 @@ class AppConfig {
   static const String pathDevice = '/device';
   static const String pathLogs = '/logs';
   static const int refreshIntervalMinutes = 4;
-
-  // static const String localBackendHost = 'http://192.168.8.141:8084';
-
-  static String currentBackend = localBackendHost; // Default value
-
-  static void setBackend(String backend) {
-    currentBackend = backend;
-  }
 }
 
 class EnvironmentConfig {
@@ -33,6 +26,8 @@ class EnvironmentConfig {
 
   static String get backendUrl {
     switch (currentEnvironment) {
+      case Environment.localHostHome:
+        return AppConfig.localBackendHostHome;
       case Environment.localHostApi:
         return AppConfig.localBackendHost;
       case Environment.localApiChrome:

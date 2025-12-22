@@ -55,4 +55,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get load => 'Load';
+
+  @override
+  String get dailySolarPanel => 'Daily Solar';
+
+  @override
+  String get dailyBatteryCharge => 'Daily Battery Charge';
+
+  @override
+  String get dailyBatteryDischarge => 'Daily Battery Discharge';
+
+  @override
+  String get dailyGrid => 'Daily Grid';
+
+  @override
+  String get dailyLoad => 'Daily Load';
 }

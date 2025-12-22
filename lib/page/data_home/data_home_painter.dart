@@ -6,6 +6,7 @@ class DataHomePainter extends CustomPainter {
   final double progress;
   final double solarPower, batteryPower, loadPower, gridPower;
   final bool gridActive;
+  final String timestampLastUpdateGridStatus;
   final double solarY, inverterY, gridY, bottomNodesY, sideNodesX;
 
   DataHomePainter({
@@ -13,8 +14,9 @@ class DataHomePainter extends CustomPainter {
     required this.solarPower,
     required this.batteryPower,
     required this.loadPower,
-    required this.gridPower,
     required this.gridActive,
+    required this.timestampLastUpdateGridStatus,
+    required this.gridPower,
     required this.solarY,
     required this.inverterY,
     required this.gridY,

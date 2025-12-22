@@ -12,5 +12,10 @@
   "solarPanel": "Solar Panels",
   "battery": "Battery",
   "grid": "Grid",
-  "load": "Load"
+  "load": "Load",
+  "dailySolarPanel": "Daily Solar",
+  "dailyBatteryCharge": "Daily Battery Charge",
+  "dailyBatteryDischarge": "Daily Battery Discharge",
+  "dailyGrid": "Daily Grid",
+  "dailyLoad": "Daily Load"
 }
