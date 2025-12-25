@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:floor_front/page/location_type.dart';
-import '../../config/app_config.dart';
+import 'package:floor_front/page/data_home/data_location_type.dart';
+import '../../helpers/api_server_helper.dart';
+import '../../helpers/app_helper.dart';
 import '../../l10n/app_localizations.dart';
 import 'data_home_model.dart';
 
@@ -34,7 +35,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     super.initState();
     _animController = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat();
     _fetchData();
-    _refreshTimer = Timer.periodic(const Duration(minutes: AppConfig.refreshIntervalMinutes), (timer) => _fetchData());
+    _refreshTimer = Timer.periodic(const Duration(minutes: AppHelper.refreshIntervalMinutes), (timer) => _fetchData());
   }
 
   @override
@@ -57,8 +58,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken') ?? '';
     String apiUrl = widget.location == LocationType.dacha
-        ? '${EnvironmentConfig.backendUrl}${AppConfig.apiPathHome}${AppConfig.pathDacha}'
-        : '${EnvironmentConfig.backendUrl}${AppConfig.apiPathHome}${AppConfig.pathGolego}';
+        ? '${ApiServerHelper.backendUrl}${AppHelper.apiPathHome}${AppHelper.pathDacha}'
+        : '${ApiServerHelper.backendUrl}${AppHelper.apiPathHome}${AppHelper.pathGolego}';
 
     try {
       final response = await http.get(Uri.parse(apiUrl), headers: {'Authorization': 'Bearer $token'});

@@ -70,4 +70,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dailyLoad => 'Daily Load';
+
+  @override
+  String get aboutDialogTitle => 'About program';
+
+  @override
+  String get aboutDialogTitleDop => 'Additional information:';
+
+  @override
+  String get aboutDialogMessage =>
+      '• Equipment control based on solar inverters\n• Management in an apartment and a country house\n• Monitoring battery status and power grid\n• Remote discharge adjustment (60%, 50%, etc.)\n• Charge mode control (auto/manual)\n• System log viewing and error tracking';
+
+  @override
+  String get aboutDialogMessageSettingsBms =>
+      'This application is designed for use with the GBL_2.45K3 battery from GS Energy Storage (SYL Battery), which must be configured through the Wi-Fi parameters of the USR-WIFI232-B2/A2 module.';
+
+  @override
+  String get versionInfo => 'Version: ';
+
+  @override
+  String get githubUrl => 'https://github.com/nickAS21/floor_flutter_front.git';
+
+  @override
+  String get githubUrlSettingsBms =>
+      'https://github.com/nickAS21/BMSUSRProvision_Android';
+
+  @override
+  String get authorInfo => 'Author: ';
+
+  @override
+  String get author => 'Nick Kulikov (nickAS21)';
+
+  @override
+  String get gitHub => 'GitHub: ';
 }

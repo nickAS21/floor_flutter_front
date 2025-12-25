@@ -210,6 +210,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Daily Load'**
   String get dailyLoad;
+
+  /// No description provided for @aboutDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About program'**
+  String get aboutDialogTitle;
+
+  /// No description provided for @aboutDialogTitleDop.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional information:'**
+  String get aboutDialogTitleDop;
+
+  /// No description provided for @aboutDialogMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'• Equipment control based on solar inverters\n• Management in an apartment and a country house\n• Monitoring battery status and power grid\n• Remote discharge adjustment (60%, 50%, etc.)\n• Charge mode control (auto/manual)\n• System log viewing and error tracking'**
+  String get aboutDialogMessage;
+
+  /// No description provided for @aboutDialogMessageSettingsBms.
+  ///
+  /// In en, this message translates to:
+  /// **'This application is designed for use with the GBL_2.45K3 battery from GS Energy Storage (SYL Battery), which must be configured through the Wi-Fi parameters of the USR-WIFI232-B2/A2 module.'**
+  String get aboutDialogMessageSettingsBms;
+
+  /// No description provided for @versionInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Version: '**
+  String get versionInfo;
+
+  /// No description provided for @githubUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'https://github.com/nickAS21/floor_flutter_front.git'**
+  String get githubUrl;
+
+  /// No description provided for @githubUrlSettingsBms.
+  ///
+  /// In en, this message translates to:
+  /// **'https://github.com/nickAS21/BMSUSRProvision_Android'**
+  String get githubUrlSettingsBms;
+
+  /// No description provided for @authorInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Author: '**
+  String get authorInfo;
+
+  /// No description provided for @author.
+  ///
+  /// In en, this message translates to:
+  /// **'Nick Kulikov (nickAS21)'**
+  String get author;
+
+  /// No description provided for @gitHub.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub: '**
+  String get gitHub;
 }
 
 class _AppLocalizationsDelegate

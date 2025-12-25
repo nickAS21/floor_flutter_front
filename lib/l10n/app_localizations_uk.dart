@@ -70,4 +70,37 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get dailyLoad => 'Щоденне Споживання';
+
+  @override
+  String get aboutDialogTitle => 'Про програму';
+
+  @override
+  String get aboutDialogTitleDop => 'Додаткова інформація:';
+
+  @override
+  String get aboutDialogMessage =>
+      '• Контроль обладнання на базі сонячних інверторів\n• Керування в квартирі та заміському будинку\\n• Моніторинг стану акумуляторів та електромережі\n• Дистанційне налаштування розряду (60%, 50% тощо)\n• Керування режимами заряду (авто/ручне)\n• Перегляд системних логів та відстеження помило';
+
+  @override
+  String get aboutDialogMessageSettingsBms =>
+      'Ця програма розроблена для використання з акумулятором GBL_2.45K3 від GS Energy Storage (SYL Battery), який треба налаштувати через керування параметрами Wi-Fi модуля USR-WIFI232-B2/A2.';
+
+  @override
+  String get versionInfo => 'Версія: ';
+
+  @override
+  String get githubUrl => 'https://github.com/nickAS21/floor_flutter_front.git';
+
+  @override
+  String get githubUrlSettingsBms =>
+      'https://github.com/nickAS21/BMSUSRProvision_Android';
+
+  @override
+  String get authorInfo => 'Автор: ';
+
+  @override
+  String get author => 'Nick Kulikov (nickAS21)';
+
+  @override
+  String get gitHub => 'GitHub: ';
 }

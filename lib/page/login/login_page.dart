@@ -1,10 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../config/app_config.dart';
+import '../../helpers/api_server_helper.dart';
+import '../../helpers/api_server_type.dart';
+import '../../helpers/app_helper.dart';
 import '../../l10n/app_localizations.dart';
 import '../../locale/locale_provider.dart';
+import '../about_app_dialog.dart';
 import '../menu_page.dart';
 import 'dart:io';
 
@@ -43,14 +47,14 @@ class _LoginPageState extends State<LoginPage> {
       // Check if any environment was previously saved
       if (data[LoginHelper.kEnv] != null) {
         // If the saved environment is 'customApi', set it and sync the backend URL
-        if (data[LoginHelper.kEnv] == Environment.customApi.name) {
-          EnvironmentConfig.currentEnvironment = Environment.customApi;
-          EnvironmentConfig.customBackend = _customApiController.text;
+        if (data[LoginHelper.kEnv] == ApiServerType.customApi.name) {
+          ApiServerHelper.currentEnvironment = ApiServerType.customApi;
+          ApiServerHelper.customBackend = _customApiController.text;
         } else {
           // Otherwise, restore the specific standard environment from enum
-          EnvironmentConfig.currentEnvironment = Environment.values.firstWhere(
+          ApiServerHelper.currentEnvironment = ApiServerType.values.firstWhere(
                 (e) => e.name == data[LoginHelper.kEnv],
-            orElse: () => Environment.localHostHome,
+            orElse: () => ApiServerType.localHostHome,
           );
         }
       }
@@ -60,7 +64,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _login() async {
     String apiUrl = '';
     try {
-      apiUrl = EnvironmentConfig.backendUrl + AppConfig.apiPathLogin;
+      apiUrl = ApiServerHelper.backendUrl + AppHelper.apiPathLogin;
 
       final url = Uri.parse(apiUrl);
       final response = await http.post(
@@ -82,7 +86,7 @@ class _LoginPageState extends State<LoginPage> {
         await LoginHelper.saveAuth(
           _usernameController.text,
           _passwordController.text,
-          EnvironmentConfig.currentEnvironment.name,
+          ApiServerHelper.currentEnvironment.name,
           _customApiController.text,
         );
 
@@ -128,43 +132,30 @@ class _LoginPageState extends State<LoginPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Center(
-          // child: Text(AppLocalizations.of(context)!.titleRegLogin),
-          child:
-          Text.rich(
-            TextSpan(
-              text: AppLocalizations.of(context)!.titleRegLogin,
-              style: Theme.of(context).textTheme.headlineSmall,
-              children: [
-                TextSpan(
-                  text: ' (${AppLocalizations.of(context)!.windowSize} ${mediaInfo.size.width.toStringAsFixed(1)} x '
-                      '${mediaInfo.size.height.toStringAsFixed(1)})',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
-            ),
+        centerTitle: true,
+        title: Text(
+          AppLocalizations.of(context)!.titleRegLogin,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
-          DropdownButton<Locale>(
-            value: localeProvider?.locale,
-            icon: Icon(Icons.language, color: Colors.white),
-            onChanged: (Locale? newLocale) {
-              if (newLocale != null) {
-                localeProvider?.changeLocale(newLocale);
-              }
+          const AboutAppDialog(),
+          PopupMenuButton<Locale>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (Locale newLocale) {
+              localeProvider?.changeLocale(newLocale);
             },
-            items: [
-              Locale('en', 'US'),
-              Locale('uk', 'UA'),
-            ].map<DropdownMenuItem<Locale>>((Locale locale) {
-              return DropdownMenuItem<Locale>(
-                value: locale,
-                child: Text(
-                  locale.languageCode == 'en' ? 'English' : 'Українська',
-                ),
-              );
-            }).toList(),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: Locale('uk', 'UA'),
+                child: Text('Українська'),
+              ),
+              const PopupMenuItem(
+                value: Locale('en', 'US'),
+                child: Text('English'),
+              ),
+            ],
           ),
         ],
       ),
@@ -197,24 +188,24 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DropdownButton<Environment>(
-                    value: EnvironmentConfig.currentEnvironment,
-                    onChanged: (Environment? newValue) {
+                  DropdownButton<ApiServerType>(
+                    value: ApiServerHelper.currentEnvironment,
+                    onChanged: (ApiServerType? newValue) {
                       setState(() {
-                        EnvironmentConfig.currentEnvironment = newValue!;
-                        if (newValue != Environment.customApi) {
+                        ApiServerHelper.currentEnvironment = newValue!;
+                        if (newValue != ApiServerType.customApi) {
                           _customApiController.clear();
                         }
                       });
                     },
-                    items: Environment.values.map<DropdownMenuItem<Environment>>((Environment env) {
-                      return DropdownMenuItem<Environment>(
+                    items: ApiServerType.values.map<DropdownMenuItem<ApiServerType>>((ApiServerType env) {
+                      return DropdownMenuItem<ApiServerType>(
                         value: env,
                         child: Text(env.name),
                       );
                     }).toList(),
                   ),
-                  if (EnvironmentConfig.currentEnvironment == Environment.customApi)
+                  if (ApiServerHelper.currentEnvironment == ApiServerType.customApi)
                     TextField(
                       controller: _customApiController,
                       decoration: InputDecoration(
@@ -222,7 +213,7 @@ class _LoginPageState extends State<LoginPage> {
                         hintText: "http://example.com/api/auth/login",
                       ),
                       onChanged: (value) {
-                        EnvironmentConfig.customBackend = value;
+                        ApiServerHelper.customBackend = value;
                       },
                     ),
                   TextField(

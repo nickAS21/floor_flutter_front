@@ -1,12 +1,33 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
+import 'helpers/app_helper.dart';
 import 'l10n/app_localizations.dart';
-import 'locale/locale_helper.dart';
+import 'helpers/locale_helper.dart';
 import 'locale/shared_preferences_helper.dart';
 import 'page/login/login_page.dart';
 import 'locale/locale_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppHelper.initPackageInfo();
+
+  if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+    await windowManager.ensureInitialized(); // Перенесено сюди
+
+    WindowOptions windowOptions = WindowOptions(
+      title: AppHelper.getTitleByPlatform(),
+      center: true,
+    );
+
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
+
   Locale? locale = await LocaleHelper.getValueInit();
   runApp(MyApp(initialLocale: locale));
 }

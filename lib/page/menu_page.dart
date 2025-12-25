@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'location_type.dart';
+import 'data_home/data_location_type.dart';
 import 'data_home/data_home_page.dart';
 import 'logs_page.dart';
 import 'environment_page.dart';

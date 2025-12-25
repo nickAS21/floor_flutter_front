@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../config/app_config.dart';
+import '../helpers/api_server_helper.dart';
+import '../helpers/app_helper.dart';
 
 class LogsPage extends StatefulWidget {
   const LogsPage({super.key});
@@ -18,7 +18,7 @@ class _LogsPageState extends State<LogsPage> {
   Future<void> _fetchLogs() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken') ?? '';
-    String apiUrl = EnvironmentConfig.backendUrl + AppConfig.apiPathSmart + AppConfig.pathLogs;
+    String apiUrl = ApiServerHelper.backendUrl + AppHelper.apiPathSmart + AppHelper.pathLogs;
     final url = Uri.parse(apiUrl);
 
     final response = await http.get(

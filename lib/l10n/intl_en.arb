@@ -17,5 +17,15 @@
   "dailyBatteryCharge": "Daily Battery Charge",
   "dailyBatteryDischarge": "Daily Battery Discharge",
   "dailyGrid": "Daily Grid",
-  "dailyLoad": "Daily Load"
+  "dailyLoad": "Daily Load",
+  "aboutDialogTitle": "About program",
+  "aboutDialogTitleDop": "Additional information:",
+  "aboutDialogMessage": "• Equipment control based on solar inverters\n• Management in an apartment and a country house\n• Monitoring battery status and power grid\n• Remote discharge adjustment (60%, 50%, etc.)\n• Charge mode control (auto/manual)\n• System log viewing and error tracking",
+  "aboutDialogMessageSettingsBms": "This application is designed for use with the GBL_2.45K3 battery from GS Energy Storage (SYL Battery), which must be configured through the Wi-Fi parameters of the USR-WIFI232-B2/A2 module.",
+  "versionInfo": "Version: ",
+  "githubUrl": "https://github.com/nickAS21/floor_flutter_front.git",
+  "githubUrlSettingsBms": "https://github.com/nickAS21/BMSUSRProvision_Android",
+  "authorInfo": "Author: ",
+  "author": "Nick Kulikov (nickAS21)",
+  "gitHub": "GitHub: "
 }
