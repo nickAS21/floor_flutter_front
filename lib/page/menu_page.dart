@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'data_home/data_location_type.dart';
 import 'data_home/data_home_page.dart';
 import 'logs_page.dart';
-import 'environment_page.dart';
+import 'settings/settings_page.dart';
 import 'login/login_page.dart';
 
 class MenuPage extends StatefulWidget {
@@ -27,8 +27,9 @@ class _MenuPageState extends State<MenuPage> {
   void _buildPages() {
     _pages = [
       HomePage(location: _selectedLocation),
-      const LogsPage(),
-      const EnvironmentPage(),
+      SettingsPage(location: _selectedLocation),
+      LogsPage(location: _selectedLocation),
+
     ];
   }
 
@@ -116,12 +117,12 @@ class _MenuPageState extends State<MenuPage> {
             label: _selectedLocation == LocationType.dacha ? "Dacha" : "Golego",
           ),
           const BottomNavigationBarItem(
-            icon: Icon(Icons.list),
-            label: "Logs",
+            icon: Icon(Icons.settings),
+            label: "Settings",
           ),
           const BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: "Environment",
+            icon: Icon(Icons.list),
+            label: "Logs",
           ),
         ],
       ),

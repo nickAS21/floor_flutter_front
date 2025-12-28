@@ -4,9 +4,11 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../helpers/api_server_helper.dart';
 import '../helpers/app_helper.dart';
+import 'data_home/data_location_type.dart';
 
 class LogsPage extends StatefulWidget {
-  const LogsPage({super.key});
+  final LocationType location;
+  const LogsPage({super.key, required this.location});
 
   @override
   State<LogsPage> createState() =>  _LogsPageState();
