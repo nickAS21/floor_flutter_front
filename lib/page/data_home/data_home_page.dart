@@ -123,7 +123,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         ),
                         _buildNode(0, solarY, "lib/assets/data_home/solar-panel-100.png", AppLocalizations.of(context)!.solarPanel, "${_dataHome!.solarPower.toInt()} W"),
                         _buildNode(0, inverterY, "lib/assets/data_home/solar-inverter.png", "", ""),
-                        _buildNode(-sideNodesX, bottomNodesY, "lib/assets/data_home/accumulator-64.png", AppLocalizations.of(context)!.battery, " · ${_dataHome!.batteryCurrent.toDouble().toStringAsFixed(2)} A · ${_dataHome!.batteryVol.toDouble().toStringAsFixed(2)} V\n · ${batW.toInt()} W · ${_dataHome!.batterySoc.toInt()}%"),
+                        _buildNode(-sideNodesX, bottomNodesY, "lib/assets/data_home/accumulator-64.png", AppLocalizations.of(context)!.battery, " · ${_dataHome!.batteryCurrent.toDouble().toStringAsFixed(2)} A · ${_dataHome!.batteryVol.toDouble().toStringAsFixed(2)} V\n · ${batW.toInt()} W · ${_dataHome!.batterySoc.toDouble().toStringAsFixed(2)} %"),
                         _buildNode(
                           0,
                           gridY,
