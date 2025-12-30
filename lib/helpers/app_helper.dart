@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -26,7 +27,7 @@ class AppHelper {
 
   static const int refreshIntervalMinutes = 1;
   static const String pcTitle = "PC: Smart Home, Solarman and Tuya";
-  static const String mobileTitle = "Smart Home...";
+  static const String mobileTitle = "Oasis";
   static const String webTitle = "Web: Smart Home, Solarman and Tuya";
   static String _version = "0.0.0";
   static String get appVersion => _version;
@@ -44,6 +45,12 @@ class AppHelper {
     } catch (e) {
       _version = "1.0.0"; // Значення за замовчуванням, якщо стався збій
     }
+  }
+
+  static Timer startRefreshTimer(void Function() callback) {
+    return Timer.periodic(const Duration(minutes: 4), (timer) {
+      callback();
+    });
   }
 
 }

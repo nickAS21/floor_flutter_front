@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -7,6 +8,7 @@ import '../../helpers/app_helper.dart';
 import '../data_home/data_location_type.dart';
 import 'battery_info_model.dart';
 import 'unit_model.dart';
+import 'unit_helper.dart';
 
 class UnitPage extends StatefulWidget {
   final LocationType location;
@@ -19,11 +21,20 @@ class UnitPage extends StatefulWidget {
 class _UnitPageState extends State<UnitPage> {
   UnitModel? _unitModel;
   bool _isLoading = true;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _fetchUnitData();
+    // Використання хелпера для автоматичного оновлення
+    _refreshTimer = AppHelper.startRefreshTimer(_fetchUnitData);
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -40,6 +51,34 @@ class _UnitPageState extends State<UnitPage> {
       _unitModel = null;
     });
     _fetchUnitData();
+  }
+
+  // Визначення кольору для статусу BMS
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'charging':
+        return Colors.green;
+      case 'discharging':
+        return Colors.red;
+      case 'static':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatHex(String hex) {
+    if (hex.isEmpty) return "0x0000";
+    String cleanHex = hex.toLowerCase().replaceAll('0x', '');
+    cleanHex = cleanHex.padLeft(4, '0');
+    return "0x${cleanHex.toUpperCase()}";
+  }
+
+  bool _hasRealError(String hex) {
+    if (hex.isEmpty) return false;
+    String cleanHex = hex.toLowerCase().replaceAll('0x', '');
+    final val = int.tryParse(cleanHex, radix: 16);
+    return val != null && val > 0;
   }
 
   String _getApiUrl() {
@@ -63,18 +102,22 @@ class _UnitPageState extends State<UnitPage> {
       );
 
       if (response.statusCode == 200) {
-        setState(() {
-          _unitModel = UnitModel.fromJson(jsonDecode(response.body));
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _unitModel = UnitModel.fromJson(jsonDecode(response.body));
+            _isLoading = false;
+          });
+        }
       } else {
         throw Exception("Server status: ${response.statusCode}");
       }
     } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Помилка завантаження Unit: $e")),
-      );
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Помилка завантаження Unit: $e")),
+        );
+      }
     }
   }
 
@@ -88,7 +131,11 @@ class _UnitPageState extends State<UnitPage> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+        ),
+      )
           : _unitModel == null
           ? const Center(child: Text("Дані відсутні"))
           : RefreshIndicator(
@@ -100,7 +147,6 @@ class _UnitPageState extends State<UnitPage> {
 
   Widget _buildUnitList() {
     final devices = _unitModel!.devices;
-
     final grid = devices.where((d) => d.type == 'grid').toList();
     final floors = devices.where((d) => d.type == 'floor').toList();
     final others = devices.where((d) => !['grid', 'floor'].contains(d.type)).toList();
@@ -114,6 +160,144 @@ class _UnitPageState extends State<UnitPage> {
           _buildFloorExpansion(floors),
         if (others.isNotEmpty) ..._buildDeviceSection("Інші пристрої", others),
       ],
+    );
+  }
+
+  Widget _buildBatteryExpansion(List<BatteryInfoModel> list) {
+    return ExpansionTile(
+      initiallyExpanded: true,
+      title: const Text("Акумулятори (BMS)",
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+      children: list.map((b) {
+        bool isError = _hasRealError(b.errorInfoDataHex);
+        bool isWarning = !isError && (b.deltaMv >= UnitHelper.cellsCriticalDeltaMin);
+
+        IconData statusIcon = Icons.check_circle_outline;
+        Color statusColor = Colors.green;
+
+        if (isError) {
+          statusIcon = Icons.warning;
+          statusColor = Colors.red;
+        } else if (isWarning) {
+          statusIcon = Icons.report_problem;
+          statusColor = Colors.orange;
+        }
+
+        return Column(
+          children: [
+            ListTile(
+              leading: Icon(
+                b.isActive ? Icons.check_circle : Icons.remove_circle,
+                color: b.isActive ? Colors.green : Colors.red,
+              ),
+              title: Row(
+                children: [
+                  Text("Battery ${b.port}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 8),
+                  Icon(statusIcon, color: statusColor, size: 20),
+                ],
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RichText(
+                    text: TextSpan(
+                      style: const TextStyle(color: Colors.black, fontSize: 13),
+                      children: [
+                        TextSpan(text: "${b.socPercent}% | ${b.voltageCurV.toStringAsFixed(2)}V | ${b.currentCurA}A | "),
+                        TextSpan(
+                          text: b.bmsStatusStr,
+                          style: TextStyle(color: _getStatusColor(b.bmsStatusStr), fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text("Оновлено: ${b.timestamp}", style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                ],
+              ),
+              onTap: () => _showBatteryDetails(b),
+            ),
+            const Divider(height: 1),
+          ],
+        );
+      }).toList(),
+    );
+  }
+
+  void _showBatteryDetails(BatteryInfoModel battery) {
+    bool isError = _hasRealError(battery.errorInfoDataHex);
+    bool isCriticalDelta = battery.deltaMv >= UnitHelper.cellsCriticalDeltaMin;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Text("Battery ${battery.port}"),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              _buildDetailRow("Активна", battery.isActive ? "Так" : "Ні", battery.isActive ? Colors.green : Colors.red),
+              _buildDetailRow("Оновлено", battery.timestamp, Colors.grey),
+              _buildDetailRow("Напруга", "${battery.voltageCurV.toStringAsFixed(2)} V", null),
+              _buildDetailRow("Заряд (SOC)", "${battery.socPercent}%", Colors.blue),
+              _buildDetailRow("Струм", "${battery.currentCurA} A", null),
+              _buildDetailRow("Статус BMS", battery.bmsStatusStr, _getStatusColor(battery.bmsStatusStr)),
+              _buildDetailRow(
+                  "Помилка (HEX)",
+                  _formatHex(battery.errorInfoDataHex),
+                  isError ? Colors.red : (isCriticalDelta ? Colors.orange : Colors.green)
+              ),
+              const Divider(),
+              _buildDetailRow("Delta", "${battery.deltaMv.toStringAsFixed(3)} V", isCriticalDelta ? Colors.red : Colors.green),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text("Напруга комірок:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
+              ),
+              ...battery.cellVoltagesV.entries.map((e) {
+                Color? accentColor;
+                if (isCriticalDelta) {
+                  if (e.key == battery.minCellIdx) accentColor = Colors.red;
+                  if (e.key == battery.maxCellIdx) accentColor = Colors.orange;
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Комірка ${e.key}"),
+                      Text("${e.value.toStringAsFixed(3)} V",
+                          style: TextStyle(color: accentColor, fontWeight: accentColor != null ? FontWeight.bold : FontWeight.normal)),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Закрити"))
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, Color? color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 14)),
+          Flexible(
+            child: Text(value,
+                textAlign: TextAlign.end,
+                style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 13)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -133,128 +317,6 @@ class _UnitPageState extends State<UnitPage> {
         ),
       )),
     ];
-  }
-
-  Widget _buildBatteryExpansion(List<BatteryInfoModel> list) {
-    return ExpansionTile(
-      initiallyExpanded: true,
-      title: const Text("Акумулятори (BMS)",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-      children: list.map((b) {
-        // Оскільки на беку intToHex, перевіряємо рядок
-        bool hasError = b.errorInfoDataHex != '0x00' && b.errorInfoDataHex.isNotEmpty;
-
-        return Column(
-          children: [
-            ListTile(
-              leading: Icon(Icons.battery_charging_full,
-                  color: b.isActive ? Colors.green : Colors.grey),
-              title: Text("Battery ${b.port}"),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("${b.socPercent}% | ${b.voltageCurV}V | ${b.currentCurA}A | ${b.bmsStatusStr}"),
-                  Text("Оновлено: ${b.timestamp}", style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                ],
-              ),
-              trailing: hasError ? const Icon(Icons.warning, color: Colors.red) : null,
-              onTap: () => _showCellDetails(b),
-            ),
-            if (hasError && b.errorOutput.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4),
-                child: Text("BMS Error: ${b.errorOutput}",
-                    style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
-              ),
-            const Divider(),
-          ],
-        );
-      }).toList(),
-    );
-  }
-
-  void _showCellDetails(BatteryInfoModel battery) {
-    // Поріг для підсвітки (0.1V або за бажанням)
-    bool isCriticalDelta = battery.deltaMv >= 0.100;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Battery ${battery.port}", style: const TextStyle(fontSize: 18)),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Text("Delta: ", style: TextStyle(fontSize: 14)),
-                Text("${battery.deltaMv.toStringAsFixed(3)} V",
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: isCriticalDelta ? Colors.red : Colors.green
-                    )),
-              ],
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView(
-            shrinkWrap: true,
-            children: battery.cellVoltagesV.entries.map((e) {
-              int cellIdx = e.key;
-              double voltage = e.value;
-
-              // Визначаємо колір акценту
-              Color? accentColor;
-              if (isCriticalDelta) {
-                if (cellIdx == battery.minCellIdx) accentColor = Colors.red;
-                if (cellIdx == battery.maxCellIdx) accentColor = Colors.orange;
-              }
-
-              return Container(
-                margin: const EdgeInsets.symmetric(vertical: 2),
-                decoration: BoxDecoration(
-                  // Замість opacity використовуємо тонку рамку для проблемних комірок
-                  border: accentColor != null
-                      ? Border.all(color: accentColor.withOpacity(0.5), width: 1)
-                      : Border.all(color: Colors.transparent),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: ListTile(
-                  dense: true,
-                  // Додаємо кольоровий маркер зліва
-                  leading: Container(
-                    width: 4,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: accentColor ?? Colors.blueGrey.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  title: Text("Комірка $cellIdx"),
-                  trailing: Text(
-                    "${voltage.toStringAsFixed(3)} V",
-                    style: TextStyle(
-                      fontWeight: accentColor != null ? FontWeight.bold : FontWeight.normal,
-                      color: accentColor,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Закрити")
-          )
-        ],
-      ),
-    );
   }
 
   Widget _buildFloorExpansion(List<DeviceModel> list) {
@@ -286,6 +348,6 @@ class _UnitPageState extends State<UnitPage> {
   }
 
   Future<void> _toggleDevice(DeviceModel device, bool newValue) async {
-    // Тут твій POST запит
+    // POST запит
   }
 }

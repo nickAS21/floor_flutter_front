@@ -72,7 +72,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dailyLoad => 'Daily Load';
 
   @override
-  String get aboutDialogTitle => 'About program';
+  String get aboutDialogTitle =>
+      'About program\nOasis: Solar & Smart Home Ecosystem';
 
   @override
   String get aboutDialogTitleDop => 'Additional information:';

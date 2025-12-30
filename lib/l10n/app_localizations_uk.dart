@@ -72,7 +72,8 @@ class AppLocalizationsUk extends AppLocalizations {
   String get dailyLoad => 'Щоденне Споживання';
 
   @override
-  String get aboutDialogTitle => 'Про програму';
+  String get aboutDialogTitle =>
+      'Про програму\nОазис: Екосистема сонячної енергії та розумного дому';
 
   @override
   String get aboutDialogTitleDop => 'Додаткова інформація:';

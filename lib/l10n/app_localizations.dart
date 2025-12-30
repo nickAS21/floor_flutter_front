@@ -214,7 +214,7 @@ abstract class AppLocalizations {
   /// No description provided for @aboutDialogTitle.
   ///
   /// In en, this message translates to:
-  /// **'About program'**
+  /// **'About program\nOasis: Solar & Smart Home Ecosystem'**
   String get aboutDialogTitle;
 
   /// No description provided for @aboutDialogTitleDop.
