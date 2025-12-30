@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'data_home/data_location_type.dart';
 import 'data_home/data_home_page.dart';
-import 'logs_page.dart';
+import 'logs/logs_page.dart';
 import 'settings/settings_page.dart';
+import 'unit/unit_page.dart'; // Новий імпорт
 import 'login/login_page.dart';
 
 class MenuPage extends StatefulWidget {
@@ -28,8 +29,8 @@ class _MenuPageState extends State<MenuPage> {
     _pages = [
       HomePage(location: _selectedLocation),
       SettingsPage(location: _selectedLocation),
+      UnitPage(location: _selectedLocation), // Додано UnitPage
       LogsPage(location: _selectedLocation),
-
     ];
   }
 
@@ -43,7 +44,7 @@ class _MenuPageState extends State<MenuPage> {
     if (value == null) return;
     setState(() {
       _selectedLocation = value;
-      _buildPages(); // оновлюємо HomePage з новою локацією
+      _buildPages();
     });
   }
 
@@ -59,13 +60,12 @@ class _MenuPageState extends State<MenuPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        centerTitle: true, // Центрируем заголовок
+        centerTitle: true,
         title: DropdownButton<LocationType>(
           value: _selectedLocation,
           underline: const SizedBox(),
-          icon: const SizedBox.shrink(), // Скрываем стандартную стрелку, так как добавим свою иконку
+          icon: const SizedBox.shrink(),
           dropdownColor: Colors.white,
-          // Отображение выбранного элемента в AppBar
           selectedItemBuilder: (BuildContext context) {
             return [LocationType.dacha, LocationType.golego].map((LocationType loc) {
               return Row(
@@ -76,12 +76,11 @@ class _MenuPageState extends State<MenuPage> {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.swap_horiz, size: 20, color: Colors.blueGrey), // Значок смены
+                  const Icon(Icons.swap_horiz, size: 20, color: Colors.blueGrey),
                 ],
               );
             }).toList();
           },
-          // Элементы выпадающего списка
           items: const [
             DropdownMenuItem(
               value: LocationType.dacha,
@@ -109,6 +108,7 @@ class _MenuPageState extends State<MenuPage> {
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed, // Щоб вмістити 4 іконки
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: [
@@ -119,6 +119,10 @@ class _MenuPageState extends State<MenuPage> {
           const BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: "Settings",
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.developer_board), // Іконка плати/юніта
+            label: "Control Unit",
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.list),

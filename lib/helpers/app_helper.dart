@@ -14,12 +14,16 @@ class AppHelper {
   static const String apiPathApi = '/api';
   static const String apiPathHome = '$apiPathApi/home';
   static const String apiPathSettings = '$apiPathApi/settings';
+  static const String apiPathLogs = '$apiPathApi/logs';
+  static const String apiPathLogsDacha = '/actuator/logfile';
+  static const String apiPathUnit = '$apiPathApi/unit';
+
   static const String apiPathTuya = '$apiPathApi/tuya';
   static const String apiPathSmart = '$apiPathApi/smart';
   static const String pathGolego = '/golego';
   static const String pathDacha = '/dacha';
   static const String pathDevice = '/device';
-  static const String pathLogs = '/logs';
+
   static const int refreshIntervalMinutes = 1;
   static const String pcTitle = "PC: Smart Home, Solarman and Tuya";
   static const String mobileTitle = "Smart Home...";

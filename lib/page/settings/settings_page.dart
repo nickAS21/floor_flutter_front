@@ -21,10 +21,12 @@ class _SettingsPageState extends State<SettingsPage> {
   // Поточні значення в UI
   bool _currentHandleControl = false;
   final TextEditingController _batteryController = TextEditingController();
+  final TextEditingController _logsLimitController = TextEditingController(); // Додано
 
   // Значення, отримані з сервера (для порівняння)
   bool _originalHandleControl = false;
   String _originalBatteryValue = "";
+  String _originalLogsDachaLimitValue = ""; // Додано
 
   @override
   void initState() {
@@ -32,6 +34,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _fetchSettings();
     // Слухаємо зміни в полі введення, щоб вчасно оновлювати стан кнопки
     _batteryController.addListener(() => setState(() {}));
+    _logsLimitController.addListener(() => setState(() {})); // Додано
   }
 
   @override
@@ -46,6 +49,7 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _isLoading = true;
       _batteryController.clear();
+      _logsLimitController.clear(); // Додано
     });
     _fetchSettings();
   }
@@ -56,11 +60,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
     bool batteryChanged = false;
     if (widget.location == LocationType.dacha) {
-      // Порівнюємо текст у контролері з оригінальним рядком
       batteryChanged = _batteryController.text != _originalBatteryValue;
     }
 
-    return handleControlChanged || batteryChanged;
+    bool dachaLimitChanged = false; // Додано
+    if (widget.location == LocationType.dacha) {
+      dachaLimitChanged = _logsLimitController.text != _originalLogsDachaLimitValue;
+    }
+
+    return handleControlChanged || batteryChanged || dachaLimitChanged;
   }
 
   String _getApiUrl() {
@@ -89,10 +97,12 @@ class _SettingsPageState extends State<SettingsPage> {
           // Зберігаємо оригінал
           _originalHandleControl = data.devicesChangeHandleControl;
           _originalBatteryValue = data.batteryCriticalNightSocWinter?.toString() ?? "";
+          _originalLogsDachaLimitValue = data.logsDachaLimit?.toString() ?? ""; // Додано
 
           // Встановлюємо поточні значення
           _currentHandleControl = _originalHandleControl;
           _batteryController.text = _originalBatteryValue;
+          _logsLimitController.text = _originalLogsDachaLimitValue; // Додано
 
           _isLoading = false;
         });
@@ -118,6 +128,9 @@ class _SettingsPageState extends State<SettingsPage> {
         batteryCriticalNightSocWinter: widget.location == LocationType.dacha
             ? double.tryParse(_batteryController.text)
             : null,
+        logsDachaLimit: widget.location == LocationType.dacha
+            ? int.tryParse(_logsLimitController.text)
+            : null, // Додано
       );
 
       final response = await http.post(
@@ -182,12 +195,25 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16), // Додано
+              Card( // Додано
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: TextField(
+                    controller: _logsLimitController,
+                    decoration: const InputDecoration(
+                      labelText: "Кількість рядків логів Dacha",
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ),
             ],
             const SizedBox(height: 32),
             SizedBox(
               height: 50,
               child: ElevatedButton.icon(
-                // Якщо змін немає, onPressed = null (кнопка стає сірою/неактивною)
                 onPressed: canSave ? _updateSettings : null,
                 icon: const Icon(Icons.save),
                 style: ElevatedButton.styleFrom(
@@ -206,6 +232,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void dispose() {
     _batteryController.dispose();
+    _logsLimitController.dispose(); // Додано
     super.dispose();
   }
 }
