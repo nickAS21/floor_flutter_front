@@ -4,6 +4,7 @@ class BatteryInfoModel {
   final double voltageCurV;
   final double currentCurA;
   final double socPercent;
+  final double? bmsTempValue;
   final String bmsStatusStr;
   final String errorInfoDataHex;
   final String errorOutput;
@@ -19,6 +20,7 @@ class BatteryInfoModel {
     required this.voltageCurV,
     required this.currentCurA,
     required this.socPercent,
+    this.bmsTempValue,
     required this.bmsStatusStr,
     required this.errorInfoDataHex,
     required this.errorOutput,
@@ -44,6 +46,7 @@ class BatteryInfoModel {
       voltageCurV: (json['voltageCurV'] ?? 0.0).toDouble(),
       currentCurA: (json['currentCurA'] ?? 0.0).toDouble(),
       socPercent: (json['socPercent'] ?? 0.0).toDouble(),
+      bmsTempValue: json['bmsTempValue'] != null ? (json['bmsTempValue'] as num).toDouble() : null,
       bmsStatusStr: json['bmsStatusStr'] ?? 'Unknown',
       errorInfoDataHex: json['errorInfoDataHex'] ?? '0x00',
       errorOutput: json['errorOutput'] ?? '',

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,8 +14,8 @@ class LogsPage extends StatefulWidget {
 }
 
 class _LogsPageState extends State<LogsPage> {
-  String _dachaLogs = "Завантаження...";
-  List<dynamic> _golegoLogs = [];
+  // Перейменовано з _dachaLogs/_golegoLogs на універсальну назву
+  String _appLogs = "Завантаження...";
   bool _isLoading = true;
 
   @override
@@ -34,15 +33,13 @@ class _LogsPageState extends State<LogsPage> {
   void _resetAndFetch() {
     setState(() {
       _isLoading = true;
-      _dachaLogs = "Оновлення...";
-      _golegoLogs = [];
+      _appLogs = "Оновлення...";
     });
     _fetchLogs();
   }
 
   String _getApiUrl() {
-    String path = widget.location == LocationType.dacha ? AppHelper.pathDacha : AppHelper.pathGolego;
-    return '${ApiServerHelper.backendUrl}${AppHelper.apiPathLogs}$path';
+    return '${ApiServerHelper.backendUrl}${AppHelper.apiPathLogs}${AppHelper.pathApp}';
   }
 
   Future<void> _fetchLogs() async {
@@ -57,12 +54,7 @@ class _LogsPageState extends State<LogsPage> {
 
       if (response.statusCode == 200) {
         setState(() {
-          if (widget.location == LocationType.dacha) {
-            // Оптимізація: обрізаємо занадто старі дані для економії пам'яті
-            _dachaLogs = response.body;
-          } else {
-            _golegoLogs = jsonDecode(response.body)['data'] ?? [];
-          }
+          _appLogs = response.body;
           _isLoading = false;
         });
       } else {
@@ -71,7 +63,7 @@ class _LogsPageState extends State<LogsPage> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _dachaLogs = "Помилка: $e";
+        _appLogs = "Помилка: $e";
       });
     }
   }
@@ -79,20 +71,14 @@ class _LogsPageState extends State<LogsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Logs: ${widget.location == LocationType.dacha ? 'Дача' : 'Golego'}"),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _resetAndFetch)],
-      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : widget.location == LocationType.golego
-          ? _buildGolegoTable()
-          : _buildDachaTerminal(),
+          : _buildAppTerminal(),
     );
   }
 
-  Widget _buildDachaTerminal() {
-    final List<String> lines = _dachaLogs.split('\n');
+  Widget _buildAppTerminal() {
+    final List<String> lines = _appLogs.split('\n');
 
     return Container(
       margin: const EdgeInsets.all(8),
@@ -101,7 +87,7 @@ class _LogsPageState extends State<LogsPage> {
       decoration: const BoxDecoration(color: Colors.black),
       child: SelectionArea(
         child: ListView.builder(
-          reverse: true, // Нові записи внизу, скрол починається знизу
+          reverse: true, // Нові записи внизу
           itemCount: lines.length,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           itemBuilder: (context, index) {
@@ -117,29 +103,6 @@ class _LogsPageState extends State<LogsPage> {
               ),
             );
           },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGolegoTable() {
-    if (_golegoLogs.isEmpty) return const Center(child: Text("Дані відсутні"));
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(
-        child: DataTable(
-          columns: const [
-            DataColumn(label: Text('Time')),
-            DataColumn(label: Text('P/A')),
-            DataColumn(label: Text('SOC')),
-            DataColumn(label: Text('V/A')),
-          ],
-          rows: _golegoLogs.map((item) => DataRow(cells: [
-            DataCell(Text(item['timestamp']?.substring(11, 19) ?? '--')),
-            DataCell(Text("${item['port']}/${item['addr']}")),
-            DataCell(Text("${item['soc']}%")),
-            DataCell(Text("${item['v']}V / ${item['a']}A")),
-          ])).toList(),
         ),
       ),
     );

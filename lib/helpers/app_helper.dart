@@ -18,10 +18,14 @@ class AppHelper {
   static const String apiPathLogs = '$apiPathApi/logs';
   static const String apiPathLogsDacha = '/actuator/logfile';
   static const String apiPathUnit = '$apiPathApi/unit';
+  static const String apiPathHistory = '$apiPathApi/history';
+  static const String apiPathAnalytics = '$apiPathApi/analytics';
+  static const String apiPathAlarm = '$apiPathApi/alarm';
 
   static const String apiPathTuya = '$apiPathApi/tuya';
   static const String apiPathSmart = '$apiPathApi/smart';
   static const String pathGolego = '/golego';
+  static const String pathApp = '/app';
   static const String pathDacha = '/dacha';
   static const String pathDevice = '/device';
 

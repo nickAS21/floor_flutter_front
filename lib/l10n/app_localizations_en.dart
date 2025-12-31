@@ -72,19 +72,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dailyLoad => 'Daily Load';
 
   @override
-  String get aboutDialogTitle =>
-      'About program\nOasis: Solar & Smart Home Ecosystem';
+  String get aboutDialogTitle => 'Oasis: Solar & Smart Home Ecosystem';
 
   @override
-  String get aboutDialogTitleDop => 'Additional information:';
+  String get aboutDialogTitleDop => 'Technical Details:';
 
   @override
   String get aboutDialogMessage =>
-      '• Equipment control based on solar inverters\n• Management in an apartment and a country house\n• Monitoring battery status and power grid\n• Remote discharge adjustment (60%, 50%, etc.)\n• Charge mode control (auto/manual)\n• System log viewing and error tracking';
+      '• Smart control of solar inverter-based equipment\n• Seamless management for apartments and country houses\n• Real-time battery and power grid monitoring\n• Remote discharge depth adjustment (60%, 50%, etc.)\n• Advanced charge mode control (Auto/Manual)\n• Comprehensive system logs and error tracking';
 
   @override
   String get aboutDialogMessageSettingsBms =>
-      'This application is designed for use with the GBL_2.45K3 battery from GS Energy Storage (SYL Battery), which must be configured through the Wi-Fi parameters of the USR-WIFI232-B2/A2 module.';
+      'This application is optimized for GBL_2.45K3 batteries by GS Energy Storage (SYL Battery). Reliable operation requires configuration of the USR-WIFI232-B2/A2 Wi-Fi module.';
 
   @override
   String get versionInfo => 'Version: ';

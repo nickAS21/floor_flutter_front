@@ -83,7 +83,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         ? "${_dataHome!.timestampLastUpdateGridStatus}\n"
         : "";
 
-    String powerPart = _dataHome!.gridStatusRealTime
+    String powerPart = _dataHome!.gridStatusRealTimeOnLine
         ? "${_dataHome!.gridPower.toInt()} W"
         : "Off";
 
@@ -109,7 +109,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               progress: _animController!.value,
                               solarPower: _dataHome!.solarPower,
                               batteryPower: batW,
-                              gridActive: _dataHome!.gridStatusRealTime,
+                              gridActive: _dataHome!.gridStatusRealTimeOnLine,
                               timestampLastUpdateGridStatus: _dataHome!.timestampLastUpdateGridStatus,
                               gridPower: _dataHome!.gridPower, // Передаємо потужність мережі
                               loadPower: _dataHome!.homePower,
@@ -127,13 +127,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         _buildNode(
                           0,
                           gridY,
-                          _dataHome!.gridStatusRealTime
+                          _dataHome!.gridStatusRealTimeOnLine
                               ? "lib/assets/data_home/electric-pole-64_green.png"
                               : "lib/assets/data_home/electric-pole-64_red.png",
                           AppLocalizations.of(context)!.grid,
                           gridInfo,
                           isGrid: true,
-                          status: _dataHome!.gridStatusRealTime,
+                          status: _dataHome!.gridStatusRealTimeOnLine,
                         ),
                         _buildNode(sideNodesX, bottomNodesY, "lib/assets/data_home/smarthome-64.png", AppLocalizations.of(context)!.load, "${_dataHome!.homePower.toInt()} W"),
                       ],

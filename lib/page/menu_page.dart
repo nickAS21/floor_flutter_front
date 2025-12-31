@@ -3,14 +3,17 @@ import 'data_home/data_location_type.dart';
 import 'data_home/data_home_page.dart';
 import 'logs/logs_page.dart';
 import 'settings/settings_page.dart';
-import 'unit/unit_page.dart'; // Новий імпорт
+import 'unit/unit_page.dart';
+import 'history/history_page.dart';      // Сторінка з таблицями
+import 'analytics/analytics_page.dart';  // Сторінка з фільтрами та графіками
+import 'alarm/alarm_page.dart';          // Сторінка помилок
 import 'login/login_page.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
 
   @override
-  State<MenuPage> createState() =>  _MenuPageState();
+  State<MenuPage> createState() => _MenuPageState();
 }
 
 class _MenuPageState extends State<MenuPage> {
@@ -29,7 +32,10 @@ class _MenuPageState extends State<MenuPage> {
     _pages = [
       HomePage(location: _selectedLocation),
       SettingsPage(location: _selectedLocation),
-      UnitPage(location: _selectedLocation), // Додано UnitPage
+      UnitPage(location: _selectedLocation),
+      HistoryPage(location: _selectedLocation),   // Таблиці (Grid/Units)
+      AnalyticsPage(location: _selectedLocation), // Графіки/Фільтри
+      AlarmPage(location: _selectedLocation),     // Помилки
       LogsPage(location: _selectedLocation),
     ];
   }
@@ -108,9 +114,11 @@ class _MenuPageState extends State<MenuPage> {
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // Щоб вмістити 4 іконки
+        type: BottomNavigationBarType.fixed, // Для коректного відображення 7 пунктів
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        selectedFontSize: 11,
+        unselectedFontSize: 9,
         items: [
           BottomNavigationBarItem(
             icon: const Icon(Icons.home),
@@ -121,8 +129,20 @@ class _MenuPageState extends State<MenuPage> {
             label: "Settings",
           ),
           const BottomNavigationBarItem(
-            icon: Icon(Icons.developer_board), // Іконка плати/юніта
-            label: "Control Unit",
+            icon: Icon(Icons.developer_board),
+            label: "Unit",
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: "History",
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.analytics),
+            label: "Analytics",
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.notification_important),
+            label: "Alarm",
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.list),
@@ -132,6 +152,7 @@ class _MenuPageState extends State<MenuPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _signOut,
+        mini: true,
         child: const Icon(Icons.exit_to_app),
       ),
     );

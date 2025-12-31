@@ -244,6 +244,11 @@ class _UnitPageState extends State<UnitPage> {
               _buildDetailRow("Заряд (SOC)", "${battery.socPercent}%", Colors.blue),
               _buildDetailRow("Струм", "${battery.currentCurA} A", null),
               _buildDetailRow("Статус BMS", battery.bmsStatusStr, _getStatusColor(battery.bmsStatusStr)),
+                // Віджет додасться до Column ТІЛЬКИ якщо bmsTempValue не null
+              if (battery.bmsTempValue != null)
+                _buildDetailRow("Температура BMS", "${battery.bmsTempValue!.toStringAsFixed(2)}°C", null
+                  // Colors.white, // Або інший колір, який ви використовуєте для значень
+                ),
               _buildDetailRow(
                   "Помилка (HEX)",
                   _formatHex(battery.errorInfoDataHex),

@@ -214,25 +214,25 @@ abstract class AppLocalizations {
   /// No description provided for @aboutDialogTitle.
   ///
   /// In en, this message translates to:
-  /// **'About program\nOasis: Solar & Smart Home Ecosystem'**
+  /// **'Oasis: Solar & Smart Home Ecosystem'**
   String get aboutDialogTitle;
 
   /// No description provided for @aboutDialogTitleDop.
   ///
   /// In en, this message translates to:
-  /// **'Additional information:'**
+  /// **'Technical Details:'**
   String get aboutDialogTitleDop;
 
   /// No description provided for @aboutDialogMessage.
   ///
   /// In en, this message translates to:
-  /// **'• Equipment control based on solar inverters\n• Management in an apartment and a country house\n• Monitoring battery status and power grid\n• Remote discharge adjustment (60%, 50%, etc.)\n• Charge mode control (auto/manual)\n• System log viewing and error tracking'**
+  /// **'• Smart control of solar inverter-based equipment\n• Seamless management for apartments and country houses\n• Real-time battery and power grid monitoring\n• Remote discharge depth adjustment (60%, 50%, etc.)\n• Advanced charge mode control (Auto/Manual)\n• Comprehensive system logs and error tracking'**
   String get aboutDialogMessage;
 
   /// No description provided for @aboutDialogMessageSettingsBms.
   ///
   /// In en, this message translates to:
-  /// **'This application is designed for use with the GBL_2.45K3 battery from GS Energy Storage (SYL Battery), which must be configured through the Wi-Fi parameters of the USR-WIFI232-B2/A2 module.'**
+  /// **'This application is optimized for GBL_2.45K3 batteries by GS Energy Storage (SYL Battery). Reliable operation requires configuration of the USR-WIFI232-B2/A2 Wi-Fi module.'**
   String get aboutDialogMessageSettingsBms;
 
   /// No description provided for @versionInfo.
