@@ -6,6 +6,7 @@ class DataHome {
   final double solarPower;
   final double homePower;
   final bool gridStatusRealTimeOnLine;
+  final bool gridStatusRealTimeSwitch;
   final String timestampLastUpdateGridStatus;
   final double gridPower;
   final double dailyConsumptionPower;
@@ -22,6 +23,7 @@ class DataHome {
     required this.solarPower,
     required this.homePower,
     required this.gridStatusRealTimeOnLine,
+    required this.gridStatusRealTimeSwitch,
     required this.timestampLastUpdateGridStatus,
     required this.gridPower,
     required this.dailyConsumptionPower,
@@ -40,7 +42,8 @@ class DataHome {
       solarPower: (json['solarPower'] ?? 0).toDouble(),
       homePower: (json['homePower'] ?? 0).toDouble(),
       gridStatusRealTimeOnLine: json['gridStatusRealTimeOnLine'] ?? false,
-      timestampLastUpdateGridStatus: json['timestampLastUpdateGridStatus'] ?? 'null',
+      gridStatusRealTimeSwitch: json['gridStatusRealTimeSwitch'] ?? false,
+      timestampLastUpdateGridStatus: json['timestampLastUpdateGridStatus']?.toString() ?? 'null',
       gridPower: (json['gridPower'] ?? 0).toDouble(),
       dailyConsumptionPower: (json['dailyConsumptionPower'] ?? json['consumptionPower'] ?? 0).toDouble(),
       dailyGridPower: (json['dailyGridPower'] ?? 0).toDouble(),

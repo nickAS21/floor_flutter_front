@@ -6,6 +6,7 @@ class DataHomePainter extends CustomPainter {
   final double progress;
   final double solarPower, batteryPower, loadPower, gridPower;
   final bool gridActive;
+  final bool gridSwitch;
   final String timestampLastUpdateGridStatus;
   final double solarY, inverterY, gridY, bottomNodesY, sideNodesX;
 
@@ -15,6 +16,7 @@ class DataHomePainter extends CustomPainter {
     required this.batteryPower,
     required this.loadPower,
     required this.gridActive,
+    required this.gridSwitch,
     required this.timestampLastUpdateGridStatus,
     required this.gridPower,
     required this.solarY,
@@ -40,20 +42,21 @@ class DataHomePainter extends CustomPainter {
     final gridC = getOffset(0, gridY);
     final loadC = getOffset(sideNodesX, bottomNodesY);
 
-    final defaultPaint = Paint()..color = Colors.blueGrey.withValues(alpha: 0.6);
-    final gridPaint = Paint()..color = gridActive ? Colors.green.withValues(alpha: 0.8) : Colors.red.withValues(alpha: 0.8);
+    final defaultPaint = Paint()..color = Colors.blueGrey.withOpacity(0.6);
+    final gridPaint = Paint()..color = gridActive ? Colors.green.withOpacity(0.8) : Colors.red.withOpacity(0.8);
 
-    // Маршрути
+    // Маршрути (лінії з крапок)
     _drawStraightRoute(canvas, solarC, invC, defaultPaint, nodeRadius, invRadius, step);
     _drawStraightRoute(canvas, gridC, invC, gridPaint, nodeRadius, invRadius, step);
     _drawRoundedRoute(canvas, invC, batC, defaultPaint, true, invRadius, nodeRadius, cornerR, step, hOffset);
     _drawRoundedRoute(canvas, invC, loadC, defaultPaint, false, invRadius, nodeRadius, cornerR, step, hOffset);
 
-    // Комети
-    if (solarPower > _powerThreshold) _drawStraightComet(canvas, solarC, invC, progress, false, nodeRadius, invRadius);
+    // Анімація комет зі стрілками
+    if (solarPower > _powerThreshold) {
+      _drawStraightComet(canvas, solarC, invC, progress, false, nodeRadius, invRadius);
+    }
 
-    // Комета Мережі: ВІД вежі ДО інвертора (rev: true)
-    if (gridActive && gridPower > _powerThreshold) {
+    if (gridSwitch && gridActive && gridPower > _powerThreshold) {
       _drawStraightComet(canvas, gridC, invC, progress, false, nodeRadius, invRadius);
     }
 
@@ -67,8 +70,6 @@ class DataHomePainter extends CustomPainter {
 
     if (!gridActive) _drawX(canvas, Offset.lerp(gridC, invC, 0.5)!);
   }
-
-  // ... (Допоміжні методи _drawStraightRoute, _drawRoundedRoute, _drawStraightComet, _drawRoundedComet, _drawArrowHead, _drawX залишаються такими ж, як були раніше)
 
   void _drawStraightRoute(Canvas canvas, Offset p1, Offset p2, Paint paint, double r1, double r2, double step) {
     double dist = (p2 - p1).distance;
@@ -97,46 +98,43 @@ class DataHomePainter extends CustomPainter {
 
   void _drawStraightComet(Canvas canvas, Offset start, Offset end, double t, bool rev, double r1, double r2) {
     double dist = (end - start).distance;
-    double effT = rev ? (1.0 - t) : t;
-    double curPos = r1 + (dist - r1 - r2) * effT;
+    double curPos = r1 + (dist - r1 - r2) * (rev ? 1.0 - t : t);
     for (int i = 0; i < 20; i++) {
-      double tailShift = rev ? (i * 4.5) : -(i * 4.5);
-      double d = curPos + tailShift;
+      double d = curPos + (rev ? i * 4.5 : -i * 4.5);
       if (d < r1 || d > dist - r2) continue;
       Offset pos = Offset.lerp(start, end, d / dist)!;
       double opacity = (1.0 - (i / 20)).clamp(0, 1);
-      canvas.drawCircle(pos, 4.0 * opacity, Paint()..color = Colors.blue.withValues(alpha: opacity * 0.7));
+      canvas.drawCircle(pos, 4.0 * opacity, Paint()..color = Colors.blue.withOpacity(opacity * 0.7));
       if (i == 0) _drawArrowHead(canvas, pos, (end - start).direction + (rev ? math.pi : 0));
     }
   }
 
   void _drawRoundedComet(Canvas canvas, Offset start, Offset end, double t, bool toInv, bool isLeft, double rStart, double rEnd, double rCurve, double hOffset) {
-    double horizLen = (end.dx - start.dx).abs() - rCurve + hOffset;
-    double vertLen = (end.dy - start.dy).abs() - rCurve;
-    double curveLen = (math.pi / 2) * rCurve;
-    double totalLen = horizLen + vertLen + curveLen;
-    double effT = toInv ? (1.0 - t) : t;
-    double curD = rStart + (totalLen - rStart - rEnd) * effT;
+    double hL = (end.dx - start.dx).abs() - rCurve + hOffset;
+    double cL = (math.pi / 2) * rCurve;
+    double vL = (end.dy - start.dy).abs() - rCurve;
+    double total = hL + cL + vL;
+    double cD = rStart + (total - rStart - rEnd) * (toInv ? 1.0 - t : t);
 
-    Offset getPointAt(double d) {
-      if (d < horizLen) return Offset(start.dx + d * (isLeft ? -1 : 1), start.dy);
-      if (d < horizLen + curveLen) {
-        double a = ((d - horizLen) / curveLen) * (math.pi / 2);
-        double pivotX = start.dx + horizLen * (isLeft ? -1 : 1);
-        return Offset(pivotX + (isLeft ? -rCurve * math.sin(a) : rCurve * math.sin(a)), start.dy + rCurve * (1 - math.cos(a)));
+    Offset getPoint(double d) {
+      if (d < hL) return Offset(start.dx + d * (isLeft ? -1 : 1), start.dy);
+      if (d < hL + cL) {
+        double a = ((d - hL) / cL) * (math.pi / 2);
+        return Offset(start.dx + hL * (isLeft ? -1 : 1) + (isLeft ? -rCurve * math.sin(a) : rCurve * math.sin(a)), start.dy + rCurve * (1 - math.cos(a)));
       }
-      double pivotX = start.dx + horizLen * (isLeft ? -1 : 1);
-      return Offset(pivotX + (isLeft ? -rCurve : rCurve), start.dy + rCurve + (d - horizLen - curveLen));
+      return Offset(start.dx + (hL + rCurve) * (isLeft ? -1 : 1), start.dy + rCurve + (d - hL - cL));
     }
 
     for (int i = 0; i < 20; i++) {
-      double tailShift = toInv ? (i * 4.5) : -(i * 4.5);
-      double d = curD + tailShift;
-      if (d < rStart || d > totalLen - rEnd) continue;
-      Offset pos = getPointAt(d);
+      double d = cD + (toInv ? i * 4.5 : -i * 4.5);
+      if (d < rStart || d > total - rEnd) continue;
+      Offset pos = getPoint(d);
       double opacity = (1.0 - (i / 20)).clamp(0, 1);
-      canvas.drawCircle(pos, 4.0 * opacity, Paint()..color = Colors.blue.withValues(alpha: opacity * 0.7));
-      if (i == 0) _drawArrowHead(canvas, pos, (getPointAt(d + (toInv ? -0.5 : 0.5)) - pos).direction);
+      canvas.drawCircle(pos, 4.0 * opacity, Paint()..color = Colors.blue.withOpacity(opacity * 0.7));
+      if (i == 0) {
+        double angle = (getPoint(d + (toInv ? -1 : 1)) - pos).direction;
+        _drawArrowHead(canvas, pos, angle);
+      }
     }
   }
 

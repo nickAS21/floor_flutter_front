@@ -64,8 +64,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     try {
       final response = await http.get(Uri.parse(apiUrl), headers: {'Authorization': 'Bearer $token'});
       if (response.statusCode == 200 && mounted) {
+        final dynamic decoded = json.decode(response.body);
         setState(() {
-          _dataHome = DataHome.fromJson(json.decode(response.body));
+          if (decoded is List && decoded.isNotEmpty) {
+            _dataHome = DataHome.fromJson(decoded.first);
+          } else {
+            _dataHome = DataHome.fromJson(decoded);
+          }
           _loading = false;
         });
       }
@@ -78,16 +83,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     final double batW = _dataHome!.batteryVol * _dataHome!.batteryCurrent;
 
-    // 1. Оголошуємо змінні тут, перед версткою
-    String timePart = _dataHome!.timestampLastUpdateGridStatus.isNotEmpty
-        ? "${_dataHome!.timestampLastUpdateGridStatus}\n"
-        : "";
+    String timePart = (_dataHome!.timestampLastUpdateGridStatus.isEmpty || _dataHome!.timestampLastUpdateGridStatus == "null")
+        ? "null\n"
+        : "${_dataHome!.timestampLastUpdateGridStatus}\n";
 
-    String powerPart = _dataHome!.gridStatusRealTimeOnLine
+    String powerPart = _dataHome!.gridStatusRealTimeSwitch
         ? "${_dataHome!.gridPower.toInt()} W"
         : "Off";
-
-    String gridInfo = timePart + powerPart;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -110,31 +112,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               solarPower: _dataHome!.solarPower,
                               batteryPower: batW,
                               gridActive: _dataHome!.gridStatusRealTimeOnLine,
+                              gridSwitch: _dataHome!.gridStatusRealTimeSwitch,
                               timestampLastUpdateGridStatus: _dataHome!.timestampLastUpdateGridStatus,
-                              gridPower: _dataHome!.gridPower, // Передаємо потужність мережі
+                              gridPower: _dataHome!.gridPower,
                               loadPower: _dataHome!.homePower,
-                              solarY: solarY,
-                              inverterY: inverterY,
-                              gridY: gridY,
-                              bottomNodesY: bottomNodesY,
-                              sideNodesX: sideNodesX,
+                              solarY: solarY, inverterY: inverterY, gridY: gridY,
+                              bottomNodesY: bottomNodesY, sideNodesX: sideNodesX,
                             ),
                           ),
                         ),
                         _buildNode(0, solarY, "lib/assets/data_home/solar-panel-100.png", AppLocalizations.of(context)!.solarPanel, "${_dataHome!.solarPower.toInt()} W"),
                         _buildNode(0, inverterY, "lib/assets/data_home/solar-inverter.png", "", ""),
-                        _buildNode(-sideNodesX, bottomNodesY, "lib/assets/data_home/accumulator-64.png", AppLocalizations.of(context)!.battery, " · ${_dataHome!.batteryCurrent.toDouble().toStringAsFixed(2)} A · ${_dataHome!.batteryVol.toDouble().toStringAsFixed(2)} V\n · ${batW.toInt()} W · ${_dataHome!.batterySoc.toDouble().toStringAsFixed(2)} %"),
-                        _buildNode(
-                          0,
-                          gridY,
-                          _dataHome!.gridStatusRealTimeOnLine
-                              ? "lib/assets/data_home/electric-pole-64_green.png"
-                              : "lib/assets/data_home/electric-pole-64_red.png",
-                          AppLocalizations.of(context)!.grid,
-                          gridInfo,
-                          isGrid: true,
-                          status: _dataHome!.gridStatusRealTimeOnLine,
-                        ),
+                        _buildNode(-sideNodesX, bottomNodesY, "lib/assets/data_home/accumulator-64.png", AppLocalizations.of(context)!.battery, " · ${_dataHome!.batteryCurrent.toStringAsFixed(2)} A · ${_dataHome!.batteryVol.toStringAsFixed(2)} V\n · ${batW.toInt()} W · ${_dataHome!.batterySoc.toStringAsFixed(2)} %"),
+                        _buildNode(0, gridY,
+                            _dataHome!.gridStatusRealTimeOnLine ? "lib/assets/data_home/electric-pole-64_green.png" : "lib/assets/data_home/electric-pole-64_red.png",
+                            AppLocalizations.of(context)!.grid, timePart + powerPart, isGrid: true, status: _dataHome!.gridStatusRealTimeOnLine),
                         _buildNode(sideNodesX, bottomNodesY, "lib/assets/data_home/smarthome-64.png", AppLocalizations.of(context)!.load, "${_dataHome!.homePower.toInt()} W"),
                       ],
                     );
@@ -160,19 +152,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             opacity: (isGrid && !status) ? 0.4 : 1.0,
             child: Image.asset(assetPath, width: 48, height: 48, errorBuilder: (c, e, s) => const Icon(Icons.error)),
           ),
-          if (label.isNotEmpty)
-            Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          if (val.isNotEmpty)
-            Text(
-              val,
-              textAlign: TextAlign.center, // Центрує час і W
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: (isGrid && !status) ? Colors.red : Colors.black,
-                height: 1.2, // Відступ між рядками
-              ),
-            ),
+          if (label.isNotEmpty) Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          Text(val, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: (isGrid && !status) ? Colors.red : Colors.black, height: 1.2)),
         ],
       ),
     );
@@ -195,21 +176,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildStatCard(String val, String label, IconData icon) {
-    return LayoutBuilder(builder: (context, constraints) {
-      double screenWidth = MediaQuery.of(context).size.width;
-      double cardWidth = screenWidth > 600 ? 180 : (screenWidth / 2) - 20;
-      return Container(
-        width: cardWidth, padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]),
-        child: Row(children: [
-          Icon(icon, size: 22, color: Colors.blueGrey),
-          const SizedBox(width: 8),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            FittedBox(fit: BoxFit.scaleDown, child: Text(val, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-            Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey), overflow: TextOverflow.ellipsis),
-          ])),
-        ]),
-      );
-    });
+    double cardWidth = MediaQuery.of(context).size.width > 600 ? 180 : (MediaQuery.of(context).size.width / 2) - 20;
+    return Container(
+      width: cardWidth, padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]),
+      child: Row(children: [
+        Icon(icon, size: 22, color: Colors.blueGrey),
+        const SizedBox(width: 8),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          FittedBox(fit: BoxFit.scaleDown, child: Text(val, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+          Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey), overflow: TextOverflow.ellipsis),
+        ])),
+      ]),
+    );
   }
 }
