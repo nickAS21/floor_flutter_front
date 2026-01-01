@@ -18,6 +18,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   bool _isLoading = true;
 
+  String _versionBackend = ""; // Поле для зберігання версії
   bool _currentHandleControl = false;
   final TextEditingController _batteryController = TextEditingController();
   final TextEditingController _logsLimitController = TextEditingController();
@@ -29,7 +30,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    _fetchData(); // Твоя назва методу
+    _fetchData();
     _batteryController.addListener(() => setState(() {}));
     _logsLimitController.addListener(() => setState(() {}));
   }
@@ -57,7 +58,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken') ?? '';
 
-    // Твій стандарт формування URL
     String apiUrl = widget.location == LocationType.dacha
         ? '${ApiServerHelper.backendUrl}${AppHelper.apiPathSettings}${AppHelper.pathDacha}'
         : '${ApiServerHelper.backendUrl}${AppHelper.apiPathSettings}${AppHelper.pathGolego}';
@@ -71,6 +71,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (response.statusCode == 200) {
         final data = SettingsModel.fromJson(jsonDecode(response.body));
         setState(() {
+          _versionBackend = data.versionBackend; // Отримуємо версію
           _originalHandleControl = data.devicesChangeHandleControl;
           _originalBatteryValue = data.batteryCriticalNightSocWinter?.toString() ?? "";
           _originalLogsAppLimitValue = data.logsAppLimit.toString();
@@ -122,6 +123,8 @@ class _SettingsPageState extends State<SettingsPage> {
         List<String> failedFields = [];
 
         setState(() {
+          _versionBackend = updatedData.versionBackend; // Оновлюємо версію з відповіді
+
           if (updatedData.devicesChangeHandleControl == sentHandle) {
             _originalHandleControl = updatedData.devicesChangeHandleControl;
           } else {
@@ -192,6 +195,27 @@ class _SettingsPageState extends State<SettingsPage> {
         padding: const EdgeInsets.all(16.0),
         child: ListView(
           children: [
+            // Інформаційна картка версії Backend
+            Card(
+              color: Colors.blueGrey.shade50,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(color: Colors.blueGrey.shade100),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.info_outline, color: Colors.blueGrey),
+                title: Text(
+                  labels[SettingsModel.keyVersionBackend]!,
+                  style: const TextStyle(fontSize: 13, color: Colors.blueGrey),
+                ),
+                trailing: Text(
+                  _versionBackend,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             Card(
               elevation: 1,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
