@@ -18,12 +18,14 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   bool _isLoading = true;
 
-  String _versionBackend = ""; // Поле для зберігання версії
+  String _versionBackend = "";
   bool _currentHandleControl = false;
+  bool _currentHeaterAuto = false;
   final TextEditingController _batteryController = TextEditingController();
   final TextEditingController _logsLimitController = TextEditingController();
 
   bool _originalHandleControl = false;
+  bool _originalHeaterAuto = false;
   String _originalBatteryValue = "";
   String _originalLogsAppLimitValue = "";
 
@@ -49,9 +51,14 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   bool _hasChanges() {
-    return _currentHandleControl != _originalHandleControl ||
+    bool baseChanges = _currentHandleControl != _originalHandleControl ||
         _batteryController.text != _originalBatteryValue ||
         _logsLimitController.text != _originalLogsAppLimitValue;
+
+    if (widget.location == LocationType.dacha) {
+      return baseChanges || _currentHeaterAuto != _originalHeaterAuto;
+    }
+    return baseChanges;
   }
 
   Future<void> _fetchData() async {
@@ -71,12 +78,14 @@ class _SettingsPageState extends State<SettingsPage> {
       if (response.statusCode == 200) {
         final data = SettingsModel.fromJson(jsonDecode(response.body));
         setState(() {
-          _versionBackend = data.versionBackend; // Отримуємо версію
+          _versionBackend = data.versionBackend;
           _originalHandleControl = data.devicesChangeHandleControl;
           _originalBatteryValue = data.batteryCriticalNightSocWinter?.toString() ?? "";
           _originalLogsAppLimitValue = data.logsAppLimit.toString();
+          _originalHeaterAuto = data.heaterNightAutoOnDachaWinter ?? false;
 
           _currentHandleControl = _originalHandleControl;
+          _currentHeaterAuto = _originalHeaterAuto;
           _batteryController.text = _originalBatteryValue;
           _logsLimitController.text = _originalLogsAppLimitValue;
           _isLoading = false;
@@ -99,6 +108,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final int sentLimit = int.tryParse(_logsLimitController.text) ?? 100;
     final double? sentBattery = widget.location == LocationType.dacha ? double.tryParse(_batteryController.text) : null;
     final bool sentHandle = _currentHandleControl;
+    final bool? sentHeaterAuto = widget.location == LocationType.dacha ? _currentHeaterAuto : null;
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken') ?? '';
@@ -115,33 +125,37 @@ class _SettingsPageState extends State<SettingsPage> {
           'devicesChangeHandleControl': sentHandle,
           'logsAppLimit': sentLimit,
           if (sentBattery != null) 'batteryCriticalNightSocWinter': sentBattery,
+          if (sentHeaterAuto != null) 'heaterNightAutoOnDachaWinter': sentHeaterAuto,
         }),
       );
 
       if (response.statusCode == 200) {
         final updatedData = SettingsModel.fromJson(jsonDecode(response.body));
         List<String> failedFields = [];
+        final labels = SettingsModel.fieldLabels;
 
         setState(() {
-          _versionBackend = updatedData.versionBackend; // Оновлюємо версію з відповіді
-
+          _versionBackend = updatedData.versionBackend;
           if (updatedData.devicesChangeHandleControl == sentHandle) {
             _originalHandleControl = updatedData.devicesChangeHandleControl;
           } else {
-            failedFields.add(SettingsModel.fieldLabels[SettingsModel.keyHandle]!);
+            failedFields.add(labels[SettingsModel.keyHandle]!);
           }
-
           if (updatedData.logsAppLimit == sentLimit) {
             _originalLogsAppLimitValue = updatedData.logsAppLimit.toString();
           } else {
-            failedFields.add(SettingsModel.fieldLabels[SettingsModel.keyLogs]!);
+            failedFields.add(labels[SettingsModel.keyLogs]!);
           }
-
           if (widget.location == LocationType.dacha) {
             if (updatedData.batteryCriticalNightSocWinter == sentBattery) {
               _originalBatteryValue = updatedData.batteryCriticalNightSocWinter?.toString() ?? "";
             } else {
-              failedFields.add(SettingsModel.fieldLabels[SettingsModel.keySoc]!);
+              failedFields.add(labels[SettingsModel.keySoc]!);
+            }
+            if (updatedData.heaterNightAutoOnDachaWinter == sentHeaterAuto) {
+              _originalHeaterAuto = updatedData.heaterNightAutoOnDachaWinter ?? false;
+            } else {
+              failedFields.add(labels[SettingsModel.keyHeaterNightAuto]!);
             }
           }
           _isLoading = false;
@@ -170,18 +184,18 @@ class _SettingsPageState extends State<SettingsPage> {
     final labels = SettingsModel.fieldLabels;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        backgroundColor: Colors.grey.shade100,
-        elevation: 0,
+        backgroundColor: Colors.white,
+        elevation: 0.5,
         centerTitle: true,
         title: Text(
           "Налаштування: ${widget.location == LocationType.dacha ? 'Дача' : 'Golego'}",
-          style: const TextStyle(color: Colors.black87, fontSize: 16),
+          style: const TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh, color: Colors.blueGrey.shade600),
+            icon: const Icon(Icons.refresh, color: Colors.blue),
             onPressed: () {
               setState(() => _isLoading = true);
               _fetchData();
@@ -191,89 +205,155 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            // Інформаційна картка версії Backend
-            Card(
-              color: Colors.blueGrey.shade50,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: Colors.blueGrey.shade100),
-              ),
-              child: ListTile(
-                leading: const Icon(Icons.info_outline, color: Colors.blueGrey),
-                title: Text(
-                  labels[SettingsModel.keyVersionBackend]!,
-                  style: const TextStyle(fontSize: 13, color: Colors.blueGrey),
-                ),
-                trailing: Text(
-                  _versionBackend,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              elevation: 1,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              child: SwitchListTile(
-                title: Text(labels[SettingsModel.keyHandle]!, style: const TextStyle(fontSize: 14)),
-                value: _currentHandleControl,
-                onChanged: (val) => setState(() => _currentHandleControl = val),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              elevation: 1,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: TextField(
-                  controller: _logsLimitController,
-                  decoration: InputDecoration(
-                    labelText: labels[SettingsModel.keyLogs],
-                    border: const OutlineInputBorder(),
+          : ListView(
+        padding: const EdgeInsets.all(12.0),
+        children: [
+          // Версія
+          _buildInfoCard(labels[SettingsModel.keyVersionBackend]!, _versionBackend),
+          const SizedBox(height: 12),
+
+          // Блок перемикачів (В один рядок)
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildToggleCard(
+                    title: "Ручне",
+                    subtitle: labels[SettingsModel.keyHandle]!,
+                    value: _currentHandleControl,
+                    icon: Icons.touch_app,
+                    color: Colors.orange.shade700,
+                    onChanged: (val) => setState(() => _currentHandleControl = val),
                   ),
-                  keyboardType: TextInputType.number,
                 ),
-              ),
-            ),
-            if (widget.location == LocationType.dacha) ...[
-              const SizedBox(height: 12),
-              Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: TextField(
-                    controller: _batteryController,
-                    decoration: InputDecoration(
-                      labelText: labels[SettingsModel.keySoc],
-                      border: const OutlineInputBorder(),
+                if (widget.location == LocationType.dacha) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildToggleCard(
+                      title: "Зима",
+                      subtitle: "Авто-підігрів підлоги",
+                      value: _currentHeaterAuto,
+                      icon: Icons.ac_unit,
+                      color: Colors.blue.shade700,
+                      onChanged: (val) => setState(() => _currentHeaterAuto = val),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 32),
-            SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: canSave ? _updateSettings : null,
-                icon: const Icon(Icons.save_outlined),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade600,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                label: const Text("ЗБЕРЕГТИ", style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Ліміт логів
+          _buildInputCard(
+            controller: _logsLimitController,
+            label: labels[SettingsModel.keyLogs]!,
+            icon: Icons.list_alt,
+          ),
+
+          if (widget.location == LocationType.dacha) ...[
+            const SizedBox(height: 12),
+            // Критичний SoC
+            _buildInputCard(
+              controller: _batteryController,
+              label: labels[SettingsModel.keySoc]!,
+              icon: Icons.battery_alert,
+              isDecimal: true,
             ),
           ],
+
+          const SizedBox(height: 32),
+          SizedBox(
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: canSave ? _updateSettings : null,
+              icon: const Icon(Icons.save),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade700,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade300,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              label: const Text("ЗБЕРЕГТИ ЗМІНИ", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Віджет для інформації (Версія)
+  Widget _buildInfoCard(String title, String value) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      child: ListTile(
+        title: Text(title, style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
+        trailing: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+      ),
+    );
+  }
+
+  // Віджет для перемикачів (Компактний)
+  Widget _buildToggleCard({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required IconData icon,
+    required Color color,
+    required Function(bool) onChanged,
+  }) {
+    return Card(
+      elevation: 1,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 6),
+                Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.black54), maxLines: 2, overflow: TextOverflow.ellipsis),
+            const Spacer(),
+            Switch(
+              value: value,
+              activeColor: color,
+              onChanged: onChanged,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Віджет для вводу тексту
+  Widget _buildInputCard({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool isDecimal = false,
+  }) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+        child: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            icon: Icon(icon, color: Colors.blueGrey),
+            labelText: label,
+            labelStyle: const TextStyle(fontSize: 13),
+            border: InputBorder.none,
+          ),
+          keyboardType: TextInputType.numberWithOptions(decimal: isDecimal),
         ),
       ),
     );
