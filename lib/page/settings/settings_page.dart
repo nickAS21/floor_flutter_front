@@ -21,11 +21,14 @@ class _SettingsPageState extends State<SettingsPage> {
   String _versionBackend = "";
   bool _currentHandleControl = false;
   bool _currentHeaterAuto = false;
+  int? _currentSeasonsId;
+
   final TextEditingController _batteryController = TextEditingController();
   final TextEditingController _logsLimitController = TextEditingController();
 
   bool _originalHandleControl = false;
   bool _originalHeaterAuto = false;
+  int? _originalSeasonsId;
   String _originalBatteryValue = "";
   String _originalLogsAppLimitValue = "";
 
@@ -56,7 +59,9 @@ class _SettingsPageState extends State<SettingsPage> {
         _logsLimitController.text != _originalLogsAppLimitValue;
 
     if (widget.location == LocationType.dacha) {
-      return baseChanges || _currentHeaterAuto != _originalHeaterAuto;
+      return baseChanges ||
+          _currentHeaterAuto != _originalHeaterAuto ||
+          _currentSeasonsId != _originalSeasonsId;
     }
     return baseChanges;
   }
@@ -83,9 +88,11 @@ class _SettingsPageState extends State<SettingsPage> {
           _originalBatteryValue = data.batteryCriticalNightSocWinter?.toString() ?? "";
           _originalLogsAppLimitValue = data.logsAppLimit.toString();
           _originalHeaterAuto = data.heaterNightAutoOnDachaWinter ?? false;
+          _originalSeasonsId = data.seasonsId;
 
           _currentHandleControl = _originalHandleControl;
           _currentHeaterAuto = _originalHeaterAuto;
+          _currentSeasonsId = _originalSeasonsId;
           _batteryController.text = _originalBatteryValue;
           _logsLimitController.text = _originalLogsAppLimitValue;
           _isLoading = false;
@@ -109,6 +116,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final double? sentBattery = widget.location == LocationType.dacha ? double.tryParse(_batteryController.text) : null;
     final bool sentHandle = _currentHandleControl;
     final bool? sentHeaterAuto = widget.location == LocationType.dacha ? _currentHeaterAuto : null;
+    final int? sentSeason = widget.location == LocationType.dacha ? _currentSeasonsId : null;
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken') ?? '';
@@ -126,6 +134,7 @@ class _SettingsPageState extends State<SettingsPage> {
           'logsAppLimit': sentLimit,
           if (sentBattery != null) 'batteryCriticalNightSocWinter': sentBattery,
           if (sentHeaterAuto != null) 'heaterNightAutoOnDachaWinter': sentHeaterAuto,
+          if (sentSeason != null) 'seasonsId': sentSeason,
         }),
       );
 
@@ -156,6 +165,11 @@ class _SettingsPageState extends State<SettingsPage> {
               _originalHeaterAuto = updatedData.heaterNightAutoOnDachaWinter ?? false;
             } else {
               failedFields.add(labels[SettingsModel.keyHeaterNightAuto]!);
+            }
+            if (updatedData.seasonsId == sentSeason) {
+              _originalSeasonsId = updatedData.seasonsId;
+            } else {
+              failedFields.add(labels[SettingsModel.keySeasonsId]!);
             }
           }
           _isLoading = false;
@@ -208,11 +222,9 @@ class _SettingsPageState extends State<SettingsPage> {
           : ListView(
         padding: const EdgeInsets.all(12.0),
         children: [
-          // Версія
           _buildInfoCard(labels[SettingsModel.keyVersionBackend]!, _versionBackend),
           const SizedBox(height: 12),
 
-          // Блок перемикачів (В один рядок)
           IntrinsicHeight(
             child: Row(
               children: [
@@ -244,7 +256,11 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 12),
 
-          // Ліміт логів
+          if (widget.location == LocationType.dacha) ...[
+            _buildSeasonDropdown(),
+            const SizedBox(height: 12),
+          ],
+
           _buildInputCard(
             controller: _logsLimitController,
             label: labels[SettingsModel.keyLogs]!,
@@ -253,7 +269,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
           if (widget.location == LocationType.dacha) ...[
             const SizedBox(height: 12),
-            // Критичний SoC
             _buildInputCard(
               controller: _batteryController,
               label: labels[SettingsModel.keySoc]!,
@@ -282,7 +297,56 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // Віджет для інформації (Версія)
+  Widget _buildSeasonDropdown() {
+    final labels = SettingsModel.fieldLabels;
+
+    // Налаштування іконки для поля вибору
+    IconData getSeasonIcon() {
+      switch (_currentSeasonsId) {
+        case 1: return Icons.cloudy_snowing; // Зима: Туча зі снігом
+        case 2: return Icons.local_florist;   // Весна: Квітка
+        case 3: return Icons.wb_sunny;        // Літо: Сонце
+        case 4: return Icons.eco;             // Осінь: Листок
+        default: return Icons.calendar_month;
+      }
+    }
+
+    // Налаштування кольору для поля вибору
+    Color getSeasonColor() {
+      switch (_currentSeasonsId) {
+        case 1: return Colors.blue.shade400;   // Зима: Синій/Блакитний
+        case 2: return Colors.green.shade600;  // Весна: Зелений
+        case 3: return Colors.orange.shade700; // Літо: Помаранчевий
+        case 4: return Colors.yellow.shade800; // Осінь: Жовтий
+        default: return Colors.grey;
+      }
+    }
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+        child: DropdownButtonFormField<int>(
+          value: _currentSeasonsId,
+          decoration: InputDecoration(
+            labelText: labels[SettingsModel.keySeasonsId],
+            labelStyle: const TextStyle(fontSize: 13),
+            icon: Icon(getSeasonIcon(), color: getSeasonColor()),
+            border: InputBorder.none,
+          ),
+          items: const [
+            DropdownMenuItem(value: 1, child: Text("Зима (Winter)")),
+            DropdownMenuItem(value: 2, child: Text("Весна (Spring)")),
+            DropdownMenuItem(value: 3, child: Text("Літо (Summer)")),
+            DropdownMenuItem(value: 4, child: Text("Осінь (Autumn)")),
+          ],
+          onChanged: (val) => setState(() => _currentSeasonsId = val),
+        ),
+      ),
+    );
+  }
+
   Widget _buildInfoCard(String title, String value) {
     return Card(
       elevation: 0,
@@ -294,7 +358,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // Віджет для перемикачів (Компактний)
   Widget _buildToggleCard({
     required String title,
     required String subtitle,
@@ -333,7 +396,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // Віджет для вводу тексту
   Widget _buildInputCard({
     required TextEditingController controller,
     required String label,
