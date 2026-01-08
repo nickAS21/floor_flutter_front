@@ -27,7 +27,6 @@ class _UnitPageState extends State<UnitPage> {
   void initState() {
     super.initState();
     _fetchUnitData();
-    // Використання хелпера для автоматичного оновлення
     _refreshTimer = AppHelper.startRefreshTimer(_fetchUnitData);
   }
 
@@ -53,7 +52,30 @@ class _UnitPageState extends State<UnitPage> {
     _fetchUnitData();
   }
 
-  // Визначення кольору для статусу BMS
+  IconData _getConnectionIcon(String status) {
+    switch (status.toUpperCase()) {
+      case 'ACTIVE':
+        return Icons.cloud_done;
+      case 'STANDBY':
+        return Icons.access_time_filled;
+      case 'OFFLINE':
+      default:
+        return Icons.cloud_off;
+    }
+  }
+
+  Color _getConnectionColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'ACTIVE':
+        return Colors.green;
+      case 'STANDBY':
+        return Colors.orange;
+      case 'OFFLINE':
+      default:
+        return Colors.red;
+    }
+  }
+
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'charging':
@@ -131,11 +153,7 @@ class _UnitPageState extends State<UnitPage> {
         ],
       ),
       body: _isLoading
-          ? const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
-        ),
-      )
+          ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.red)))
           : _unitModel == null
           ? const Center(child: Text("Дані відсутні"))
           : RefreshIndicator(
@@ -171,30 +189,25 @@ class _UnitPageState extends State<UnitPage> {
       children: list.map((b) {
         bool isError = _hasRealError(b.errorInfoDataHex);
         bool isWarning = !isError && (b.deltaMv >= UnitHelper.cellsCriticalDeltaMin);
-
-        IconData statusIcon = Icons.check_circle_outline;
-        Color statusColor = Colors.green;
-
-        if (isError) {
-          statusIcon = Icons.warning;
-          statusColor = Colors.red;
-        } else if (isWarning) {
-          statusIcon = Icons.report_problem;
-          statusColor = Colors.orange;
-        }
+        String batteryTitle = widget.location == LocationType.dacha ? "Акумулятор" : "Battery ${b.port}";
 
         return Column(
           children: [
             ListTile(
               leading: Icon(
-                b.isActive ? Icons.check_circle : Icons.remove_circle,
-                color: b.isActive ? Colors.green : Colors.red,
+                _getConnectionIcon(b.connectionStatus),
+                color: _getConnectionColor(b.connectionStatus),
+                size: 30,
               ),
               title: Row(
                 children: [
-                  Text("Battery ${b.port}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(batteryTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(width: 8),
-                  Icon(statusIcon, color: statusColor, size: 20),
+                  Icon(
+                      isError ? Icons.warning : (isWarning ? Icons.report_problem : Icons.check_circle_outline),
+                      color: isError ? Colors.red : (isWarning ? Colors.orange : Colors.green),
+                      size: 20
+                  ),
                 ],
               ),
               subtitle: Column(
@@ -204,7 +217,7 @@ class _UnitPageState extends State<UnitPage> {
                     text: TextSpan(
                       style: const TextStyle(color: Colors.black, fontSize: 13),
                       children: [
-                        TextSpan(text: "${b.socPercent}% | ${b.voltageCurV.toStringAsFixed(2)}V | ${b.currentCurA}A | "),
+                        TextSpan(text: "${b.socPercent.toStringAsFixed(0)}% | ${b.voltageCurV.toStringAsFixed(2)}V | ${b.currentCurA}A | "),
                         TextSpan(
                           text: b.bmsStatusStr,
                           style: TextStyle(color: _getStatusColor(b.bmsStatusStr), fontWeight: FontWeight.bold),
@@ -232,23 +245,20 @@ class _UnitPageState extends State<UnitPage> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Text("Battery ${battery.port}"),
+        title: Text(widget.location == LocationType.dacha ? "Акумулятор" : "Battery ${battery.port}"),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView(
             shrinkWrap: true,
             children: [
-              _buildDetailRow("Активна", battery.isActive ? "Так" : "Ні", battery.isActive ? Colors.green : Colors.red),
+              _buildDetailRow("Зв'язок", battery.connectionStatus, _getConnectionColor(battery.connectionStatus)),
               _buildDetailRow("Оновлено", battery.timestamp, Colors.grey),
               _buildDetailRow("Напруга", "${battery.voltageCurV.toStringAsFixed(2)} V", null),
-              _buildDetailRow("Заряд (SOC)", "${battery.socPercent}%", Colors.blue),
+              _buildDetailRow("Заряд (SOC)", "${battery.socPercent.toStringAsFixed(1)}%", Colors.blue),
               _buildDetailRow("Струм", "${battery.currentCurA} A", null),
               _buildDetailRow("Статус BMS", battery.bmsStatusStr, _getStatusColor(battery.bmsStatusStr)),
-                // Віджет додасться до Column ТІЛЬКИ якщо bmsTempValue не null
               if (battery.bmsTempValue != null)
-                _buildDetailRow("Температура BMS", "${battery.bmsTempValue!.toStringAsFixed(2)}°C", null
-                  // Colors.white, // Або інший колір, який ви використовуєте для значень
-                ),
+                _buildDetailRow("Температура BMS", "${battery.bmsTempValue!.toStringAsFixed(2)}°C", null),
               _buildDetailRow(
                   "Помилка (HEX)",
                   _formatHex(battery.errorInfoDataHex),
@@ -326,10 +336,8 @@ class _UnitPageState extends State<UnitPage> {
 
   Widget _buildFloorExpansion(List<DeviceModel> list) {
     return ExpansionTile(
-      title: const Text("Тепла підлога",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-      children: list
-          .map((d) => ListTile(
+      title: const Text("Тепла підлога", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+      children: list.map((d) => ListTile(
         title: Text(d.name),
         subtitle: Text("Поточна: ${d.currentValue}°C"),
         trailing: Column(
@@ -339,20 +347,16 @@ class _UnitPageState extends State<UnitPage> {
             Text("${d.settingValue}°C", style: const TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
-      ))
-          .toList(),
+      )).toList(),
     );
   }
 
   Widget _buildHeader(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Text(title,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+      child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
     );
   }
 
-  Future<void> _toggleDevice(DeviceModel device, bool newValue) async {
-    // POST запит
-  }
+  Future<void> _toggleDevice(DeviceModel device, bool newValue) async {}
 }
