@@ -7,8 +7,10 @@ import '../../helpers/api_server_helper.dart';
 import '../../helpers/app_helper.dart';
 import '../data_home/data_location_type.dart';
 import 'battery_info_model.dart';
+import 'device_model.dart';
 import 'unit_model.dart';
 import 'unit_helper.dart';
+import 'inverter_model.dart'; // Додано імпорт
 
 class UnitPage extends StatefulWidget {
   final LocationType location;
@@ -52,9 +54,12 @@ class _UnitPageState extends State<UnitPage> {
     _fetchUnitData();
   }
 
+  // --- Helpers ---
+
   IconData _getConnectionIcon(String status) {
     switch (status.toUpperCase()) {
       case 'ACTIVE':
+      case 'ONLINE':
         return Icons.cloud_done;
       case 'STANDBY':
         return Icons.access_time_filled;
@@ -67,6 +72,7 @@ class _UnitPageState extends State<UnitPage> {
   Color _getConnectionColor(String status) {
     switch (status.toUpperCase()) {
       case 'ACTIVE':
+      case 'ONLINE':
         return Colors.green;
       case 'STANDBY':
         return Colors.orange;
@@ -110,6 +116,8 @@ class _UnitPageState extends State<UnitPage> {
     return '${ApiServerHelper.backendUrl}${AppHelper.apiPathUnit}$path';
   }
 
+  // --- Data Fetching ---
+
   Future<void> _fetchUnitData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -143,6 +151,8 @@ class _UnitPageState extends State<UnitPage> {
     }
   }
 
+  // --- UI Builders ---
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -171,15 +181,120 @@ class _UnitPageState extends State<UnitPage> {
 
     return ListView(
       children: [
+        // 1. Інвертор завжди перший
+        if (_unitModel!.inverter != null)
+          _buildInverterCard(_unitModel!.inverter!),
+
+        // 2. Мережа
         if (grid.isNotEmpty) ..._buildDeviceSection("Мережа (Grid)", grid),
+
+        // 3. Акумулятори
         if (_unitModel!.batteries.isNotEmpty)
           _buildBatteryExpansion(_unitModel!.batteries),
+
+        // 4. Тепла підлога
         if (floors.isNotEmpty)
           _buildFloorExpansion(floors),
+
+        // 5. Інші пристрої
         if (others.isNotEmpty) ..._buildDeviceSection("Інші пристрої", others),
       ],
     );
   }
+
+  // --- Inverter Widgets ---
+
+  Widget _buildInverterCard(InverterModel inverter) {
+    final info = inverter.inverterInfo;
+    final bool isOnline = inverter.isOnline;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildHeader("Інвертор"),
+        Card(
+          elevation: 3,
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: ListTile(
+            onTap: () => info != null ? _showInverterDetails(inverter) : null,
+            leading: Icon(
+              Icons.solar_power,
+              color: isOnline ? Colors.green : Colors.grey,
+              size: 40,
+            ),
+            title: Text(
+              info?.productName ?? "Inverter Info",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("${info?.manufacturer ?? 'N/A'} | ${info?.ratedPower} kW"),
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isOnline ? Colors.green : Colors.red,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      inverter.connectionStatus ?? "OFFLINE",
+                      style: TextStyle(
+                        color: isOnline ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            trailing: const Icon(Icons.info_outline, color: Colors.blueGrey),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showInverterDetails(InverterModel inverter) {
+    final info = inverter.inverterInfo!;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Text(info.productName),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDetailRow("Статус", inverter.connectionStatus ?? "N/A", inverter.isOnline ? Colors.green : Colors.red),
+              _buildDetailRow("Виробник", info.manufacturer, null),
+              _buildDetailRow("Модель", info.modelName, null),
+              _buildDetailRow("Потужність", "${info.ratedPower} kW", Colors.blue),
+              _buildDetailRow("Вольтаж", "${info.inputVoltage}V", null),
+              _buildDetailRow("Фазність", info.phaseType, null),
+              _buildDetailRow("Тип", info.isHybrid ? "Hybrid" : "Off-grid", Colors.orange),
+              _buildDetailRow("MPPT", info.mpptControllerName, null),
+              _buildDetailRow("Комісія", info.commissioningDate, Colors.grey),
+              if (inverter.timestamp != null)
+                _buildDetailRow("Оновлено", inverter.timestamp!, Colors.grey),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Закрити"))
+        ],
+      ),
+    );
+  }
+
+  // --- Battery Widgets ---
 
   Widget _buildBatteryExpansion(List<BatteryInfoModel> list) {
     return ExpansionTile(
@@ -299,6 +414,8 @@ class _UnitPageState extends State<UnitPage> {
     );
   }
 
+  // --- Device & Floor Widgets ---
+
   Widget _buildDetailRow(String label, String value, Color? color) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -358,5 +475,7 @@ class _UnitPageState extends State<UnitPage> {
     );
   }
 
-  Future<void> _toggleDevice(DeviceModel device, bool newValue) async {}
+  Future<void> _toggleDevice(DeviceModel device, bool newValue) async {
+    // Реалізація логіки перемикання пристрою
+  }
 }
