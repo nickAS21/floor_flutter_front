@@ -10,7 +10,7 @@ import 'battery_info_model.dart';
 import 'device_model.dart';
 import 'unit_model.dart';
 import 'unit_helper.dart';
-import 'inverter_model.dart'; // Додано імпорт
+import 'inverter_model.dart';
 
 class UnitPage extends StatefulWidget {
   final LocationType location;
@@ -56,7 +56,8 @@ class _UnitPageState extends State<UnitPage> {
 
   // --- Helpers ---
 
-  IconData _getConnectionIcon(String status) {
+  IconData _getConnectionIcon(String? status) {
+    if (status == null) return Icons.cloud_off;
     switch (status.toUpperCase()) {
       case 'ACTIVE':
       case 'ONLINE':
@@ -69,7 +70,8 @@ class _UnitPageState extends State<UnitPage> {
     }
   }
 
-  Color _getConnectionColor(String status) {
+  Color _getConnectionColor(String? status) {
+    if (status == null) return Colors.red;
     switch (status.toUpperCase()) {
       case 'ACTIVE':
       case 'ONLINE':
@@ -181,16 +183,16 @@ class _UnitPageState extends State<UnitPage> {
 
     return ListView(
       children: [
-        // 1. Інвертор завжди перший
+        // 1. Інвертор
         if (_unitModel!.inverter != null)
           _buildInverterCard(_unitModel!.inverter!),
 
-        // 2. Мережа
-        if (grid.isNotEmpty) ..._buildDeviceSection("Мережа (Grid)", grid),
-
-        // 3. Акумулятори
+        // 2. Акумулятори (Expansion у стилі картки)
         if (_unitModel!.batteries.isNotEmpty)
           _buildBatteryExpansion(_unitModel!.batteries),
+
+        // 3. Мережа
+        if (grid.isNotEmpty) ..._buildDeviceSection("Мережа (Grid)", grid),
 
         // 4. Тепла підлога
         if (floors.isNotEmpty)
@@ -206,7 +208,7 @@ class _UnitPageState extends State<UnitPage> {
 
   Widget _buildInverterCard(InverterModel inverter) {
     final info = inverter.inverterInfo;
-    final bool isOnline = inverter.isOnline;
+    final Color statusColor = inverter.statusColor;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,8 +221,8 @@ class _UnitPageState extends State<UnitPage> {
           child: ListTile(
             onTap: () => info != null ? _showInverterDetails(inverter) : null,
             leading: Icon(
-              Icons.solar_power,
-              color: isOnline ? Colors.green : Colors.grey,
+              _getConnectionIcon(inverter.connectionStatus),
+              color: statusColor,
               size: 40,
             ),
             title: Text(
@@ -236,19 +238,12 @@ class _UnitPageState extends State<UnitPage> {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isOnline ? Colors.green : Colors.red,
-                      ),
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor),
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      inverter.connectionStatus ?? "OFFLINE",
-                      style: TextStyle(
-                        color: isOnline ? Colors.green : Colors.red,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
+                      inverter.statusText,
+                      style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                   ],
                 ),
@@ -261,7 +256,72 @@ class _UnitPageState extends State<UnitPage> {
     );
   }
 
+  // --- Battery Widgets (Expansion in Inverter Style) ---
+
+  Widget _buildBatteryExpansion(List<BatteryInfoModel> list) {
+    // Для заголовку використовуємо дані першої батареї або загальний статус
+    final bool hasError = list.any((b) => _hasRealError(b.errorInfoDataHex));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Card(
+          elevation: 3,
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              leading: Icon(
+                  Icons.battery_charging_full,
+                  color: hasError ? Colors.red : Colors.blue,
+                  size: 40
+              ),
+              title: const Text(
+                "Система акумуляторів",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                "Кількість: ${list.length} | SOC: ${list.first.socPercent.toStringAsFixed(0)}%",
+                style: const TextStyle(fontSize: 12),
+              ),
+              children: list.map((b) {
+                Color connColor = _getConnectionColor(b.connectionStatus);
+                return Column(
+                  children: [
+                    const Divider(height: 1),
+                    ListTile(
+                      onTap: () => _showBatteryDetails(b),
+                      leading: Icon(
+                        _getConnectionIcon(b.connectionStatus),
+                        color: connColor,
+                        size: 30,
+                      ),
+                      title: Text(
+                        widget.location == LocationType.dacha ? "Акумулятор" : "Battery ${b.port}",
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        "${b.socPercent.toStringAsFixed(0)}% | ${b.voltageCurV.toStringAsFixed(2)}V | ${b.bmsStatusStr}",
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 18),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- Common Widgets ---
+
   void _showInverterDetails(InverterModel inverter) {
+    if (inverter.inverterInfo == null) return;
     final info = inverter.inverterInfo!;
     showDialog(
       context: context,
@@ -273,7 +333,7 @@ class _UnitPageState extends State<UnitPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildDetailRow("Статус", inverter.connectionStatus ?? "N/A", inverter.isOnline ? Colors.green : Colors.red),
+              _buildDetailRow("Статус порту", inverter.statusText, inverter.statusColor),
               _buildDetailRow("Виробник", info.manufacturer, null),
               _buildDetailRow("Модель", info.modelName, null),
               _buildDetailRow("Потужність", "${info.ratedPower} kW", Colors.blue),
@@ -294,64 +354,6 @@ class _UnitPageState extends State<UnitPage> {
     );
   }
 
-  // --- Battery Widgets ---
-
-  Widget _buildBatteryExpansion(List<BatteryInfoModel> list) {
-    return ExpansionTile(
-      initiallyExpanded: true,
-      title: const Text("Акумулятори (BMS)",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-      children: list.map((b) {
-        bool isError = _hasRealError(b.errorInfoDataHex);
-        bool isWarning = !isError && (b.deltaMv >= UnitHelper.cellsCriticalDeltaMin);
-        String batteryTitle = widget.location == LocationType.dacha ? "Акумулятор" : "Battery ${b.port}";
-
-        return Column(
-          children: [
-            ListTile(
-              leading: Icon(
-                _getConnectionIcon(b.connectionStatus),
-                color: _getConnectionColor(b.connectionStatus),
-                size: 30,
-              ),
-              title: Row(
-                children: [
-                  Text(batteryTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(width: 8),
-                  Icon(
-                      isError ? Icons.warning : (isWarning ? Icons.report_problem : Icons.check_circle_outline),
-                      color: isError ? Colors.red : (isWarning ? Colors.orange : Colors.green),
-                      size: 20
-                  ),
-                ],
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  RichText(
-                    text: TextSpan(
-                      style: const TextStyle(color: Colors.black, fontSize: 13),
-                      children: [
-                        TextSpan(text: "${b.socPercent.toStringAsFixed(0)}% | ${b.voltageCurV.toStringAsFixed(2)}V | ${b.currentCurA}A | "),
-                        TextSpan(
-                          text: b.bmsStatusStr,
-                          style: TextStyle(color: _getStatusColor(b.bmsStatusStr), fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text("Оновлено: ${b.timestamp}", style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                ],
-              ),
-              onTap: () => _showBatteryDetails(b),
-            ),
-            const Divider(height: 1),
-          ],
-        );
-      }).toList(),
-    );
-  }
-
   void _showBatteryDetails(BatteryInfoModel battery) {
     bool isError = _hasRealError(battery.errorInfoDataHex);
     bool isCriticalDelta = battery.deltaMv >= UnitHelper.cellsCriticalDeltaMin;
@@ -366,7 +368,7 @@ class _UnitPageState extends State<UnitPage> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              _buildDetailRow("Зв'язок", battery.connectionStatus, _getConnectionColor(battery.connectionStatus)),
+              _buildDetailRow("Зв'язок", battery.connectionStatus ?? "N/A", _getConnectionColor(battery.connectionStatus)),
               _buildDetailRow("Оновлено", battery.timestamp, Colors.grey),
               _buildDetailRow("Напруга", "${battery.voltageCurV.toStringAsFixed(2)} V", null),
               _buildDetailRow("Заряд (SOC)", "${battery.socPercent.toStringAsFixed(1)}%", Colors.blue),
@@ -381,29 +383,16 @@ class _UnitPageState extends State<UnitPage> {
               ),
               const Divider(),
               _buildDetailRow("Delta", "${battery.deltaMv.toStringAsFixed(3)} V", isCriticalDelta ? Colors.red : Colors.green),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.0),
-                child: Text("Напруга комірок:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
-              ),
-              ...battery.cellVoltagesV.entries.map((e) {
-                Color? accentColor;
-                if (isCriticalDelta) {
-                  if (e.key == battery.minCellIdx) accentColor = Colors.red;
-                  if (e.key == battery.maxCellIdx) accentColor = Colors.orange;
-                }
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text("Комірка ${e.key}"),
-                      Text("${e.value.toStringAsFixed(3)} V",
-                          style: TextStyle(color: accentColor, fontWeight: accentColor != null ? FontWeight.bold : FontWeight.normal)),
-                    ],
-                  ),
-                );
-              }),
+              ...battery.cellVoltagesV.entries.map((e) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Комірка ${e.key}"),
+                    Text("${e.value.toStringAsFixed(3)} V"),
+                  ],
+                ),
+              )),
             ],
           ),
         ),
@@ -413,8 +402,6 @@ class _UnitPageState extends State<UnitPage> {
       ),
     );
   }
-
-  // --- Device & Floor Widgets ---
 
   Widget _buildDetailRow(String label, String value, Color? color) {
     return Padding(
@@ -457,13 +444,7 @@ class _UnitPageState extends State<UnitPage> {
       children: list.map((d) => ListTile(
         title: Text(d.name),
         subtitle: Text("Поточна: ${d.currentValue}°C"),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text("Ціль", style: TextStyle(fontSize: 10)),
-            Text("${d.settingValue}°C", style: const TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
+        trailing: Text("${d.settingValue}°C", style: const TextStyle(fontWeight: FontWeight.bold)),
       )).toList(),
     );
   }
@@ -475,7 +456,5 @@ class _UnitPageState extends State<UnitPage> {
     );
   }
 
-  Future<void> _toggleDevice(DeviceModel device, bool newValue) async {
-    // Реалізація логіки перемикання пристрою
-  }
+  Future<void> _toggleDevice(DeviceModel device, bool newValue) async {}
 }
