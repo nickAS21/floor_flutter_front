@@ -87,9 +87,31 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         ? "null\n"
         : "${_dataHome!.timestampLastUpdateGridStatus}\n";
 
-    String powerPart = _dataHome!.gridStatusRealTimeSwitch
-        ? "${_dataHome!.gridPower.toInt()} W"
-        : "Off";
+    // Логіка напруги по фазах (відображаємо завжди, коли є onLine)
+    String voltageInfo = "";
+    if (_dataHome!.gridStatusRealTimeOnLine && _dataHome!.gridVoltageLs.isNotEmpty) {
+      List<String> formattedVoltages = _dataHome!.gridVoltageLs.entries
+          .map((e) => "L${e.key}: ${e.value.toInt()} V")
+          .toList();
+
+      if (formattedVoltages.length > 2) {
+        String row1 = formattedVoltages.take(2).join(" | ");
+        String row2 = formattedVoltages.skip(2).join(" | ");
+        voltageInfo = "\n$row1\n$row2";
+      } else {
+        voltageInfo = "\n" + formattedVoltages.join(" | ");
+      }
+    }
+
+    // ОНОВЛЕНА ЛОГІКА: приховуємо gridPower, якщо мережа Off або Offline
+    String powerPart = "";
+    if (!_dataHome!.gridStatusRealTimeOnLine) {
+      powerPart = "Offline$voltageInfo"; // Мережа фізично недоступна
+    } else if (!_dataHome!.gridStatusRealTimeSwitch) {
+      powerPart = "Off$voltageInfo";     // Мережа є, але вимкнена
+    } else {
+      powerPart = "${_dataHome!.gridPower.toInt()} W$voltageInfo"; // Мережа працює
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),

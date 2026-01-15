@@ -14,6 +14,7 @@ class DataHome {
   final double dailyBatteryCharge;
   final double dailyBatteryDischarge;
   final double dailyProductionSolarPower;
+  final Map<int, double> gridVoltageLs;
 
   DataHome({
     required this.timestamp,
@@ -31,10 +32,18 @@ class DataHome {
     required this.dailyBatteryCharge,
     required this.dailyBatteryDischarge,
     required this.dailyProductionSolarPower,
+    required this.gridVoltageLs,
   });
 
   factory DataHome.fromJson(Map<String, dynamic> json) {
+    final Map<int, double> voltages = {};
+    if (json['gridVoltageLs'] != null) {
+      (json['gridVoltageLs'] as Map<String, dynamic>).forEach((key, value) {
+        voltages[int.parse(key)] = (value as num).toDouble();
+      });
+    }
     return DataHome(
+      gridVoltageLs: voltages,
       timestamp: json['timestamp'] ?? 0,
       batterySoc: (json['batterySoc'] ?? 0).toDouble(),
       batteryVol: (json['batteryVol'] ?? 0).toDouble(),
