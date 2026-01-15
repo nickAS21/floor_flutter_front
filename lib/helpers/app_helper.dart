@@ -25,8 +25,10 @@ class AppHelper {
   static const String apiPathTuya = '$apiPathApi/tuya';
   static const String apiPathSmart = '$apiPathApi/smart';
   static const String pathGolego = '/golego';
-  static const String pathApp = '/app';
   static const String pathDacha = '/dacha';
+ static const String pathToday = '/today';
+  static const String pathYesterday = '/yesterday';
+  static const String pathApp = '/app';
   static const String pathDevice = '/device';
 
   static const int refreshIntervalMinutes = 1;
