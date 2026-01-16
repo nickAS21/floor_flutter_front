@@ -259,62 +259,28 @@ class _UnitPageState extends State<UnitPage> {
   // --- Battery Widgets (Expansion in Inverter Style) ---
 
   Widget _buildBatteryExpansion(List<BatteryInfoModel> list) {
-    // Для заголовку використовуємо дані першої батареї або загальний статус
-    final bool hasError = list.any((b) => _hasRealError(b.errorInfoDataHex));
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Card(
-          elevation: 3,
-          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              leading: Icon(
-                  Icons.battery_charging_full,
-                  color: hasError ? Colors.red : Colors.blue,
-                  size: 40
-              ),
-              title: const Text(
-                "Система акумуляторів",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text(
-                "Кількість: ${list.length} | SOC: ${list.first.socPercent.toStringAsFixed(0)}%",
-                style: const TextStyle(fontSize: 12),
-              ),
-              children: list.map((b) {
-                Color connColor = _getConnectionColor(b.connectionStatus);
-                return Column(
-                  children: [
-                    const Divider(height: 1),
-                    ListTile(
-                      onTap: () => _showBatteryDetails(b),
-                      leading: Icon(
-                        _getConnectionIcon(b.connectionStatus),
-                        color: connColor,
-                        size: 30,
-                      ),
-                      title: Text(
-                        widget.location == LocationType.dacha ? "Акумулятор" : "Battery ${b.port}",
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                      subtitle: Text(
-                        "${b.socPercent.toStringAsFixed(0)}% | ${b.voltageCurV.toStringAsFixed(2)}V | ${b.bmsStatusStr}",
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      trailing: const Icon(Icons.chevron_right, size: 18),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.all(10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ExpansionTile(
+        leading: Icon(
+          Icons.battery_charging_full,
+          color: list.any((b) => UnitHelper.hasRealError(b.errorInfoDataHex)) ? Colors.red : Colors.blue,
+          size: 40,
         ),
-      ],
+        title: const Text("Система акумуляторів", style: TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text("Модулів: ${list.length}"),
+        children: list.map((b) => ListTile(
+          leading: Icon(
+            UnitHelper.getConnectionIcon(b.connectionStatus),
+            color: UnitHelper.hasRealError(b.errorInfoDataHex) ? Colors.red : UnitHelper.getConnectionColor(b.connectionStatus),
+          ),
+          title: Text("Battery ${b.port}"),
+          subtitle: Text("${b.socPercent.toInt()}% | ${b.voltageCurV.toStringAsFixed(2)}V"),
+          onTap: () => _showBatteryDetails(b), // Ваш існуючий метод деталей
+        )).toList(),
+      ),
     );
   }
 
