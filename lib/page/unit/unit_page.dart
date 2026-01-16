@@ -226,7 +226,7 @@ class _UnitPageState extends State<UnitPage> {
               size: 40,
             ),
             title: Text(
-              info?.productName ?? "Inverter Info",
+              "${info?.productName ?? 'Inverter'} (Port ${inverter.port ?? 'N/A'})",
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Column(
@@ -299,6 +299,7 @@ class _UnitPageState extends State<UnitPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              _buildDetailRow("Номер порту", "${inverter.port}", Colors.blueGrey),
               _buildDetailRow("Статус порту", inverter.statusText, inverter.statusColor),
               _buildDetailRow("Виробник", info.manufacturer, null),
               _buildDetailRow("Модель", info.modelName, null),

@@ -3,6 +3,12 @@ import 'package:flutter/material.dart';
 class UnitHelper {
   static const double cellsCriticalDeltaMin = 0.100;
 
+  static const TextStyle badgeStyle = TextStyle(
+    fontSize: 8,
+    fontWeight: FontWeight.normal, // Дефолтний варіант
+    letterSpacing: 0.3,            // Трохи розсовуємо літери для читабельності
+  );
+
   static IconData getConnectionIcon(String? status) {
     if (status?.toUpperCase() == 'ACTIVE' || status?.toUpperCase() == 'ONLINE') return Icons.cloud_done;
     if (status?.toUpperCase() == 'STANDBY') return Icons.access_time_filled;

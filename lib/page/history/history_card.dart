@@ -28,9 +28,22 @@ class HistoryCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Row(children: [
-                          _badge(record.gridStatusRealTimeSwitch ? "SW ON" : "SW OFF", record.gridStatusRealTimeSwitch ? Colors.blue : Colors.grey),
-                          const SizedBox(width: 4),
-                          _badge(record.gridStatusRealTimeOnLine ? "GRID ON" : "GRID OFF", record.gridStatusRealTimeOnLine ? Colors.green : Colors.red),
+                          Text("GRID: ", style: UnitHelper.badgeStyle.copyWith(color: Colors.black54)),
+                          _badge(
+                              record.gridStatusRealTimeSwitch ? "SW ON" : "SW OFF",
+                              record.gridStatusRealTimeSwitch ? Colors.blue : Colors.grey
+                          ),
+                          Text(" / ", style: UnitHelper.badgeStyle.copyWith(color: Colors.grey)),
+                          _badge(
+                              record.gridStatusRealTimeOnLine ? "ON LINE" : "OFF LINE",
+                              record.gridStatusRealTimeOnLine ? Colors.green : Colors.red
+                          ),
+                          Text(" | INV (P:${record.inverterPort}): ", style: UnitHelper.badgeStyle.copyWith(color: Colors.black54)),
+                          Icon(
+                            UnitHelper.getConnectionIcon(record.inverterPortConnectionStatus),
+                            size: 10,
+                            color: UnitHelper.getConnectionColor(record.inverterPortConnectionStatus),
+                          ),
                         ]),
                         Text("${record.batterySoc.toInt()}%", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
                         Text(

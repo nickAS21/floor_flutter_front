@@ -5,6 +5,8 @@ class HistoryModel {
   final double batteryVol;
   final bool gridStatusRealTimeOnLine;
   final bool gridStatusRealTimeSwitch;
+  final int inverterPort;
+  final String inverterPortConnectionStatus;
   final Map<String, dynamic>? dataHome;
   final List<dynamic>? batteries;
 
@@ -15,6 +17,8 @@ class HistoryModel {
     required this.batteryVol,
     required this.gridStatusRealTimeOnLine,
     required this.gridStatusRealTimeSwitch,
+    required this.inverterPort,
+    required this.inverterPortConnectionStatus,
     this.dataHome,
     this.batteries,
   });
@@ -27,6 +31,8 @@ class HistoryModel {
       batteryVol: (json['batteryVol'] ?? 0.0).toDouble(),
       gridStatusRealTimeOnLine: json['gridStatusRealTimeOnLine'] ?? false,
       gridStatusRealTimeSwitch: json['gridStatusRealTimeSwitch'] ?? false,
+      inverterPort: json['inverterPort'] ?? 0,
+      inverterPortConnectionStatus: json['inverterPortConnectionStatus'] ?? '--',
       dataHome: json['dataHome'] as Map<String, dynamic>?,
       batteries: json['batteries'] as List<dynamic>?,
     );
