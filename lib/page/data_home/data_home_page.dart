@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:floor_front/page/data_home/data_home_painter.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -9,6 +10,7 @@ import '../../helpers/api_server_helper.dart';
 import '../../helpers/app_helper.dart';
 import '../../l10n/app_localizations.dart';
 import 'data_home_model.dart';
+import 'package:floor_front/page/settings/settings_model.dart';
 
 class HomePage extends StatefulWidget {
   final LocationType location;
@@ -23,6 +25,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _loading = true;
   Timer? _refreshTimer;
   AnimationController? _animController;
+  bool _hasShownAlarmSnippet = false;
 
   static const double solarY = -0.85;
   static const double inverterY = -0.15;
@@ -42,7 +45,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void didUpdateWidget(HomePage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.location != widget.location) {
-      setState(() { _loading = true; _dataHome = null; });
+      // Використовуємо callback, щоб дочекатися завершення побудови кадру
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).removeCurrentSnackBar();
+        }
+      });
+
+      setState(() {
+        _loading = true;
+        _dataHome = null;
+        _hasShownAlarmSnippet = false;
+      });
       _fetchData();
     }
   }
@@ -54,9 +68,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     super.dispose();
   }
 
+  // Розрахунок прозорості для ефекту блимання
+  double get _batteryOpacity {
+    if (_dataHome == null || _dataHome!.batterySoc >= BatteryStatus.alarm.value) return 1.0;
+    return 0.2 + (0.8 * (math.sin(_animController!.value * math.pi * 2).abs()));
+  }
+
   Future<void> _fetchData() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken') ?? '';
+
+    // ОРИГІНАЛЬНА ЛОГІКА URL
     String apiUrl = widget.location == LocationType.dacha
         ? '${ApiServerHelper.backendUrl}${AppHelper.apiPathHome}${AppHelper.pathDacha}'
         : '${ApiServerHelper.backendUrl}${AppHelper.apiPathHome}${AppHelper.pathGolego}';
@@ -72,6 +94,40 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             _dataHome = DataHome.fromJson(decoded);
           }
           _loading = false;
+
+          if (_dataHome!.batterySoc < BatteryStatus.alarm.value) {
+            if (!_hasShownAlarmSnippet) {
+              _hasShownAlarmSnippet = true;
+
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  // Очищаємо чергу і показуємо нове повідомлення
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      // Використовуємо BatteryStatus.alarm.value замість 30
+                      content: Text(
+                          "УВАГА: Критичний рівень заряду акумулятора ${widget.location.label} (< ${BatteryStatus.alarm.value.toInt()}%!)"
+                      ),
+                      backgroundColor: Colors.red.shade900,
+                      duration: const Duration(seconds: 10),
+                    ),
+                  );
+                }
+              });
+            }
+          } else {
+            if (_hasShownAlarmSnippet) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                }
+              });
+              setState(() {
+                _hasShownAlarmSnippet = false;
+              });
+            }
+          }
         });
       }
     } catch (e) { debugPrint("Error: $e"); }
@@ -82,12 +138,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (_loading || _dataHome == null) return const Center(child: CircularProgressIndicator());
 
     final double batW = _dataHome!.batteryVol * _dataHome!.batteryCurrent;
+    final bool isBatteryAlarm = _dataHome!.batterySoc < BatteryStatus.alarm.value;
 
     String timePart = (_dataHome!.timestampLastUpdateGridStatus.isEmpty || _dataHome!.timestampLastUpdateGridStatus == "null")
         ? "null\n"
         : "${_dataHome!.timestampLastUpdateGridStatus}\n";
 
-    // Логіка напруги по фазах (відображаємо завжди, коли є onLine)
     String voltageInfo = "";
     if (_dataHome!.gridStatusRealTimeOnLine && _dataHome!.gridVoltageLs.isNotEmpty) {
       List<String> formattedVoltages = _dataHome!.gridVoltageLs.entries
@@ -103,14 +159,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       }
     }
 
-    // ОНОВЛЕНА ЛОГІКА: приховуємо gridPower, якщо мережа Off або Offline
     String powerPart = "";
     if (!_dataHome!.gridStatusRealTimeOnLine) {
-      powerPart = "Offline$voltageInfo"; // Мережа фізично недоступна
+      powerPart = "Offline$voltageInfo";
     } else if (!_dataHome!.gridStatusRealTimeSwitch) {
-      powerPart = "Off$voltageInfo";     // Мережа є, але вимкнена
+      powerPart = "Off$voltageInfo";
     } else {
-      powerPart = "${_dataHome!.gridPower.toInt()} W$voltageInfo"; // Мережа працює
+      powerPart = "${_dataHome!.gridPower.toInt()} W$voltageInfo";
     }
 
     return Scaffold(
@@ -145,7 +200,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         ),
                         _buildNode(0, solarY, "lib/assets/data_home/solar-panel-100.png", AppLocalizations.of(context)!.solarPanel, "${_dataHome!.solarPower.toInt()} W"),
                         _buildNode(0, inverterY, "lib/assets/data_home/solar-inverter.png", "", ""),
-                        _buildNode(-sideNodesX, bottomNodesY, "lib/assets/data_home/accumulator-64.png", AppLocalizations.of(context)!.battery, " · ${_dataHome!.batteryCurrent.toStringAsFixed(2)} A · ${_dataHome!.batteryVol.toStringAsFixed(2)} V\n · ${batW.toInt()} W · ${_dataHome!.batterySoc.toStringAsFixed(2)} %"),
+
+                        // АКУМУЛЯТОР З БЛИМАННЯМ ТА ЧЕРВОНИМ ТЕКСТОМ
+                        _buildNode(
+                          -sideNodesX,
+                          bottomNodesY,
+                          "lib/assets/data_home/accumulator-64.png",
+                          AppLocalizations.of(context)!.battery,
+                          " · ${_dataHome!.batteryCurrent.toStringAsFixed(2)} A · ${_dataHome!.batteryVol.toStringAsFixed(2)} V\n · ${batW.toInt()} W · ${_dataHome!.batterySoc.toStringAsFixed(2)} %",
+                          isBattery: true,
+                          isAlarm: isBatteryAlarm,
+                        ),
+
                         _buildNode(0, gridY,
                             _dataHome!.gridStatusRealTimeOnLine ? "lib/assets/data_home/electric-pole-64_green.png" : "lib/assets/data_home/electric-pole-64_red.png",
                             AppLocalizations.of(context)!.grid, timePart + powerPart, isGrid: true, status: _dataHome!.gridStatusRealTimeOnLine),
@@ -164,18 +230,35 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildNode(double x, double y, String assetPath, String label, String val, {bool isGrid = false, bool status = true}) {
+  Widget _buildNode(double x, double y, String assetPath, String label, String val, {bool isGrid = false, bool status = true, bool isBattery = false, bool isAlarm = false}) {
     return Align(
       alignment: Alignment(x, y),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Opacity(
-            opacity: (isGrid && !status) ? 0.4 : 1.0,
-            child: Image.asset(assetPath, width: 48, height: 48, errorBuilder: (c, e, s) => const Icon(Icons.error)),
+            // Застосовуємо геттер _batteryOpacity для акумулятора в режимі Alarm
+            opacity: isBattery && isAlarm ? _batteryOpacity : ((isGrid && !status) ? 0.4 : 1.0),
+            child: Image.asset(
+              assetPath,
+              width: 48,
+              height: 48,
+              errorBuilder: (c, e, s) => const Icon(Icons.error),
+              color: isBattery && isAlarm ? Colors.red : null,
+              colorBlendMode: isBattery && isAlarm ? BlendMode.srcIn : null,
+            ),
           ),
           if (label.isNotEmpty) Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          Text(val, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: (isGrid && !status) ? Colors.red : Colors.black, height: 1.2)),
+          Text(
+            val,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: (isAlarm || (isGrid && !status)) ? Colors.red : Colors.black,
+                height: 1.2
+            ),
+          ),
         ],
       ),
     );

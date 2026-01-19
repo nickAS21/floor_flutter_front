@@ -14,7 +14,6 @@ class LogsPage extends StatefulWidget {
 }
 
 class _LogsPageState extends State<LogsPage> {
-  // Перейменовано з _dachaLogs/_golegoLogs на універсальну назву
   String _appLogs = "Завантаження...";
   bool _isLoading = true;
 

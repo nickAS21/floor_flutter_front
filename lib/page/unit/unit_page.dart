@@ -158,12 +158,6 @@ class _UnitPageState extends State<UnitPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Керування: ${widget.location == LocationType.dacha ? 'Дача' : 'Golego'}"),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _resetAndFetch)
-        ],
-      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.red)))
           : _unitModel == null

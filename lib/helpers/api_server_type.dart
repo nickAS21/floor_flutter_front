@@ -1,1 +1,1 @@
-enum ApiServerType { localHostHome, localHostApi, localApiChrome, localApiDevice, localApiEmulator, kubernetesApi, customApi }
+enum ApiServerType { localHostHome, localHostDacha, localHostApi, localApiChrome, localApiDevice, localApiEmulator, kubernetesApi, customApi }

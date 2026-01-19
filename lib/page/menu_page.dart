@@ -73,12 +73,12 @@ class _MenuPageState extends State<MenuPage> {
           icon: const SizedBox.shrink(),
           dropdownColor: Colors.white,
           selectedItemBuilder: (BuildContext context) {
-            return [LocationType.dacha, LocationType.golego].map((LocationType loc) {
+            return LocationType.values.map((LocationType loc) {
               return Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    loc == LocationType.dacha ? "Dacha" : "Golego",
+                    loc.label,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(width: 8),
@@ -87,34 +87,24 @@ class _MenuPageState extends State<MenuPage> {
               );
             }).toList();
           },
-          items: const [
-            DropdownMenuItem(
-              value: LocationType.dacha,
+          items: LocationType.values.map((LocationType loc) {
+            return DropdownMenuItem(
+              value: loc,
               child: Row(
                 children: [
-                  Text("Dacha"),
-                  SizedBox(width: 8),
-                  Icon(Icons.swap_horiz, size: 18, color: Colors.grey),
+                  Text(loc.label),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.swap_horiz, size: 18, color: Colors.grey),
                 ],
               ),
-            ),
-            DropdownMenuItem(
-              value: LocationType.golego,
-              child: Row(
-                children: [
-                  Text("Golego"),
-                  SizedBox(width: 8),
-                  Icon(Icons.swap_horiz, size: 18, color: Colors.grey),
-                ],
-              ),
-            ),
-          ],
+            );
+          }).toList(),
           onChanged: _onLocationChanged,
         ),
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // Для коректного відображення 7 пунктів
+        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         selectedFontSize: 11,
@@ -122,7 +112,7 @@ class _MenuPageState extends State<MenuPage> {
         items: [
           BottomNavigationBarItem(
             icon: const Icon(Icons.home),
-            label: _selectedLocation == LocationType.dacha ? "Dacha" : "Golego",
+            label: _selectedLocation.label, // Вже поправлено
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.settings),

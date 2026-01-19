@@ -9,6 +9,8 @@ class ApiServerHelper {
     switch (currentEnvironment) {
       case ApiServerType.localHostHome:
         return AppHelper.localBackendHostHome;
+       case ApiServerType.localHostDacha:
+        return AppHelper.localBackendHostDacha;
       case ApiServerType.localHostApi:
         return AppHelper.localBackendHost;
       case ApiServerType.localApiChrome:

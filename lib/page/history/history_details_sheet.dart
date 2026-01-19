@@ -8,12 +8,23 @@ class HistoryDetailsSheet extends StatelessWidget {
   final LocationType location;
   final Function(Map<String, dynamic>) onBatteryTap;
 
-  const HistoryDetailsSheet({
-    super.key,
-    required this.record,
-    required this.location,
-    required this.onBatteryTap
-  });
+  const HistoryDetailsSheet(
+      {super.key,
+      required this.record,
+      required this.location,
+      required this.onBatteryTap});
+
+  // Логіка кольору для верхньої іконки (статус мережі)
+  Color _getGridStatusColor() {
+    if (record.gridStatusRealTimeOnLine && record.gridStatusRealTimeSwitch) {
+      return Colors.green;
+    } else if (record.gridStatusRealTimeOnLine &&
+        !record.gridStatusRealTimeSwitch) {
+      return Colors.orange;
+    } else {
+      return Colors.red;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,33 +70,50 @@ class HistoryDetailsSheet extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(8.0),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const SizedBox(width: 48),
-        Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-      ],
-    ),
-  );
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const SizedBox(width: 48),
+            Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2))),
+            IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context)),
+          ],
+        ),
+      );
 
-  Widget _mainInfo() => Column(children: [
-    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Text("Запис ${record.timeOnly}", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-      Row(children: [
-        _badge(record.gridStatusRealTimeSwitch ? "SW ON" : "SW OFF", record.gridStatusRealTimeSwitch ? Colors.blue : Colors.grey),
-        const SizedBox(width: 4),
-        _badge(record.gridStatusRealTimeOnLine ? "ON LINE" : "OFF LINE", record.gridStatusRealTimeOnLine ? Colors.green : Colors.red),
+  Widget _mainInfo() {
+    return Column(children: [
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text("Запис ${record.timeOnly}",
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Row(children: [
+          // Тут іконка СТАТУСУ (динамічна: зелена/оранжева/червона)
+          Icon(Icons.cell_tower, size: 20, color: _getGridStatusColor()),
+          const SizedBox(width: 8),
+          _badge(record.gridStatusRealTimeSwitch ? "SW ON" : "SW OFF",
+              record.gridStatusRealTimeSwitch ? Colors.blue : Colors.grey),
+          const SizedBox(width: 4),
+          _badge(record.gridStatusRealTimeOnLine ? "ON LINE" : "OFF LINE",
+              record.gridStatusRealTimeOnLine ? Colors.green : Colors.red),
+        ]),
       ]),
-    ]),
-    const Divider(height: 20),
-    _row("Заряд системи", "${record.batterySoc.toInt()}%", color: Colors.orange),
-    _row("Напруга АКБ", "${record.batteryVol.toStringAsFixed(1)} V", color: Colors.blueGrey),
-    _row("Статус роботи", record.batteryStatus, color: UnitHelper.getStatusColor(record.batteryStatus)),
-  ]);
+      const Divider(height: 20),
+      _row("Заряд системи", "${record.batterySoc.toInt()}%",
+          color: Colors.orange),
+      _row("Напруга АКБ", "${record.batteryVol.toStringAsFixed(1)} V",
+          color: Colors.blueGrey),
+      _row("Статус роботи", record.batteryStatus,
+          color: UnitHelper.getStatusColor(record.batteryStatus)),
+    ]);
+  }
 
-  // Новий віджет для відображення Solar, Home та Grid Power
   Widget _buildDataHomeCard(Map<String, dynamic> data) {
     return Container(
       padding: const EdgeInsets.all(15),
@@ -97,9 +125,13 @@ class HistoryDetailsSheet extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _powerColumn(Icons.solar_power, "${data['solarPower'] ?? 0} W", "Solar", Colors.orange),
-          _powerColumn(Icons.home, "${data['homePower'] ?? 0} W", "Home", Colors.blue),
-          _powerColumn(Icons.grid_3x3, "${data['gridPower'] ?? 0} W", "Grid", Colors.green),
+          _powerColumn(Icons.solar_power, "${data['solarPower'] ?? 0} W",
+              "Solar", Colors.orange),
+          _powerColumn(
+              Icons.home, "${data['homePower'] ?? 0} W", "Home", Colors.blue),
+          // ТУТ: Вежа в блоці потужності тепер ЗАВЖДИ ЗЕЛЕНА
+          _powerColumn(Icons.cell_tower, "${data['gridPower'] ?? 0} W", "Grid",
+              Colors.green),
         ],
       ),
     );
@@ -110,13 +142,13 @@ class HistoryDetailsSheet extends StatelessWidget {
       children: [
         Icon(icon, color: color, size: 24),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text(value,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
       ],
     );
   }
 
-  // Віджет для номера порта інвертора та його статусу
   Widget _buildInverterPortStatus() {
     final status = record.inverterPortConnectionStatus;
     return Container(
@@ -124,7 +156,8 @@ class HistoryDetailsSheet extends StatelessWidget {
       decoration: BoxDecoration(
         color: UnitHelper.getConnectionColor(status).withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: UnitHelper.getConnectionColor(status).withOpacity(0.3)),
+        border: Border.all(
+            color: UnitHelper.getConnectionColor(status).withOpacity(0.3)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -137,60 +170,79 @@ class HistoryDetailsSheet extends StatelessWidget {
                 size: 20,
               ),
               const SizedBox(width: 8),
-              const Text("Інвертор", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text("Інвертор",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
-          Text(
-              "Port: ${record.inverterPort}",
-              style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 14)
-          ),
+          Text("Port: ${record.inverterPort}",
+              style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14)),
         ],
       ),
     );
   }
 
   Widget _batterySystem(BuildContext context, List batteries) => Card(
-    elevation: 3,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    child: ExpansionTile(
-      leading: Icon(Icons.battery_charging_full,
-          color: batteries.any((b) => UnitHelper.hasRealError(b['errorInfoDataHex'])) ? Colors.red : Colors.blue, size: 40),
-      title: const Text("Система акумуляторів", style: TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text("Модулів: ${batteries.length} | SOC: ${record.batterySoc.toInt()}%"),
-      children: batteries.map((b) => ListTile(
-        onTap: () => onBatteryTap(b),
-        leading: Icon(UnitHelper.getConnectionIcon(b['connectionStatus']), color: UnitHelper.getConnectionColor(b['connectionStatus'])),
-        title: Text("Battery ${b['port'] ?? ''}"),
-        subtitle: Text("${(b['socPercent'] ?? 0).toInt()}% | ${(b['voltageCurV'] ?? 0).toStringAsFixed(2)}V"),
-        trailing: const Icon(Icons.chevron_right),
-      )).toList(),
-    ),
-  );
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: ExpansionTile(
+          leading: Icon(Icons.battery_charging_full,
+              color: batteries.any(
+                      (b) => UnitHelper.hasRealError(b['errorInfoDataHex']))
+                  ? Colors.red
+                  : Colors.blue,
+              size: 40),
+          title: const Text("Система акумуляторів",
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          subtitle: Text(
+              "Модулів: ${batteries.length} | SOC: ${record.batterySoc.toInt()}%"),
+          children: batteries
+              .map((b) => ListTile(
+                    onTap: () => onBatteryTap(b),
+                    leading: Icon(
+                        UnitHelper.getConnectionIcon(b['connectionStatus']),
+                        color: UnitHelper.getConnectionColor(
+                            b['connectionStatus'])),
+                    title: Text("Battery ${b['port'] ?? ''}"),
+                    subtitle: Text(
+                        "${(b['socPercent'] ?? 0).toInt()}% | ${(b['voltageCurV'] ?? 0).toStringAsFixed(2)}V"),
+                    trailing: const Icon(Icons.chevron_right),
+                  ))
+              .toList(),
+        ),
+      );
 
   Widget _row(String l, String? v, {Color? color}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Text(l, style: const TextStyle(color: Colors.black54)),
-      Text(v ?? '--', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-    ]),
-  );
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child:
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(l, style: const TextStyle(color: Colors.black54)),
+          Text(v ?? '--',
+              style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+        ]),
+      );
 
   Widget _closeButton(BuildContext context) => SizedBox(
-    width: double.infinity,
-    child: ElevatedButton(
-      style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[200], foregroundColor: Colors.black87),
-      onPressed: () => Navigator.pop(context),
-      child: const Text("Закрити"),
-    ),
-  );
+        width: double.infinity,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey[200],
+              foregroundColor: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Закрити"),
+        ),
+      );
 
   Widget _badge(String t, Color c) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    decoration: BoxDecoration(
-        color: c.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: c, width: 0.8)
-    ),
-    child: Text(t, style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: c)),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+            color: c.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: c, width: 0.8)),
+        child: Text(t,
+            style:
+                TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: c)),
+      );
 }

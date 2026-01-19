@@ -21,6 +21,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _versionBackend = "";
   bool _currentHandleControl = false;
   bool _currentHeaterAuto = false;
+  bool _currentAutoAllDay = false;
   int? _currentSeasonsId;
 
   final TextEditingController _batteryController = TextEditingController();
@@ -28,6 +29,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   bool _originalHandleControl = false;
   bool _originalHeaterAuto = false;
+  bool _originalAutoAllDay = false;
   int? _originalSeasonsId;
   String _originalBatteryValue = "";
   String _originalLogsAppLimitValue = "";
@@ -36,27 +38,60 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _fetchData();
-    _batteryController.addListener(() => setState(() {}));
-    _logsLimitController.addListener(() => setState(() {}));
+
+    // Слухачі для активації кнопки збереження при вводі тексту
+    _batteryController.addListener(() { if(mounted) setState(() {}); });
+    _logsLimitController.addListener(() { if(mounted) setState(() {}); });
   }
 
-  @override
-  void didUpdateWidget(covariant SettingsPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.location != widget.location) {
-      setState(() {
-        _isLoading = true;
-        _batteryController.clear();
-        _logsLimitController.clear();
-      });
-      _fetchData();
-    }
+  void _showExclusiveWarning() {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Можливо вибрати тільки один із цих режимів керування"),
+        backgroundColor: Colors.orangeAccent,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _updateToggles(String type, bool value) {
+    setState(() {
+      if (value == true) {
+        // Перевіряємо, чи є хоча б один ІНШИЙ перемикач вже активним до зміни
+        bool anotherIsActive = false;
+
+        if (type == 'handle') {
+          anotherIsActive = _currentHeaterAuto || _currentAutoAllDay;
+        } else if (type == 'night') {
+          anotherIsActive = _currentHandleControl || _currentAutoAllDay;
+        } else if (type == 'allDay') {
+          anotherIsActive = _currentHandleControl || _currentHeaterAuto;
+        }
+
+        // Виводимо попередження, тільки якщо ми вимикаємо щось інше заради цього режиму
+        if (anotherIsActive) {
+          _showExclusiveWarning();
+        }
+
+        // Встановлюємо ексклюзивний вибір (Radio button logic)
+        _currentHandleControl = (type == 'handle');
+        _currentHeaterAuto = (type == 'night');
+        _currentAutoAllDay = (type == 'allDay');
+      } else {
+        // Якщо користувач просто вимикає активний перемикач
+        if (type == 'handle') _currentHandleControl = false;
+        if (type == 'night') _currentHeaterAuto = false;
+        if (type == 'allDay') _currentAutoAllDay = false;
+      }
+    });
   }
 
   bool _hasChanges() {
     bool baseChanges = _currentHandleControl != _originalHandleControl ||
-        _batteryController.text != _originalBatteryValue ||
-        _logsLimitController.text != _originalLogsAppLimitValue;
+        _currentAutoAllDay != _originalAutoAllDay ||
+        _logsLimitController.text.trim() != _originalLogsAppLimitValue ||
+        _batteryController.text.trim() != _originalBatteryValue;
 
     if (widget.location == LocationType.dacha) {
       return baseChanges ||
@@ -66,31 +101,37 @@ class _SettingsPageState extends State<SettingsPage> {
     return baseChanges;
   }
 
+  String? _validateSoc(String value) {
+    final double? soc = double.tryParse(value);
+    if (soc == null) return "Введіть число";
+    if (soc < SettingsModel.minSoc || soc > SettingsModel.maxSoc) {
+      return "Межі: ${SettingsModel.minSoc}% - ${SettingsModel.maxSoc}%";
+    }
+    return null;
+  }
+
   Future<void> _fetchData() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken') ?? '';
-
     String apiUrl = widget.location == LocationType.dacha
         ? '${ApiServerHelper.backendUrl}${AppHelper.apiPathSettings}${AppHelper.pathDacha}'
         : '${ApiServerHelper.backendUrl}${AppHelper.apiPathSettings}${AppHelper.pathGolego}';
 
     try {
-      final response = await http.get(
-          Uri.parse(apiUrl),
-          headers: {"Authorization": "Bearer $token"}
-      );
-
+      final response = await http.get(Uri.parse(apiUrl), headers: {"Authorization": "Bearer $token"});
       if (response.statusCode == 200) {
         final data = SettingsModel.fromJson(jsonDecode(response.body));
         setState(() {
           _versionBackend = data.versionBackend;
           _originalHandleControl = data.devicesChangeHandleControl;
-          _originalBatteryValue = data.batteryCriticalNightSocWinter?.toString() ?? "";
-          _originalLogsAppLimitValue = data.logsAppLimit.toString();
+          _originalAutoAllDay = data.heaterGridOnAutoAllDay;
           _originalHeaterAuto = data.heaterNightAutoOnDachaWinter ?? false;
           _originalSeasonsId = data.seasonsId;
+          _originalBatteryValue = data.batteryCriticalNightSocWinter?.toString() ?? "";
+          _originalLogsAppLimitValue = data.logsAppLimit.toString();
 
           _currentHandleControl = _originalHandleControl;
+          _currentAutoAllDay = _originalAutoAllDay;
           _currentHeaterAuto = _originalHeaterAuto;
           _currentSeasonsId = _originalSeasonsId;
           _batteryController.text = _originalBatteryValue;
@@ -99,28 +140,39 @@ class _SettingsPageState extends State<SettingsPage> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Помилка завантаження: $e"), backgroundColor: Colors.red),
-        );
-      }
+      setState(() => _isLoading = false);
     }
   }
 
   Future<void> _updateSettings() async {
     if (!_hasChanges()) return;
+
+    if (widget.location == LocationType.dacha) {
+      final error = _validateSoc(_batteryController.text);
+      if (error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: Colors.redAccent),
+        );
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
 
-    final int sentLimit = int.tryParse(_logsLimitController.text) ?? 100;
-    final double? sentBattery = widget.location == LocationType.dacha ? double.tryParse(_batteryController.text) : null;
-    final bool sentHandle = _currentHandleControl;
-    final bool? sentHeaterAuto = widget.location == LocationType.dacha ? _currentHeaterAuto : null;
-    final int? sentSeason = widget.location == LocationType.dacha ? _currentSeasonsId : null;
+    final Map<String, dynamic> body = {
+      'devicesChangeHandleControl': _currentHandleControl,
+      'heaterGridOnAutoAllDay': _currentAutoAllDay,
+      'logsAppLimit': int.tryParse(_logsLimitController.text) ?? 100,
+    };
+
+    if (widget.location == LocationType.dacha) {
+      body['batteryCriticalNightSocWinter'] = double.tryParse(_batteryController.text);
+      body['heaterNightAutoOnDachaWinter'] = _currentHeaterAuto;
+      body['seasonsId'] = _currentSeasonsId;
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken') ?? '';
-
     String apiUrl = widget.location == LocationType.dacha
         ? '${ApiServerHelper.backendUrl}${AppHelper.apiPathSettings}${AppHelper.pathDacha}'
         : '${ApiServerHelper.backendUrl}${AppHelper.apiPathSettings}${AppHelper.pathGolego}';
@@ -129,145 +181,113 @@ class _SettingsPageState extends State<SettingsPage> {
       final response = await http.post(
         Uri.parse(apiUrl),
         headers: {"Content-Type": "application/json", "Authorization": "Bearer $token"},
-        body: jsonEncode({
-          'devicesChangeHandleControl': sentHandle,
-          'logsAppLimit': sentLimit,
-          if (sentBattery != null) 'batteryCriticalNightSocWinter': sentBattery,
-          if (sentHeaterAuto != null) 'heaterNightAutoOnDachaWinter': sentHeaterAuto,
-          if (sentSeason != null) 'seasonsId': sentSeason,
-        }),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200) {
         final updatedData = SettingsModel.fromJson(jsonDecode(response.body));
-        List<String> failedFields = [];
-        final labels = SettingsModel.fieldLabels;
-
         setState(() {
-          _versionBackend = updatedData.versionBackend;
-          if (updatedData.devicesChangeHandleControl == sentHandle) {
-            _originalHandleControl = updatedData.devicesChangeHandleControl;
-          } else {
-            failedFields.add(labels[SettingsModel.keyHandle]!);
-          }
-          if (updatedData.logsAppLimit == sentLimit) {
-            _originalLogsAppLimitValue = updatedData.logsAppLimit.toString();
-          } else {
-            failedFields.add(labels[SettingsModel.keyLogs]!);
-          }
+          // 1. Оновлюємо еталони
+          _originalHandleControl = updatedData.devicesChangeHandleControl;
+          _originalAutoAllDay = updatedData.heaterGridOnAutoAllDay;
+
+          // 2. ПРИМУСОВА СИНХРОНІЗАЦІЯ ПОТОЧНОГО СТАНУ
+          _currentHandleControl = _originalHandleControl;
+          _currentAutoAllDay = _originalAutoAllDay;
+
           if (widget.location == LocationType.dacha) {
-            if (updatedData.batteryCriticalNightSocWinter == sentBattery) {
-              _originalBatteryValue = updatedData.batteryCriticalNightSocWinter?.toString() ?? "";
-            } else {
-              failedFields.add(labels[SettingsModel.keySoc]!);
-            }
-            if (updatedData.heaterNightAutoOnDachaWinter == sentHeaterAuto) {
-              _originalHeaterAuto = updatedData.heaterNightAutoOnDachaWinter ?? false;
-            } else {
-              failedFields.add(labels[SettingsModel.keyHeaterNightAuto]!);
-            }
-            if (updatedData.seasonsId == sentSeason) {
-              _originalSeasonsId = updatedData.seasonsId;
-            } else {
-              failedFields.add(labels[SettingsModel.keySeasonsId]!);
-            }
+            _originalHeaterAuto = updatedData.heaterNightAutoOnDachaWinter ?? false;
+            _currentHeaterAuto = _originalHeaterAuto; // Синхронізація
+
+            _originalSeasonsId = updatedData.seasonsId;
+            _currentSeasonsId = _originalSeasonsId;   // Синхронізація
+
+            _originalBatteryValue = updatedData.batteryCriticalNightSocWinter?.toString() ?? "";
           }
+
+          _originalLogsAppLimitValue = updatedData.logsAppLimit.toString();
           _isLoading = false;
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(failedFields.isEmpty ? "Налаштування збережено" : "Не оновлено: ${failedFields.join(', ')}"),
-            backgroundColor: failedFields.isEmpty ? Colors.green.shade600 : Colors.red,
-          ),
-        );
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Помилка збереження: $e"), backgroundColor: Colors.red),
-        );
-      }
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    bool canSave = _hasChanges() && !_isLoading;
     final labels = SettingsModel.fieldLabels;
+    final bool isDacha = widget.location == LocationType.dacha;
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        centerTitle: true,
-        title: Text(
-          "Налаштування: ${widget.location == LocationType.dacha ? 'Дача' : 'Golego'}",
-          style: const TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.blue),
-            onPressed: () {
-              setState(() => _isLoading = true);
-              _fetchData();
-            },
-          )
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
+      body: _isLoading ? const Center(child: CircularProgressIndicator()) : ListView(
         padding: const EdgeInsets.all(12.0),
         children: [
           _buildInfoCard(labels[SettingsModel.keyVersionBackend]!, _versionBackend),
           const SizedBox(height: 12),
 
-          IntrinsicHeight(
+          _buildToggleCard(
+            title: "Ручне керування",
+            subtitle: labels[SettingsModel.keyHandle]!,
+            value: _currentHandleControl,
+            icon: Icons.touch_app,
+            color: Colors.orange.shade800,
+            onChanged: (val) => _updateToggles('handle', val),
+          ),
+
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
             child: Row(
               children: [
-                Expanded(
-                  child: _buildToggleCard(
-                    title: "Ручне",
-                    subtitle: labels[SettingsModel.keyHandle]!,
-                    value: _currentHandleControl,
-                    icon: Icons.touch_app,
-                    color: Colors.orange.shade700,
-                    onChanged: (val) => setState(() => _currentHandleControl = val),
-                  ),
-                ),
-                if (widget.location == LocationType.dacha) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildToggleCard(
-                      title: "Зима",
-                      subtitle: "Авто-підігрів підлоги",
-                      value: _currentHeaterAuto,
-                      icon: Icons.ac_unit,
-                      color: Colors.blue.shade700,
-                      onChanged: (val) => setState(() => _currentHeaterAuto = val),
-                    ),
-                  ),
-                ],
+                Icon(isDacha ? Icons.hot_tub : Icons.power, size: 18, color: Colors.blueGrey),
+                const SizedBox(width: 8),
+                Text(isDacha ? "Підігрів полів 1-й поверх" : "Grid on/off auto",
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey, fontSize: 13)),
               ],
             ),
           ),
-          const SizedBox(height: 12),
 
-          if (widget.location == LocationType.dacha) ...[
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                if (isDacha) ...[
+                  Expanded(
+                    child: _buildToggleCard(
+                      title: "Ніч / Зима",
+                      subtitle: labels[SettingsModel.keyHeaterNightAuto]!,
+                      value: _currentHeaterAuto,
+                      icon: Icons.nightlight_round,
+                      color: Colors.blue.shade700,
+                      onChanged: (val) => _updateToggles('night', val),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: _buildToggleCard(
+                    title: (_currentAutoAllDay ? "24/7" : "Only night"),
+                    subtitle: (_currentAutoAllDay ? labels[SettingsModel.keyHeaterGridOnAutoAllDay]! : "Підключення Grid(on) тільки вночі"),
+                    value: _currentAutoAllDay,
+                    icon: _currentAutoAllDay ? Icons.wb_sunny : Icons.nightlight_outlined,
+                    color: _currentAutoAllDay ? Colors.orange.shade600 : Colors.green.shade700,
+                    onChanged: (val) => _updateToggles('allDay', val),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          if (isDacha) ...[
             _buildSeasonDropdown(),
             const SizedBox(height: 12),
           ],
 
-          _buildInputCard(
-            controller: _logsLimitController,
-            label: labels[SettingsModel.keyLogs]!,
-            icon: Icons.list_alt,
-          ),
+          _buildInputCard(controller: _logsLimitController, label: labels[SettingsModel.keyLogs]!, icon: Icons.list_alt),
 
-          if (widget.location == LocationType.dacha) ...[
+          if (isDacha) ...[
             const SizedBox(height: 12),
             _buildInputCard(
               controller: _batteryController,
@@ -277,19 +297,14 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ],
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           SizedBox(
-            height: 50,
+            height: 48,
             child: ElevatedButton.icon(
-              onPressed: canSave ? _updateSettings : null,
+              onPressed: _hasChanges() ? _updateSettings : null,
               icon: const Icon(Icons.save),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green.shade700,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey.shade300,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              label: const Text("ЗБЕРЕГТИ ЗМІНИ", style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text("ЗБЕРЕГТИ ЗМІНИ"),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700, foregroundColor: Colors.white),
             ),
           ),
         ],
@@ -297,125 +312,82 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildSeasonDropdown() {
-    final labels = SettingsModel.fieldLabels;
-
-    // Налаштування іконки для поля вибору
-    IconData getSeasonIcon() {
-      switch (_currentSeasonsId) {
-        case 1: return Icons.cloudy_snowing; // Зима: Туча зі снігом
-        case 2: return Icons.local_florist;   // Весна: Квітка
-        case 3: return Icons.wb_sunny;        // Літо: Сонце
-        case 4: return Icons.eco;             // Осінь: Листок
-        default: return Icons.calendar_month;
-      }
-    }
-
-    // Налаштування кольору для поля вибору
-    Color getSeasonColor() {
-      switch (_currentSeasonsId) {
-        case 1: return Colors.blue.shade400;   // Зима: Синій/Блакитний
-        case 2: return Colors.green.shade600;  // Весна: Зелений
-        case 3: return Colors.orange.shade700; // Літо: Помаранчевий
-        case 4: return Colors.yellow.shade800; // Осінь: Жовтий
-        default: return Colors.grey;
-      }
-    }
-
+  Widget _buildToggleCard({required String title, required String subtitle, required bool value, required IconData icon, required Color color, required Function(bool) onChanged}) {
     return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-        child: DropdownButtonFormField<int>(
-          value: _currentSeasonsId,
-          decoration: InputDecoration(
-            labelText: labels[SettingsModel.keySeasonsId],
-            labelStyle: const TextStyle(fontSize: 13),
-            icon: Icon(getSeasonIcon(), color: getSeasonColor()),
-            border: InputBorder.none,
-          ),
-          items: const [
-            DropdownMenuItem(value: 1, child: Text("Зима (Winter)")),
-            DropdownMenuItem(value: 2, child: Text("Весна (Spring)")),
-            DropdownMenuItem(value: 3, child: Text("Літо (Summer)")),
-            DropdownMenuItem(value: 4, child: Text("Осінь (Autumn)")),
-          ],
-          onChanged: (val) => setState(() => _currentSeasonsId = val),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(String title, String value) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-      child: ListTile(
-        title: Text(title, style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
-        trailing: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-      ),
-    );
-  }
-
-  Widget _buildToggleCard({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required IconData icon,
-    required Color color,
-    required Function(bool) onChanged,
-  }) {
-    return Card(
-      elevation: 1,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 1, margin: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 16, color: color),
-                const SizedBox(width: 6),
-                Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.black54), maxLines: 2, overflow: TextOverflow.ellipsis),
-            const Spacer(),
-            Switch(
-              value: value,
-              activeColor: color,
-              onChanged: onChanged,
-            ),
-          ],
-        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 18, color: color), const SizedBox(width: 8),
+            Expanded(child: Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color))),
+            SizedBox(height: 30, child: Switch(value: value, activeColor: color, onChanged: onChanged)),
+          ]),
+          const SizedBox(height: 4),
+          Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.black54), maxLines: 2),
+        ]),
       ),
     );
   }
+
+  Widget _buildInfoCard(String title, String value) => Card(
+    elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+    child: ListTile(dense: true, title: Text(title, style: const TextStyle(fontSize: 12)), trailing: Text(value, style: const TextStyle(fontWeight: FontWeight.bold))),
+  );
 
   Widget _buildInputCard({
     required TextEditingController controller,
     required String label,
     required IconData icon,
-    bool isDecimal = false,
+    bool isDecimal = false
   }) {
+    // Визначаємо, чи є помилка валідації для SoC
+    String? errorText;
+    if (label.contains("SoC") && controller.text.isNotEmpty) {
+      errorText = _validateSoc(controller.text);
+    }
+
     return Card(
       elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+            color: errorText != null ? Colors.red : Colors.transparent,
+            width: 1
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: TextField(
           controller: controller,
+          keyboardType: TextInputType.numberWithOptions(decimal: isDecimal),
           decoration: InputDecoration(
-            icon: Icon(icon, color: Colors.blueGrey),
+            icon: Icon(icon, size: 20, color: errorText != null ? Colors.red : null),
             labelText: label,
+            errorText: errorText, // Виводить текст помилки під полем
             labelStyle: const TextStyle(fontSize: 13),
             border: InputBorder.none,
           ),
-          keyboardType: TextInputType.numberWithOptions(decimal: isDecimal),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSeasonDropdown() {
+    return Card(
+      elevation: 1, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: DropdownButtonFormField<int>(
+          value: _currentSeasonsId,
+          decoration: const InputDecoration(labelText: "Пора року", border: InputBorder.none),
+          items: const [
+            DropdownMenuItem(value: 1, child: Text("Зима")),
+            DropdownMenuItem(value: 2, child: Text("Весна")),
+            DropdownMenuItem(value: 3, child: Text("Літо")),
+            DropdownMenuItem(value: 4, child: Text("Осінь")),
+          ],
+          onChanged: (val) => setState(() => _currentSeasonsId = val),
         ),
       ),
     );
