@@ -185,34 +185,46 @@ class HistoryDetailsSheet extends StatelessWidget {
   }
 
   Widget _batterySystem(BuildContext context, List batteries) => Card(
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: ExpansionTile(
-          leading: Icon(Icons.battery_charging_full,
-              color: batteries.any(
-                      (b) => UnitHelper.hasRealError(b['errorInfoDataHex']))
-                  ? Colors.red
-                  : Colors.blue,
-              size: 40),
-          title: const Text("Система акумуляторів",
-              style: TextStyle(fontWeight: FontWeight.bold)),
+    elevation: 3,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    child: ExpansionTile(
+      leading: Icon(Icons.battery_charging_full,
+          color: batteries.any((b) =>
+          UnitHelper.hasRealError(b['errorInfoDataHex'] ?? '') ||
+              ((b['deltaMv'] ?? 0.0) >= UnitHelper.cellsCriticalDeltaMin))
+              ? Colors.red
+              : Colors.blue,
+          size: 40),
+      title: const Text("Система акумуляторів",
+          style: TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: Text(
+          "Модулів: ${batteries.length} | SOC: ${record.batterySoc.toInt()}%"),
+      children: batteries.map((b) {
+        final bool hasError = UnitHelper.hasRealError(b['errorInfoDataHex'] ?? '');
+        final bool isCritical = (b['deltaMv'] ?? 0.0) >= UnitHelper.cellsCriticalDeltaMin;
+
+        // Визначаємо колір статусу для списку
+        Color statusColor = UnitHelper.getConnectionColor(b['connectionStatus']);
+        if (hasError) {
+          statusColor = Colors.red;
+        } else if (isCritical) {
+          statusColor = Colors.orange;
+        }
+
+        return ListTile(
+          onTap: () => onBatteryTap(b),
+          leading: Icon(
+            UnitHelper.getConnectionIcon(b['connectionStatus']),
+            color: statusColor,
+          ),
+          title: Text("Battery ${b['port'] ?? ''}"),
           subtitle: Text(
-              "Модулів: ${batteries.length} | SOC: ${record.batterySoc.toInt()}%"),
-          children: batteries
-              .map((b) => ListTile(
-                    onTap: () => onBatteryTap(b),
-                    leading: Icon(
-                        UnitHelper.getConnectionIcon(b['connectionStatus']),
-                        color: UnitHelper.getConnectionColor(
-                            b['connectionStatus'])),
-                    title: Text("Battery ${b['port'] ?? ''}"),
-                    subtitle: Text(
-                        "${(b['socPercent'] ?? 0).toInt()}% | ${(b['voltageCurV'] ?? 0).toStringAsFixed(2)}V"),
-                    trailing: const Icon(Icons.chevron_right),
-                  ))
-              .toList(),
-        ),
-      );
+              "${(b['socPercent'] ?? 0).toInt()}% | ${(b['voltageCurV'] ?? 0).toStringAsFixed(2)}V"),
+          trailing: const Icon(Icons.chevron_right),
+        );
+      }).toList(),
+    ),
+  );
 
   Widget _row(String l, String? v, {Color? color}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),

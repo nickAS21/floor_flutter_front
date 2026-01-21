@@ -113,12 +113,15 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
 
   // Спільний метод діалогу для батареї (викликається з Sheet)
   void _showBatteryDialog(Map<String, dynamic> b) {
-    // 1. Отримуємо дані про комірки з Map
     final cellVoltages = b['cellVoltagesV'] as Map<String, dynamic>? ?? {};
-
-    // 2. Сортуємо ключі комірок по порядку (1, 2, 3...)
     final sortedKeys = cellVoltages.keys.toList()
       ..sort((a, b) => int.parse(a).compareTo(int.parse(b)));
+
+    // Дані для логіки підсвітки
+    final double deltaMv = (b['deltaMv'] ?? 0.0).toDouble();
+    final bool isCriticalDelta = deltaMv >= UnitHelper.cellsCriticalDeltaMin;
+    final int minIdx = b['minCellIdx'] ?? -1;
+    final int maxIdx = b['maxCellIdx'] ?? -1;
 
     showDialog(
       context: context,
@@ -134,13 +137,20 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
               _dialogRow("Напруга", "${(b['voltageCurV'] ?? 0.0).toStringAsFixed(2)} V", null),
               _dialogRow("Заряд", "${(b['socPercent'] ?? 0.0).toInt()}%", Colors.blue),
               _dialogRow("Статус BMS", b['bmsStatusStr'], UnitHelper.getStatusColor(b['bmsStatusStr'] ?? '')),
-              _dialogRow("Помилка", UnitHelper.formatHex(b['errorInfoDataHex']),
-                  UnitHelper.hasRealError(b['errorInfoDataHex']) ? Colors.red : Colors.green),
+              _dialogRow(
+                  "Помилка",
+                  UnitHelper.formatHex(b['errorInfoDataHex']),
+                  UnitHelper.hasRealError(b['errorInfoDataHex'])
+                      ? Colors.red
+                      : (isCriticalDelta ? Colors.orange : Colors.green)
+              ),
               const Divider(),
-              _dialogRow("Delta", "${(b['deltaMv'] ?? 0.0).toStringAsFixed(3)} V",
-                  (b['deltaMv'] ?? 0.0) >= UnitHelper.cellsCriticalDeltaMin ? Colors.red : Colors.green),
+              _dialogRow(
+                  "Delta",
+                  "${deltaMv.toStringAsFixed(3)} V",
+                  isCriticalDelta ? Colors.red : Colors.green
+              ),
 
-              // --- НОВИЙ БЛОК: Список комірок ---
               if (sortedKeys.isNotEmpty) ...[
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
@@ -154,11 +164,33 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
                   ),
                   child: Wrap(
                     spacing: 10,
-                    runSpacing: 4,
-                    children: sortedKeys.map((key) {
+                    runSpacing: 8,
+                    children: sortedKeys.map((keyString) {
+                      final int key = int.parse(keyString);
+                      final double val = (cellVoltages[keyString] as num).toDouble();
+
+                      Color? cellColor;
+                      FontWeight weight = FontWeight.normal;
+
+                      // Логіка підсвітки конкретних комірок в історії
+                      if (isCriticalDelta) {
+                        if (key == maxIdx) {
+                          cellColor = Colors.red; // Max - Red
+                          weight = FontWeight.bold;
+                        } else if (key == minIdx) {
+                          cellColor = Colors.blue; // Min - Blue
+                          weight = FontWeight.bold;
+                        }
+                      }
+
                       return Text(
-                        "C$key: ${(cellVoltages[key] as num).toStringAsFixed(3)}",
-                        style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                        "C$key: ${val.toStringAsFixed(3)}",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                          color: cellColor,
+                          fontWeight: weight,
+                        ),
                       );
                     }).toList(),
                   ),

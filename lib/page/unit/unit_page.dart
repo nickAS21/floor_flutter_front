@@ -317,6 +317,7 @@ class _UnitPageState extends State<UnitPage> {
 
   void _showBatteryDetails(BatteryInfoModel battery) {
     bool isError = _hasRealError(battery.errorInfoDataHex);
+    // Використовуємо UnitHelper для перевірки критичної дельти
     bool isCriticalDelta = battery.deltaMv >= UnitHelper.cellsCriticalDeltaMin;
 
     showDialog(
@@ -329,7 +330,7 @@ class _UnitPageState extends State<UnitPage> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              _buildDetailRow("Зв'язок", battery.connectionStatus ?? "N/A", _getConnectionColor(battery.connectionStatus)),
+              _buildDetailRow("Зв'язок", battery.connectionStatus, _getConnectionColor(battery.connectionStatus)),
               _buildDetailRow("Оновлено", battery.timestamp, Colors.grey),
               _buildDetailRow("Напруга", "${battery.voltageCurV.toStringAsFixed(2)} V", null),
               _buildDetailRow("Заряд (SOC)", "${battery.socPercent.toStringAsFixed(1)}%", Colors.blue),
@@ -343,17 +344,46 @@ class _UnitPageState extends State<UnitPage> {
                   isError ? Colors.red : (isCriticalDelta ? Colors.orange : Colors.green)
               ),
               const Divider(),
-              _buildDetailRow("Delta", "${battery.deltaMv.toStringAsFixed(3)} V", isCriticalDelta ? Colors.red : Colors.green),
-              ...battery.cellVoltagesV.entries.map((e) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("Комірка ${e.key}"),
-                    Text("${e.value.toStringAsFixed(3)} V"),
-                  ],
-                ),
-              )),
+              _buildDetailRow(
+                  "Delta",
+                  "${battery.deltaMv.toStringAsFixed(3)} V",
+                  isCriticalDelta ? Colors.red : Colors.green
+              ),
+              const SizedBox(height: 8),
+              const Text("Напруга по комірках:", style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 4),
+              ...battery.cellVoltagesV.entries.map((e) {
+                Color? cellColor;
+                FontWeight fontWeight = FontWeight.normal;
+
+                // Якщо дельта критична, підсвічуємо екстремальні значення
+                if (isCriticalDelta) {
+                  if (e.key == battery.maxCellIdx) {
+                    cellColor = Colors.red; // Максимальна - червоний
+                    fontWeight = FontWeight.bold;
+                  } else if (e.key == battery.minCellIdx) {
+                    cellColor = Colors.blue; // Мінімальна - синій
+                    fontWeight = FontWeight.bold;
+                  }
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Комірка ${e.key}",
+                        style: TextStyle(color: cellColor, fontWeight: fontWeight),
+                      ),
+                      Text(
+                        "${e.value.toStringAsFixed(3)} V",
+                        style: TextStyle(color: cellColor, fontWeight: fontWeight),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
             ],
           ),
         ),
