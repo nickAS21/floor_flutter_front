@@ -39,9 +39,18 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _fetchData();
 
-    // Слухачі для активації кнопки збереження при вводі тексту
     _batteryController.addListener(() { if(mounted) setState(() {}); });
     _logsLimitController.addListener(() { if(mounted) setState(() {}); });
+  }
+
+  // ВИПРАВЛЕННЯ: Скидаємо стан при зміні локації в меню
+  @override
+  void didUpdateWidget(SettingsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.location != widget.location) {
+      setState(() => _isLoading = true);
+      _fetchData();
+    }
   }
 
   void _showExclusiveWarning() {
@@ -58,28 +67,34 @@ class _SettingsPageState extends State<SettingsPage> {
   void _updateToggles(String type, bool value) {
     setState(() {
       if (value == true) {
-        // Перевіряємо, чи є хоча б один ІНШИЙ перемикач вже активним до зміни
         bool anotherIsActive = false;
 
-        if (type == 'handle') {
-          anotherIsActive = _currentHeaterAuto || _currentAutoAllDay;
-        } else if (type == 'night') {
-          anotherIsActive = _currentHandleControl || _currentAutoAllDay;
-        } else if (type == 'allDay') {
-          anotherIsActive = _currentHandleControl || _currentHeaterAuto;
+        if (widget.location == LocationType.dacha) {
+          // Логіка для Dacha: 3 режими взаємовиключні
+          if (type == 'handle') {
+            anotherIsActive = _currentHeaterAuto || _currentAutoAllDay;
+          } else if (type == 'night') {
+            anotherIsActive = _currentHandleControl || _currentAutoAllDay;
+          } else if (type == 'allDay') {
+            anotherIsActive = _currentHandleControl || _currentHeaterAuto;
+          }
+          _currentHandleControl = (type == 'handle');
+          _currentHeaterAuto = (type == 'night');
+          _currentAutoAllDay = (type == 'allDay');
+        } else {
+          // Логіка для Golego: Тільки handle та allDay пересікаються
+          if (type == 'handle') {
+            anotherIsActive = _currentAutoAllDay;
+          } else if (type == 'allDay') {
+            anotherIsActive = _currentHandleControl;
+          }
+          _currentHandleControl = (type == 'handle');
+          _currentAutoAllDay = (type == 'allDay');
+          // _currentHeaterAuto для Golego не чіпаємо
         }
 
-        // Виводимо попередження, тільки якщо ми вимикаємо щось інше заради цього режиму
-        if (anotherIsActive) {
-          _showExclusiveWarning();
-        }
-
-        // Встановлюємо ексклюзивний вибір (Radio button logic)
-        _currentHandleControl = (type == 'handle');
-        _currentHeaterAuto = (type == 'night');
-        _currentAutoAllDay = (type == 'allDay');
+        if (anotherIsActive) _showExclusiveWarning();
       } else {
-        // Якщо користувач просто вимикає активний перемикач
         if (type == 'handle') _currentHandleControl = false;
         if (type == 'night') _currentHeaterAuto = false;
         if (type == 'allDay') _currentAutoAllDay = false;
@@ -90,13 +105,13 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _hasChanges() {
     bool baseChanges = _currentHandleControl != _originalHandleControl ||
         _currentAutoAllDay != _originalAutoAllDay ||
-        _logsLimitController.text.trim() != _originalLogsAppLimitValue ||
-        _batteryController.text.trim() != _originalBatteryValue;
+        _logsLimitController.text.trim() != _originalLogsAppLimitValue;
 
     if (widget.location == LocationType.dacha) {
       return baseChanges ||
           _currentHeaterAuto != _originalHeaterAuto ||
-          _currentSeasonsId != _originalSeasonsId;
+          _currentSeasonsId != _originalSeasonsId ||
+          _batteryController.text.trim() != _originalBatteryValue;
     }
     return baseChanges;
   }
@@ -150,19 +165,19 @@ class _SettingsPageState extends State<SettingsPage> {
     if (widget.location == LocationType.dacha) {
       final error = _validateSoc(_batteryController.text);
       if (error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error), backgroundColor: Colors.redAccent),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error), backgroundColor: Colors.redAccent));
         return;
       }
     }
 
     setState(() => _isLoading = true);
 
+    // ФОРМУЄМО ПРАВИЛЬНИЙ BODY БЕЗ ПЕРЕТИНІВ
     final Map<String, dynamic> body = {
       'devicesChangeHandleControl': _currentHandleControl,
       'heaterGridOnAutoAllDay': _currentAutoAllDay,
       'logsAppLimit': int.tryParse(_logsLimitController.text) ?? 100,
+      'versionBackend': _versionBackend,
     };
 
     if (widget.location == LocationType.dacha) {
@@ -187,21 +202,16 @@ class _SettingsPageState extends State<SettingsPage> {
       if (response.statusCode == 200) {
         final updatedData = SettingsModel.fromJson(jsonDecode(response.body));
         setState(() {
-          // 1. Оновлюємо еталони
           _originalHandleControl = updatedData.devicesChangeHandleControl;
-          _originalAutoAllDay = updatedData.heaterGridOnAutoAllDay;
-
-          // 2. ПРИМУСОВА СИНХРОНІЗАЦІЯ ПОТОЧНОГО СТАНУ
           _currentHandleControl = _originalHandleControl;
+          _originalAutoAllDay = updatedData.heaterGridOnAutoAllDay;
           _currentAutoAllDay = _originalAutoAllDay;
 
           if (widget.location == LocationType.dacha) {
             _originalHeaterAuto = updatedData.heaterNightAutoOnDachaWinter ?? false;
-            _currentHeaterAuto = _originalHeaterAuto; // Синхронізація
-
+            _currentHeaterAuto = _originalHeaterAuto;
             _originalSeasonsId = updatedData.seasonsId;
-            _currentSeasonsId = _originalSeasonsId;   // Синхронізація
-
+            _currentSeasonsId = _originalSeasonsId;
             _originalBatteryValue = updatedData.batteryCriticalNightSocWinter?.toString() ?? "";
           }
 
@@ -226,7 +236,6 @@ class _SettingsPageState extends State<SettingsPage> {
         children: [
           _buildInfoCard(labels[SettingsModel.keyVersionBackend]!, _versionBackend),
           const SizedBox(height: 12),
-
           _buildToggleCard(
             title: "Ручне керування",
             subtitle: labels[SettingsModel.keyHandle]!,
@@ -235,7 +244,6 @@ class _SettingsPageState extends State<SettingsPage> {
             color: Colors.orange.shade800,
             onChanged: (val) => _updateToggles('handle', val),
           ),
-
           const SizedBox(height: 20),
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 8),
@@ -248,7 +256,6 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
           ),
-
           IntrinsicHeight(
             child: Row(
               children: [
@@ -278,15 +285,12 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
           ),
-
           const SizedBox(height: 16),
           if (isDacha) ...[
             _buildSeasonDropdown(),
             const SizedBox(height: 12),
           ],
-
           _buildInputCard(controller: _logsLimitController, label: labels[SettingsModel.keyLogs]!, icon: Icons.list_alt),
-
           if (isDacha) ...[
             const SizedBox(height: 12),
             _buildInputCard(
@@ -296,7 +300,6 @@ class _SettingsPageState extends State<SettingsPage> {
               isDecimal: true,
             ),
           ],
-
           const SizedBox(height: 24),
           SizedBox(
             height: 48,
@@ -335,39 +338,19 @@ class _SettingsPageState extends State<SettingsPage> {
     child: ListTile(dense: true, title: Text(title, style: const TextStyle(fontSize: 12)), trailing: Text(value, style: const TextStyle(fontWeight: FontWeight.bold))),
   );
 
-  Widget _buildInputCard({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    bool isDecimal = false
-  }) {
-    // Визначаємо, чи є помилка валідації для SoC
+  Widget _buildInputCard({required TextEditingController controller, required String label, required IconData icon, bool isDecimal = false}) {
     String? errorText;
     if (label.contains("SoC") && controller.text.isNotEmpty) {
       errorText = _validateSoc(controller.text);
     }
-
     return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-            color: errorText != null ? Colors.red : Colors.transparent,
-            width: 1
-        ),
-      ),
+      elevation: 1, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: errorText != null ? Colors.red : Colors.transparent, width: 1)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: TextField(
           controller: controller,
           keyboardType: TextInputType.numberWithOptions(decimal: isDecimal),
-          decoration: InputDecoration(
-            icon: Icon(icon, size: 20, color: errorText != null ? Colors.red : null),
-            labelText: label,
-            errorText: errorText, // Виводить текст помилки під полем
-            labelStyle: const TextStyle(fontSize: 13),
-            border: InputBorder.none,
-          ),
+          decoration: InputDecoration(icon: Icon(icon, size: 20, color: errorText != null ? Colors.red : null), labelText: label, errorText: errorText, labelStyle: const TextStyle(fontSize: 13), border: InputBorder.none),
         ),
       ),
     );

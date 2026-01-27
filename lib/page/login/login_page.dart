@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -10,8 +9,7 @@ import '../../l10n/app_localizations.dart';
 import '../../locale/locale_provider.dart';
 import '../about_app_dialog.dart';
 import '../menu_page.dart';
-import 'dart:io';
-
+import '../usr_wifi/provision/usr_provision_page.dart';
 import 'login_helper.dart';
 
 class LoginPage extends StatefulWidget {
@@ -31,27 +29,21 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _loadSavedCredentials(); // // Load saved credentials immediately on page initialization
+    _loadSavedCredentials();
   }
 
-  // Метод для завантаження збережених даних
   Future<void> _loadSavedCredentials() async {
-    // Fetch data map from the LoginHelper
     final data = await LoginHelper.getAuth();
     setState(() {
-      // Accessing map via LoginHelper public constants
       _usernameController.text = data[LoginHelper.kUser] ?? '';
       _passwordController.text = data[LoginHelper.kPass] ?? '';
       _customApiController.text = data[LoginHelper.kCustom] ?? '';
 
-      // Check if any environment was previously saved
       if (data[LoginHelper.kEnv] != null) {
-        // If the saved environment is 'customApi', set it and sync the backend URL
         if (data[LoginHelper.kEnv] == ApiServerType.customApi.name) {
           ApiServerHelper.currentEnvironment = ApiServerType.customApi;
           ApiServerHelper.customBackend = _customApiController.text;
         } else {
-          // Otherwise, restore the specific standard environment from enum
           ApiServerHelper.currentEnvironment = ApiServerType.values.firstWhere(
                 (e) => e.name == data[LoginHelper.kEnv],
             orElse: () => ApiServerType.localHostHome,
@@ -82,7 +74,6 @@ class _LoginPageState extends State<LoginPage> {
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('accessToken', token);
-        // Persist login credentials and API settings for future sessions
         await LoginHelper.saveAuth(
           _usernameController.text,
           _passwordController.text,
@@ -91,7 +82,6 @@ class _LoginPageState extends State<LoginPage> {
         );
 
         if (!mounted) return;
-        // Navigate to the main menu after successful login and data persistence
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => MenuPage()),
@@ -101,26 +91,21 @@ class _LoginPageState extends State<LoginPage> {
           _errorMessage = AppLocalizations.of(context)!.credentialsError;
         });
       }
-    } on SocketException {
+    } catch (e) {
+      // ПРАВИЛЬНА ОБРОБКА ПОМИЛОК БЕЗ DART:IO
       setState(() {
         final localizations = AppLocalizations.of(context);
-        if (localizations != null) {
-          _errorMessage = localizations.apiError(apiUrl);
+        String errorStr = e.toString().toLowerCase();
+
+        if (errorStr.contains('socketexception')) {
+          _errorMessage = localizations?.apiError(apiUrl) ?? 'Socket Error';
+        } else if (errorStr.contains('httpexception')) {
+          _errorMessage = localizations?.serverError(apiUrl) ?? 'HTTP Error';
+        } else if (e is FormatException) {
+          _errorMessage = localizations?.formatError(apiUrl) ?? 'Format Error';
         } else {
-          _errorMessage = 'An error occurred. AppLocalizations is null';
+          _errorMessage = e.toString();
         }
-      });
-    } on HttpException {
-      setState(() {
-        _errorMessage = AppLocalizations.of(context)!.serverError(apiUrl);
-      });
-    } on FormatException {
-      setState(() {
-        _errorMessage = AppLocalizations.of(context)!.formatError(apiUrl);
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
       });
     }
   }
@@ -128,11 +113,21 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final localeProvider = LocaleProvider.of(context);
-    final mediaInfo = MediaQuery.of(context);
 
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.wifi_find, color: Colors.blue),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => UsrProvisionPage(),
+              ),
+            );
+          },
+        ),
         title: Text(
           AppLocalizations.of(context)!.titleRegLogin,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
