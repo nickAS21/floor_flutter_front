@@ -1,13 +1,15 @@
+// lib/page/menu_page.dart
 import 'package:flutter/material.dart';
 import 'data_home/data_location_type.dart';
 import 'data_home/data_home_page.dart';
 import 'logs/logs_page.dart';
 import 'settings/settings_page.dart';
 import 'unit/unit_page.dart';
-import 'history/history_page.dart';      // Сторінка з таблицями
-import 'analytics/analytics_page.dart';  // Сторінка з фільтрами та графіками
-import 'alarm/alarm_page.dart';          // Сторінка помилок
+import 'history/history_page.dart';
+import 'analytics/analytics_page.dart';
+import 'alarm/alarm_page.dart';
 import 'login/login_page.dart';
+import 'usr_wifi/info/usr_wifi_info_list_page.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -28,14 +30,17 @@ class _MenuPageState extends State<MenuPage> {
     _buildPages();
   }
 
+  // Оновлений список сторінок з UsrWiFiInfoListPage між Unit та History
   void _buildPages() {
     _pages = [
       HomePage(location: _selectedLocation),
       SettingsPage(location: _selectedLocation),
       UnitPage(location: _selectedLocation),
-      HistoryPage(location: _selectedLocation),   // Таблиці (Grid/Units)
-      AnalyticsPage(location: _selectedLocation), // Графіки/Фільтри
-      AlarmPage(location: _selectedLocation),     // Помилки
+      // НОВА СТОРІНКА
+      UsrWiFiInfoListPage(selectedLocation: _selectedLocation),
+      HistoryPage(location: _selectedLocation),
+      AnalyticsPage(location: _selectedLocation),
+      AlarmPage(location: _selectedLocation),
       LogsPage(location: _selectedLocation),
     ];
   }
@@ -46,11 +51,12 @@ class _MenuPageState extends State<MenuPage> {
     });
   }
 
+  // Вибір локації, який оновлює всі сторінки
   void _onLocationChanged(LocationType? value) {
     if (value == null) return;
     setState(() {
       _selectedLocation = value;
-      _buildPages();
+      _buildPages(); // Перебудовуємо сторінки з новою локацією
     });
   }
 
@@ -67,6 +73,7 @@ class _MenuPageState extends State<MenuPage> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
+        // ВАШ СТИЛЬ ВИБОРУ ЛОКАЦІЇ
         title: DropdownButton<LocationType>(
           value: _selectedLocation,
           underline: const SizedBox(),
@@ -112,7 +119,7 @@ class _MenuPageState extends State<MenuPage> {
         items: [
           BottomNavigationBarItem(
             icon: const Icon(Icons.home),
-            label: _selectedLocation.label, // Вже поправлено
+            label: _selectedLocation.label,
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.settings),
@@ -121,6 +128,11 @@ class _MenuPageState extends State<MenuPage> {
           const BottomNavigationBarItem(
             icon: Icon(Icons.developer_board),
             label: "Unit",
+          ),
+          // НОВИЙ ЕЛЕМЕНТ МЕНЮ
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.info_outline),
+            label: "UsrInfos",
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.history),

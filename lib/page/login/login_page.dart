@@ -9,7 +9,7 @@ import '../../l10n/app_localizations.dart';
 import '../../locale/locale_provider.dart';
 import '../about_app_dialog.dart';
 import '../menu_page.dart';
-import '../usr_wifi/provision/usr_provision_page.dart';
+import '../usr_wifi/usr_wifi_page.dart';
 import 'login_helper.dart';
 
 class LoginPage extends StatefulWidget {
@@ -123,7 +123,7 @@ class _LoginPageState extends State<LoginPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => UsrProvisionPage(),
+                builder: (context) => UsrWifiPage(),
               ),
             );
           },

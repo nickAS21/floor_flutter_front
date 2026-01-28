@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'http/usr_http_client_helper.dart';
 import 'usr_provision_udp.dart';
 import 'http/usr_http_client.dart';
+import '../../data_home/data_location_type.dart';
 
 class UsrProvisionUdpPage extends StatefulWidget {
-  const UsrProvisionUdpPage({super.key});
+  final LocationType selectedLocation; // Додаємо
+
+  const UsrProvisionUdpPage({
+    super.key,
+    required this.selectedLocation
+  });
 
   @override
   State<UsrProvisionUdpPage> createState() => _UsrProvisionUdpPageState();
@@ -297,9 +303,9 @@ class _UsrProvisionUdpPageState extends State<UsrProvisionUdpPage> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
-        color: _scanSuccess ? Colors.green.withOpacity(0.05) : Colors.blue.withOpacity(0.05),
+        color: _scanSuccess ? Colors.green.withValues(alpha: 0.05) : Colors.blue.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _scanSuccess ? Colors.green.withOpacity(0.2) : Colors.blue.withOpacity(0.2)),
+        border: Border.all(color: _scanSuccess ? Colors.green.withValues(alpha: 0.2) : Colors.blue.withValues(alpha: 0.2)),
       ),
       child: Text(hasMac ? "MAC: $_detectedMac" : _provision.getHint(), textAlign: TextAlign.center, style: TextStyle(color: _scanSuccess ? Colors.green.shade700 : Colors.blue.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
     );
@@ -324,7 +330,7 @@ class _UsrProvisionUdpPageState extends State<UsrProvisionUdpPage> {
   }
 
   Widget _buildNetworkSelector() {
-    return DropdownButtonFormField<String>(isExpanded: true, value: _selectedSsid, isDense: true, decoration: const InputDecoration(labelText: "Available Networks", isDense: true, border: OutlineInputBorder()),
+    return DropdownButtonFormField<String>(isExpanded: true, initialValue: _selectedSsid, isDense: true, decoration: const InputDecoration(labelText: "Available Networks", isDense: true, border: OutlineInputBorder()),
       items: _networks.map((n) => DropdownMenuItem<String>(value: n['ssid'].toString(), child: Text("${n['ssid']} (${n['level']}%)", style: const TextStyle(fontSize: 12)))).toList(),
       onChanged: (v) { setState(() { _selectedSsid = v; if (v != null) _ssidController.text = v; }); },
     );
