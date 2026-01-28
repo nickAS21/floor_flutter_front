@@ -32,35 +32,36 @@ class UsrHttpClient {
     return null;
   }
 
-  Future<String> _sendRequest(Map<String, String> body) async {
-    try {
-      final response = await http.post(
-        Uri.parse(_baseUrl),
-        headers: _headers,
-        body: body,
-        encoding: latin1
-      ).timeout(const Duration(seconds: 5));
-      if (response.statusCode == 200) {
-        return utf8.decode(response.bodyBytes, allowMalformed: true);
-      } else {
-        throw Exception("Status: ${response.statusCode}");
-      }
-    } catch (e) { return "ERROR_HTTP: $e"; }
+// Додайте цей метод сюди
+  bool isOk(String response) {
+    // Тут логіка, яку ви використовували раніше.
+    // Можна розширити її, якщо пристрій повертає "FAIL" або інші тексти помилок.
+    return !response.contains("ERROR_HTTP") && !response.toLowerCase().contains("fail");
   }
 
-  Future<bool> _isResponseOk(Map<String, Object> body) async {
+  Future<String> _sendRequest(Map<String, String> body) async {
     try {
       final response = await http.post(
           Uri.parse(_baseUrl),
           headers: _headers,
-          body: body
+          body: body,
+          encoding: latin1
       ).timeout(const Duration(seconds: 5));
 
-      // Control: HTTP.statusCode = 200
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        final decodedBody = utf8.decode(response.bodyBytes, allowMalformed: true);
+
+        // Тепер 'isOk' буде доступний, бо ми його визначили вище
+        if (!isOk(decodedBody)) {
+          throw Exception("Пристрій повернув помилку: $decodedBody");
+        }
+
+        return decodedBody;
+      } else {
+        throw Exception("HTTP помилка: ${response.statusCode}");
+      }
     } catch (e) {
-      debugPrint("HTTP Request Error: $e");
-      return false;
+      rethrow;
     }
   }
 
@@ -69,16 +70,11 @@ class UsrHttpClient {
       UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdWirelessBasic,
       UsrHttpClientHelper.mainGo: UsrHttpClientHelper.htmlOpmode,
       // STA mode = 1 AP mode = 0
-      // UsrHttpClientHelper.set0: '${UsrHttpClientHelper.fieldApCliEnable}=1',
-      UsrHttpClientHelper.set0: '${UsrHttpClientHelper.fieldApCliEnable}=0', // AP
+      UsrHttpClientHelper.set0: '${UsrHttpClientHelper.fieldApCliEnable}=1',
       // "", STA, AP => STA
-      // UsrHttpClientHelper.set1: '${UsrHttpClientHelper.fieldWifiMode}=${UsrHttpClientHelper.valuesSta}',
-      // "", STA, AP => AP
-      UsrHttpClientHelper.set1: '${UsrHttpClientHelper.fieldWifiMode}=${UsrHttpClientHelper.valuesEmpty}',
+      UsrHttpClientHelper.set1: '${UsrHttpClientHelper.fieldWifiMode}=${UsrHttpClientHelper.valuesSta}',
       // STA mode = 2 AP mode = 1 => STA
-      // UsrHttpClientHelper.set2: '${UsrHttpClientHelper.fieldSysOpmode}=2',
-      // STA mode = 2 AP mode = 1 => AP
-      UsrHttpClientHelper.set2: '${UsrHttpClientHelper.fieldSysOpmode}=1',
+      UsrHttpClientHelper.set2: '${UsrHttpClientHelper.fieldSysOpmode}=2',
       // Transparent mode = 0; Serial Comand Mode = 1; GPIO Mode = 3; HTTP Mode = 4; Modbus TCP<=>Modbus RTU = 5;
       UsrHttpClientHelper.set3: '${UsrHttpClientHelper.fieldDataTransformMode}=0',
       UsrHttpClientHelper.set4: '${UsrHttpClientHelper.fieldCountryCode}=5',
@@ -137,14 +133,8 @@ class UsrHttpClient {
     });
   }
 
-  Future<bool> postApply() async {
-    return await _isResponseOk({
-      UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdApply,
-    });
-  }
-
-  Future<bool> postRestart() async {
-    return await _isResponseOk({
+  Future<String> postRestart()  async {
+    return await _sendRequest({
       UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdASysConf,
       UsrHttpClientHelper.mainGo: UsrHttpClientHelper.htmlManagement,
       UsrHttpClientHelper.mainCCMD: '${UsrHttpClientHelper.values0}',

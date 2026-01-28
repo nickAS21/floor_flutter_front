@@ -167,51 +167,51 @@ class _UsrProvisionUdpPageState extends State<UsrProvisionUdpPage> {
   // }
 
   void _onSave() async {
-    setState(() { _isLoading = true; _status = "Запис параметрів..."; });
+    setState(() {
+      _isLoading = true;
+      _status = "Запис параметрів...";
+    });
+
     try {
       final int id = int.tryParse(_idController.text) ?? 1;
-      bool isOk(String r) => !r.contains("ERROR_HTTP");
 
-      // 1. Режим (STA+AP) + Apply
-      String r1 = await _httpClient.postApStaMode();
-      if (isOk(r1)) { await _httpClient.postApply(); } else { throw "Помилка Mode"; }
+      // Крок 1: Режим
+      await _httpClient.postApStaMode();
 
-      // 2. Активація STA + Apply
-      // String r2 = await _httpClient.postApStaOn();
-      // if (isOk(r2)) { await _httpClient.postApply(); } else { throw "Помилка STA On"; }
-      String r2 = await _httpClient.postApStaOnWithUpdateSsidPwd(_ssidController.text, _passController.text);
-      if (isOk(r2)) { await _httpClient.postApply(); } else { throw "Помилка STA On, Ssid  + Pwd"; }
+      // Крок 2: STA налаштування (SSID + PWD)
+      await _httpClient.postApStaOnWithUpdateSsidPwd(
+          _ssidController.text,
+          _passController.text
+      );
 
-      // 3. Сервери A/B + Apply
-      String r3 = await _httpClient.postAppSetting(
+      // Крок 3: Сервери A/B
+      await _httpClient.postAppSetting(
         serverIpA: _ipAController.text,
         serverPortA: int.tryParse(_portAController.text) ?? (UsrHttpClientHelper.netPortADef + id),
         serverIpB: _ipBController.text,
         serverPortB: int.tryParse(_portBController.text) ?? (UsrHttpClientHelper.netPortBDef + id),
         deviceId: id,
       );
-      if (isOk(r3)) { await _httpClient.postApply(); } else { throw "Помилка Settings"; }
 
-      // 4. SSID для AP (Остання HTTP дія) + Apply
-      String r4 = await _httpClient.postApLan(_ssidNameController.text);
-      if (isOk(r4)) { await _httpClient.postApply(); } else { throw "Помилка SSID"; }
+      // Крок 4: SSID для власної точки доступу (AP)
+      await _httpClient.postApLan(_ssidNameController.text);
 
-      // 5. ФІНАЛЬНИЙ UDP ЗАПИС (saveAndRestart)
-      // Саме ця команда через UDP ініціює реальне збереження і ПЕРЕЗАВАНТАЖЕННЯ (Reboot)
-      setState(() { _status = "Фіналізація та рестарт..."; });
+      // Крок 5: Фінальний рестарт
+      setState(() => _status = "Фіналізація та рестарт...");
 
-
-      // final res = await _provision.saveAndRestart(_ssidController.text, _passController.text);
-      final res = await  _httpClient.postRestart();
+      await _httpClient.postRestart();
 
       setState(() {
         _isLoading = false;
-        // _status = (res == "ok") ? "Успіх! Модуль перезавантажується..." : "Помилка UDP: $res";
-        _status = (res == true) ? "Успіх! Модуль перезавантажується..." : "Помилка UDP: $res";
+        _status = "Успіх! Модуль перезавантажується...";
       });
 
     } catch (e) {
-      setState(() { _status = "Помилка: $e"; _isLoading = false; });
+      // Будь-яка помилка на будь-якому кроці зупинить процес і виведе текст тут
+      setState(() {
+        _status = "Помилка: $e";
+        _isLoading = false;
+      });
     }
   }
 
