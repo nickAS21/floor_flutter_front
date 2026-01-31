@@ -39,6 +39,8 @@ class _UsrWiFiInfoListPageState extends State<UsrWiFiInfoListPage> {
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final list = snapshot.data!;
+        // Додаємо сортування по ID перед рендерингом
+        list.sort((a, b) => a.id.compareTo(b.id));
 
         return Card(
           elevation: 3,
@@ -174,19 +176,6 @@ class _UsrWiFiInfoListPageState extends State<UsrWiFiInfoListPage> {
     );
 
     if (result == true) setState(() {});
-  }
-
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.blueGrey)),
-          Text(value, style: const TextStyle(fontFamily: 'monospace')),
-        ],
-      ),
-    );
   }
 
   void _editInfo(DataUsrWiFiInfo info) async {
