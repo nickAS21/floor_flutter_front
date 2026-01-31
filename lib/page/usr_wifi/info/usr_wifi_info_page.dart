@@ -24,11 +24,6 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
   late TextEditingController _portBController;
   late TextEditingController _ouiController;
 
-  static const List<String> _usrPrefixes = [
-    UsrHttpClientHelper.wifiSsidB2,
-    UsrHttpClientHelper.wifiSsidA2,
-    UsrHttpClientHelper.wifiSsidAx
-  ];
   String _selectedPrefix = UsrHttpClientHelper.wifiSsidB2;
 
   @override
@@ -43,7 +38,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     _portBController = TextEditingController(text: widget.info.netBPort.toString());
     _ouiController = TextEditingController(text: widget.info.oui ?? '');
 
-    for (var prefix in _usrPrefixes) {
+    for (var prefix in UsrHttpClientHelper.usrPrefixes) {
       if (widget.info.ssidWifiBms.startsWith(prefix)) {
         _selectedPrefix = prefix;
         break;
@@ -203,7 +198,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                     ),
-                    items: _usrPrefixes.map((String value) {
+                    items: UsrHttpClientHelper.usrPrefixes.map((String value) {
                       return DropdownMenuItem<String>(
                         value: value,
                         child: Text(

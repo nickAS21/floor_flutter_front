@@ -32,12 +32,6 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   bool isLoading = false;
   bool isFormValid = false;
 
-  // Логіка префіксів модуля
-  static const List<String> usrPrefixes = [
-    UsrHttpClientHelper.wifiSsidB2,
-    UsrHttpClientHelper.wifiSsidA2,
-    UsrHttpClientHelper.wifiSsidAx
-  ];
   String selectedPrefix = UsrHttpClientHelper.wifiSsidB2;
 
   @override
@@ -109,7 +103,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
         child: DropdownButton<String>(
           value: selectedPrefix,
           isDense: true,
-          items: usrPrefixes.map((s) => DropdownMenuItem(
+          items: UsrHttpClientHelper.usrPrefixes.map((s) => DropdownMenuItem(
               value: s,
               child: Text(
                   s.replaceFirst("USR-WIFI232-", "").replaceFirst("_", ""),

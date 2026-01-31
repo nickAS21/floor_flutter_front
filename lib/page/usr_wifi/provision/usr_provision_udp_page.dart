@@ -6,8 +6,6 @@ import 'usr_provision_base_page.dart';
 import 'usr_provision_udp.dart';
 import 'http/usr_http_client.dart';
 import 'http/usr_http_client_helper.dart';
-import '../info/data_usr_wifi_info.dart';
-import '../info/usr_wifi_info_storage.dart';
 import '../../data_home/data_location_type.dart';
 
 class UsrProvisionUdpPage extends StatefulWidget {
@@ -27,11 +25,6 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
   bool _scanSuccess = false;
   bool _isFormValid = false;
 
-  static const List<String> _usrPrefixes = [
-    UsrHttpClientHelper.wifiSsidB2,
-    UsrHttpClientHelper.wifiSsidA2,
-    UsrHttpClientHelper.wifiSsidAx
-  ];
   String _selectedPrefix = UsrHttpClientHelper.wifiSsidB2;
 
   @override
@@ -97,68 +90,6 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
     }
   }
 
-  // void _onSaveHttpUpdate() async {
-  //   setState(() { isLoading = true; status = "Запис параметрів..."; });
-  //   try {
-  //     await _httpClient.postApStaMode();                      // +
-  //     await _httpClient.postApLan(ssidNameController.text);   // +
-  //     await _httpClient.postApStaOnWithUpdateSsidPwd(         // +
-  //         targetSsidController.text,
-  //         passController.text
-  //     );
-  //     await _httpClient.postAppSetting(                       // +
-  //         serverIpA: ipAController.text,
-  //         serverPortA: int.tryParse(portAController.text)!,
-  //         serverIpB: ipBController.text,
-  //         serverPortB: int.tryParse(portBController.text)!
-  //     );
-  //
-  //
-  //     _onUpdateSsidPwdAndRestart();
-  //     setState(() { isLoading = false; status = "Успіх! Рестарт..."; });
-  //
-  //   final infoBms = _onUpdateDataUsrWiFiInfo();
-  //
-  //     if (mounted) {
-  //       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Оновлено ${infoBms}")));
-  //     }
-  //   } catch (e) {
-  //     setState(() { status = "Помилка: $e"; isLoading = false; });
-  //   }
-  // }
-  //
-  // void _onUpdateSsidPwdAndRestart() async {
-  //   var res = "";
-  //   if (Platform.isLinux) {
-  //     res = await _httpClient.postRestart();
-  //   } else {
-  //     res = await _provision.saveAndRestart(
-  //         targetSsidController.text, passController.text);
-  //   }
-  //
-  //   if (res != "ok") {
-  //     setState(() { isLoading = false; status = "Помилка конфігурації: $res"; });
-  //     return;
-  //   }
-  // }
-  //
-  // Future<String> _onUpdateDataUsrWiFiInfo() async {
-  //   final info = DataUsrWiFiInfo(
-  //       locationType: widget.selectedLocation,
-  //       id: int.tryParse(idController.text)!,
-  //       bssidMac: detectedMac ?? "",
-  //       ssidWifiBms: ssidNameController.text,
-  //       netIpA: ipAController.text,
-  //       netAPort: int.tryParse(portAController.text)!,
-  //       netIpB: ipBController.text,
-  //       netBPort: int.tryParse(portBController.text)!
-  //   );
-  //   await UsrWiFiInfoStorage().updateOrAddById(info);
-  //   return info.ssidWifiBms;
-  // }
-
-
-  @override
   @override
   Widget build(BuildContext context) {
     final widgets = UsrProvisionWidgets(this);
@@ -173,34 +104,6 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
         actionButtons: widgets.buildActionButtons(
           onSave: () => onSaveHttpUpdate(widget.selectedLocation),
           saveLabel: "START PROVISIONING (UDP)",
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOptimizedHint() {
-    final bool hasMac = _scanSuccess && detectedMac != null;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      decoration: BoxDecoration(
-        color: _scanSuccess ? Colors.green.withValues(alpha: 0.05) : Colors.blue.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _scanSuccess ? Colors.green.withValues(alpha: 0.2) : Colors.blue.withValues(alpha: 0.2)),
-      ),
-      child: Text(hasMac ? "MAC: $detectedMac" : _provision.getHint(), textAlign: TextAlign.center, style: TextStyle(color: _scanSuccess ? Colors.green.shade700 : Colors.blue.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
-    );
-  }
-
-  Widget _buildPrefixSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400), borderRadius: BorderRadius.circular(4)),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedPrefix, isDense: true,
-          items: _usrPrefixes.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value.replaceFirst("USR-WIFI232-", "").replaceFirst("_", ""), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)))).toList(),
-          onChanged: (String? nv) { if (nv != null) setState(() { _selectedPrefix = nv; if (detectedMac != null) { ssidNameController.text = _getEffectiveSsidName(detectedMac); } }); },
         ),
       ),
     );

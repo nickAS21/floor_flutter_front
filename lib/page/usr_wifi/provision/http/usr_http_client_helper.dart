@@ -26,6 +26,11 @@ class UsrHttpClientHelper {
   static const String wifiSsidB2 = "USR-WIFI232-B2_";
   static const String wifiSsidA2 = "USR-WIFI232-A2_";
   static const String wifiSsidAx = "USR-WIFI232-AX_";
+  static const List<String> usrPrefixes = [
+    UsrHttpClientHelper.wifiSsidB2,
+    UsrHttpClientHelper.wifiSsidA2,
+    UsrHttpClientHelper.wifiSsidAx
+  ];
   static const List<String> usrSsidPrefixes = [wifiSsidB2, wifiSsidA2, wifiSsidAx];
 
   // html
