@@ -7,6 +7,11 @@ import 'package:floor_front/page/usr_wifi/provision/usr_provision_base.dart';
 class UsrProvisionUdp implements UsrProvisionBase {
   static const int port = 49000;
   static const String broadcastIp = "255.255.255.255";
+  final packetTest1 = Uint8List.fromList([
+    0xFF, 0x00, 0x0F, 0x02, 0x00, 0x54, 0x45, 0x53, 0x54, 0x31, 0x0D, 0x0A, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0xCE
+  ]);
+  static const String ssidTest = "TEST1";
+  static const String pwdTest = "123456";
 
   @override
   String getHint() => "Mobile: Перевірте підключення до точки доступу USR-WIFI";
@@ -42,12 +47,18 @@ class UsrProvisionUdp implements UsrProvisionBase {
     final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
     socket.broadcastEnabled = true;
 
+    // TODO test for algorithm by send packet
+    // final packetTest = _generateSavePacket(ssidTest, pwdTest);
+    // bool rez = packetTest == packetTest1;
+    // socket.send(packetTest, InternetAddress(broadcastIp), port);
+
+
     final packet = _generateSavePacket(ssid, pwd);
     socket.send(packet, InternetAddress(broadcastIp), port);
 
     String result = "timeout";
     try {
-      await socket.timeout(const Duration(seconds: 3)).forEach((event) {
+      await socket.timeout(const Duration(seconds: 30)).forEach((event) {
         if (event == RawSocketEvent.read) {
           final dg = socket?.receive();
           if (dg != null && dg.data[3] == 0x82) {
@@ -94,26 +105,63 @@ class UsrProvisionUdp implements UsrProvisionBase {
     return networks;
   }
 
+
+
+  // Uint8List _generateSavePacket(String ssid, String pwd) {
+  //   final builder = BytesBuilder();
+  //   final sBytes = latin1.encode(ssid);
+  //   final pBytes = latin1.encode(pwd);
+  //
+  //   builder.addByte(0xFF); // Head
+  //   final payloadLen = 2 + sBytes.length + 2 + pBytes.length;
+  //   builder.addByte((payloadLen >> 8) & 0xFF);
+  //   builder.addByte(payloadLen & 0xFF);
+  //   builder.addByte(0x02); // CMD: Save & Restart
+  //
+  //   builder.add(sBytes);
+  //   builder.add([0x0D, 0x0A]); // Розділювач
+  //   builder.add(pBytes);
+  //
+  //   final pktSoFar = builder.toBytes();
+  //   int sum = 0;
+  //   // Контрольна сума починаючи з довжини (індекс 1)
+  //   for (int i = 1; i < pktSoFar.length; i++)
+  //     sum += pktSoFar[i];
+  //
+  //   builder.addByte(sum & 0xFF);
+  //   return builder.toBytes();
+  // }
   Uint8List _generateSavePacket(String ssid, String pwd) {
     final builder = BytesBuilder();
     final sBytes = latin1.encode(ssid);
     final pBytes = latin1.encode(pwd);
 
-    builder.addByte(0xFF); // Head
-    final payloadLen = 2 + sBytes.length + 2 + pBytes.length;
-    builder.addByte((payloadLen >> 8) & 0xFF);
-    builder.addByte(payloadLen & 0xFF);
-    builder.addByte(0x02); // CMD: Save & Restart
+    // 1. Заголовок (FF)
+    builder.addByte(0xFF);
 
+    // 2. Довжина (CMD[1] + ZERO[1] + SSID + \r\n[2] + PWD)
+    // Для "TEST1" (5) + "123456" (6) + 1 + 1 + 2 = 15 (0x0F)
+    final payloadLen = 1 + 1 + sBytes.length + 2 + pBytes.length;
+
+    builder.addByte((payloadLen >> 8) & 0xFF); // 00
+    builder.addByte(payloadLen & 0xFF);        // 0F
+
+    // 3. Команда (02)
+    builder.addByte(0x02);
+
+    // 4. Дані (0x00 + SSID + \r\n + PWD)
+    builder.addByte(0x00); // Обов'язковий нуль перед SSID з твого прикладу
     builder.add(sBytes);
-    builder.add([0x0D, 0x0A]); // Розділювач
+    builder.add([0x0D, 0x0A]); // Розділювач \r\n
     builder.add(pBytes);
 
+    // 5. Контрольна сума (CE)
     final pktSoFar = builder.toBytes();
     int sum = 0;
-    // Контрольна сума починаючи з довжини (індекс 1)
-    for (int i = 1; i < pktSoFar.length; i++)
+    // Сумуємо все після FF (починаючи з індексу 1)
+    for (int i = 1; i < pktSoFar.length; i++) {
       sum += pktSoFar[i];
+    }
 
     builder.addByte(sum & 0xFF);
     return builder.toBytes();

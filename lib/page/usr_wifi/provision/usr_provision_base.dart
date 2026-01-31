@@ -5,7 +5,4 @@ abstract class UsrProvisionBase {
 
   /// Сканування мереж
   Future<List<Map<String, dynamic>>> scanNetworks();
-
-  /// Збереження та перезапуск
-  Future<String> saveAndRestart(String ssid, String pwd);
 }

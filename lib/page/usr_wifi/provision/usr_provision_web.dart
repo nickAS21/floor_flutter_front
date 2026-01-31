@@ -9,24 +9,4 @@ class UsrProvisionWeb implements UsrProvisionBase {
   Future<List<Map<String, dynamic>>> scanNetworks() async {
     return [];
   }
-
-  @override
-  Future<String> saveAndRestart(String urlString, String pwd) async {
-    // Тепер ми використовуємо urlString, який передали з TextField
-    final Uri? url = Uri.tryParse(urlString);
-
-    if (url == null) return "invalid_url";
-
-    try {
-      // Відкриваємо URL у зовнішньому браузері
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-        return "opened_in_browser";
-      } else {
-        return "could_not_launch";
-      }
-    } catch (e) {
-      return "error_launching: $e";
-    }
-  }
 }

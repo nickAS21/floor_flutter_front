@@ -4,25 +4,55 @@ import '../../data_home/data_location_type.dart';
 import 'data_usr_wifi_info.dart';
 
 class UsrWiFiInfoStorage {
-  static const String _keyPrefix = 'usr_wifi_info_';
+  static const String _keyPrefix = 'usr_wifi_info_list_'; // Змінив префікс для списків
 
-  // Збереження даних для конкретної локації
-  Future<void> saveInfo(DataUsrWiFiInfo info) async {
-    final prefs = await SharedPreferences.getInstance();
-    final String key = _keyPrefix + info.locationType.name;
-    await prefs.setString(key, jsonEncode(info.toJson()));
-  }
-
-  // Читання даних
-  Future<DataUsrWiFiInfo> loadInfo(LocationType type) async {
+  // 1. ЗАВАНТАЖЕННЯ ВСЬОГО СПИСКУ ДЛЯ ЛОКАЦІЇ
+  Future<List<DataUsrWiFiInfo>> loadAllInfoForLocation(LocationType type) async {
     final prefs = await SharedPreferences.getInstance();
     final String key = _keyPrefix + type.name;
     final String? data = prefs.getString(key);
 
-    if (data != null) {
-      return DataUsrWiFiInfo.fromJson(jsonDecode(data));
+    if (data == null) return [];
+
+    try {
+      final List<dynamic> jsonList = jsonDecode(data);
+      return jsonList.map((e) => DataUsrWiFiInfo.fromJson(e)).toList();
+    } catch (e) {
+      return [];
     }
-    // Якщо даних немає, повертаємо дефолтний об'єкт, як у Java сервісі
+  }
+
+  // 2. ЗБЕРЕЖЕННЯ ВСЬОГО СПИСКУ
+  Future<void> saveFullList(LocationType type, List<DataUsrWiFiInfo> list) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String key = _keyPrefix + type.name;
+    final String data = jsonEncode(list.map((e) => e.toJson()).toList());
+    await prefs.setString(key, data);
+  }
+
+  // 3. ОНОВЛЕННЯ АБО ДОДАВАННЯ ЗА ID (Твій метод тепер працюватиме)
+  Future<bool> updateOrAddById(DataUsrWiFiInfo newItem) async {
+    List<DataUsrWiFiInfo> list = await loadAllInfoForLocation(newItem.locationType);
+
+    int index = list.indexWhere((e) => e.id == newItem.id);
+
+    bool isUpdated = false;
+    if (index != -1) {
+      list[index] = newItem;
+      isUpdated = true;
+    } else {
+      list.add(newItem);
+      isUpdated = false;
+    }
+
+    await saveFullList(newItem.locationType, list);
+    return isUpdated;
+  }
+
+  // Для сумісності з твоїм старим кодом (якщо десь викликається loadInfo)
+  Future<DataUsrWiFiInfo> loadInfo(LocationType type) async {
+    final list = await loadAllInfoForLocation(type);
+    if (list.isNotEmpty) return list.first;
     return DataUsrWiFiInfo(locationType: type);
   }
 }

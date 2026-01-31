@@ -1,41 +1,29 @@
+import 'dart:io';
+
+import 'package:floor_front/page/usr_wifi/provision/usr_provision_widgets.dart';
 import 'package:flutter/material.dart';
-import 'http/usr_http_client_helper.dart';
+import 'usr_provision_base_page.dart';
 import 'usr_provision_udp.dart';
 import 'http/usr_http_client.dart';
+import 'http/usr_http_client_helper.dart';
+import '../info/data_usr_wifi_info.dart';
+import '../info/usr_wifi_info_storage.dart';
 import '../../data_home/data_location_type.dart';
 
 class UsrProvisionUdpPage extends StatefulWidget {
-  final LocationType selectedLocation; // Додаємо
-
-  const UsrProvisionUdpPage({
-    super.key,
-    required this.selectedLocation
-  });
+  final LocationType selectedLocation;
+  const UsrProvisionUdpPage({super.key, required this.selectedLocation});
 
   @override
   State<UsrProvisionUdpPage> createState() => _UsrProvisionUdpPageState();
 }
 
-class _UsrProvisionUdpPageState extends State<UsrProvisionUdpPage> {
+class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage> {
   final _provision = UsrProvisionUdp();
   final _httpClient = UsrHttpClient();
 
-  // Контролери
-  final _ssidController = TextEditingController();
-  final _passController = TextEditingController();
-  final _idController = TextEditingController(text: "9");
-  final _ipAController = TextEditingController(text: UsrHttpClientHelper.backendHostHome);
-  final _portAController = TextEditingController(); // Новий
-  final _ipBController = TextEditingController(text: UsrHttpClientHelper.backendHostKubernet);
-  final _portBController = TextEditingController(); // Новий
-  final _ssidNameController = TextEditingController();
-
   List<Map<String, dynamic>> _networks = [];
   String? _selectedSsid;
-  String _status = "Очікування...";
-  bool _isLoading = false;
-  bool _obscurePassword = true;
-  String? _detectedMac;
   bool _scanSuccess = false;
   bool _isFormValid = false;
 
@@ -49,84 +37,45 @@ class _UsrProvisionUdpPageState extends State<UsrProvisionUdpPage> {
   @override
   void initState() {
     super.initState();
-    // Початковий розрахунок портів
-    _updatePortsLogic();
-
-    // Слухачі для валідації та автооновлення
-    _ssidController.addListener(_validateForm);
-    _passController.addListener(_validateForm);
-    _ipAController.addListener(_validateForm);
-    _portAController.addListener(_validateForm);
-    _ipBController.addListener(_validateForm);
-    _portBController.addListener(_validateForm);
-    _ssidNameController.addListener(_validateForm);
-
-    // Спеціальний слухач для ID: оновлює порти
-    _idController.addListener(() {
-      _updatePortsLogic();
-      _validateForm();
-    });
+    // Повертаємо твої оригінальні слухачі для валідації
+    targetSsidController.addListener(_validateForm);
+    passController.addListener(_validateForm);
+    idController.addListener(_validateForm);
+    ssidNameController.addListener(_validateForm);
+    ipAController.addListener(_validateForm);
+    ipBController.addListener(_validateForm);
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _onScan());
   }
 
-  // Розрахунок портів на основі ID
-  void _updatePortsLogic() {
-    final int id = int.tryParse(_idController.text) ?? 0;
-    setState(() {
-      _portAController.text = (UsrHttpClientHelper.netPortADef + id).toString();
-      _portBController.text = (UsrHttpClientHelper.netPortBDef + id).toString();
-    });
-  }
-
-  @override
-  void dispose() {
-    _ssidController.dispose();
-    _passController.dispose();
-    _idController.dispose();
-    _ipAController.dispose();
-    _portAController.dispose();
-    _ipBController.dispose();
-    _portBController.dispose();
-    _ssidNameController.dispose();
-    super.dispose();
-  }
-
   void _validateForm() {
-    final bool isValid = _ssidController.text.isNotEmpty &&
-        _passController.text.isNotEmpty &&
-        _idController.text.isNotEmpty &&
-        _ipAController.text.isNotEmpty &&
-        _portAController.text.isNotEmpty &&
-        _ipBController.text.isNotEmpty &&
-        _portBController.text.isNotEmpty &&
-        _ssidNameController.text.isNotEmpty;
-
-    if (isValid != _isFormValid) {
-      setState(() => _isFormValid = isValid);
-    }
-  }
-
-  Future<void> _fetchMac() async {
-    final mac = await _httpClient.getMacAddress();
-    if (mounted && mac != null) {
-      final String cleanMac = mac.replaceAll(':', '');
-      final String suffix = cleanMac.substring(cleanMac.length - 4).toUpperCase();
-      setState(() {
-        _detectedMac = mac;
-        _ssidNameController.text = "$_selectedPrefix$suffix";
-      });
-    }
+    final bool isValid = targetSsidController.text.isNotEmpty &&
+        passController.text.isNotEmpty &&
+        idController.text.isNotEmpty &&
+        ssidNameController.text.isNotEmpty;
+    if (isValid != _isFormValid) setState(() => _isFormValid = isValid);
   }
 
   void _onScan() async {
     if (!mounted) return;
-    setState(() { _isLoading = true; _status = "Пошук..."; _detectedMac = null; _scanSuccess = false; });
+    setState(() { isLoading = true; status = "Пошук..."; detectedMac = null; _scanSuccess = false; _networks = []; _selectedSsid = null; });
+
     final results = await _provision.scanNetworks();
+
     if (mounted) {
       if (results.isNotEmpty) {
         _scanSuccess = true;
-        await _fetchMac();
+        // Отримуємо MAC
+        final mac = await _httpClient.getMacAddress();
+        if (mac != null) {
+          final String cleanMac = mac.replaceAll(':', '');
+          final String suffix = cleanMac.substring(cleanMac.length - 4).toUpperCase();
+          setState(() {
+            detectedMac = mac;
+            ssidNameController.text = "$_selectedPrefix$suffix";
+          });
+        }
+
         final Map<String, Map<String, dynamic>> uniqueMap = {};
         for (var net in results) {
           final String ssid = (net['ssid'] ?? "").toString();
@@ -135,170 +84,102 @@ class _UsrProvisionUdpPageState extends State<UsrProvisionUdpPage> {
             uniqueMap[ssid] = net;
           }
         }
+
         setState(() {
           _networks = uniqueMap.values.toList();
           _networks.sort((a, b) => (b['level'] ?? 0).compareTo(a['level'] ?? 0));
-          _status = "Знайдено: ${_networks.length}";
-          _isLoading = false;
+          status = "Знайдено: ${_networks.length}";
+          isLoading = false;
         });
       } else {
-        setState(() { _networks = []; _status = "Timeout"; _isLoading = false; _scanSuccess = false; });
+        setState(() { _networks = []; status = "Timeout"; isLoading = false; _scanSuccess = false; });
       }
     }
   }
 
-  // void _onSave() async {
-  //   setState(() { _isLoading = true; _status = "Збереження..."; });
+  // void _onSaveHttpUpdate() async {
+  //   setState(() { isLoading = true; status = "Запис параметрів..."; });
   //   try {
-  //     // mode = STA + AP
-  //     await _httpClient.postApStaMode();
-  //     await _httpClient.postApStaOn();
-  //
-  //     // Settings: Server_A + Server_B
-  //     final int id = int.tryParse(_idController.text) ?? 1;
-  //     await _httpClient.postAppSetting(
-  //       serverIpA: _ipAController.text,
-  //       serverPortA: int.tryParse(_portAController.text) ?? (UsrHttpClientHelper.netPortADef + id),
-  //       serverIpB: _ipBController.text,
-  //       serverPortB: int.tryParse(_portBController.text) ?? (UsrHttpClientHelper.netPortBDef + id),
-  //       deviceId: id,
+  //     await _httpClient.postApStaMode();                      // +
+  //     await _httpClient.postApLan(ssidNameController.text);   // +
+  //     await _httpClient.postApStaOnWithUpdateSsidPwd(         // +
+  //         targetSsidController.text,
+  //         passController.text
+  //     );
+  //     await _httpClient.postAppSetting(                       // +
+  //         serverIpA: ipAController.text,
+  //         serverPortA: int.tryParse(portAController.text)!,
+  //         serverIpB: ipBController.text,
+  //         serverPortB: int.tryParse(portBController.text)!
   //     );
   //
-  //     await _httpClient.postApLan(_ssidNameController.text);
   //
-  //     // finish -> save with reboot
-  //     final res = await _provision.saveAndRestart(_ssidController.text, _passController.text);
-  //     setState(() { _isLoading = false; _status = (res == "ok") ? "Успіх! Рестарт..." : "Помилка UDP: $res"; });
-  //   } catch (e) { setState(() { _status = "Помилка: $e"; _isLoading = false; }); }
+  //     _onUpdateSsidPwdAndRestart();
+  //     setState(() { isLoading = false; status = "Успіх! Рестарт..."; });
+  //
+  //   final infoBms = _onUpdateDataUsrWiFiInfo();
+  //
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Оновлено ${infoBms}")));
+  //     }
+  //   } catch (e) {
+  //     setState(() { status = "Помилка: $e"; isLoading = false; });
+  //   }
+  // }
+  //
+  // void _onUpdateSsidPwdAndRestart() async {
+  //   var res = "";
+  //   if (Platform.isLinux) {
+  //     res = await _httpClient.postRestart();
+  //   } else {
+  //     res = await _provision.saveAndRestart(
+  //         targetSsidController.text, passController.text);
+  //   }
+  //
+  //   if (res != "ok") {
+  //     setState(() { isLoading = false; status = "Помилка конфігурації: $res"; });
+  //     return;
+  //   }
+  // }
+  //
+  // Future<String> _onUpdateDataUsrWiFiInfo() async {
+  //   final info = DataUsrWiFiInfo(
+  //       locationType: widget.selectedLocation,
+  //       id: int.tryParse(idController.text)!,
+  //       bssidMac: detectedMac ?? "",
+  //       ssidWifiBms: ssidNameController.text,
+  //       netIpA: ipAController.text,
+  //       netAPort: int.tryParse(portAController.text)!,
+  //       netIpB: ipBController.text,
+  //       netBPort: int.tryParse(portBController.text)!
+  //   );
+  //   await UsrWiFiInfoStorage().updateOrAddById(info);
+  //   return info.ssidWifiBms;
   // }
 
-  void _onSave() async {
-    setState(() {
-      _isLoading = true;
-      _status = "Запис параметрів...";
-    });
-
-    try {
-      final int id = int.tryParse(_idController.text) ?? 1;
-
-      // Крок 1: Режим
-      await _httpClient.postApStaMode();
-
-      // Крок 2: STA налаштування (SSID + PWD)
-      await _httpClient.postApStaOnWithUpdateSsidPwd(
-          _ssidController.text,
-          _passController.text
-      );
-
-      // Крок 3: Сервери A/B
-      await _httpClient.postAppSetting(
-        serverIpA: _ipAController.text,
-        serverPortA: int.tryParse(_portAController.text) ?? (UsrHttpClientHelper.netPortADef + id),
-        serverIpB: _ipBController.text,
-        serverPortB: int.tryParse(_portBController.text) ?? (UsrHttpClientHelper.netPortBDef + id),
-        deviceId: id,
-      );
-
-      // Крок 4: SSID для власної точки доступу (AP)
-      await _httpClient.postApLan(_ssidNameController.text);
-
-      // Крок 5: Фінальний рестарт
-      setState(() => _status = "Фіналізація та рестарт...");
-
-      await _httpClient.postRestart();
-
-      setState(() {
-        _isLoading = false;
-        _status = "Успіх! Модуль перезавантажується...";
-      });
-
-    } catch (e) {
-      // Будь-яка помилка на будь-якому кроці зупинить процес і виведе текст тут
-      setState(() {
-        _status = "Помилка: $e";
-        _isLoading = false;
-      });
-    }
-  }
 
   @override
+  @override
   Widget build(BuildContext context) {
+    final widgets = UsrProvisionWidgets(this);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(_scanSuccess ? "Connected" : "Not Connected", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        actions: [IconButton(icon: const Icon(Icons.refresh, size: 22), onPressed: _onScan)],
+        title: const Text("UDP Configuration"),
+        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _onScan)],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
-          children: [
-            _buildOptimizedHint(),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                SizedBox(
-                  width: 55,
-                  child: TextField(
-                    controller: _idController,
-                    style: const TextStyle(fontSize: 13),
-                    decoration: const InputDecoration(labelText: "ID", isDense: true, border: OutlineInputBorder()),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                _buildPrefixSelector(),
-                const SizedBox(width: 6),
-                Expanded(child: _buildCompactField(_ssidNameController, "Module SSID")),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _buildCompactField(_ssidController, "WiFi SSID (Target)"),
-            const SizedBox(height: 10),
-            _buildCompactField(
-              _passController,
-              "WiFi Password",
-              obscure: _obscurePassword,
-              suffix: IconButton(
-                icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off, size: 18),
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Server A Row
-            Row(
-              children: [
-                Expanded(flex: 3, child: _buildCompactField(_ipAController, "Server IP A")),
-                const SizedBox(width: 8),
-                Expanded(flex: 2, child: _buildCompactField(_portAController, "Port A")),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            // Server B Row
-            Row(
-              children: [
-                Expanded(flex: 3, child: _buildCompactField(_ipBController, "Server IP B")),
-                const SizedBox(width: 8),
-                Expanded(flex: 2, child: _buildCompactField(_portBController, "Port B")),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (_networks.isNotEmpty) _buildNetworkSelector(),
-            const SizedBox(height: 16),
-            if (_isLoading) const CircularProgressIndicator()
-            else SizedBox(width: double.infinity, height: 45, child: ElevatedButton(onPressed: _isFormValid ? _onSave : null, child: const Text("ЗБЕРЕГТИ"))),
-            const SizedBox(height: 10),
-            Text("Статус: $_status", style: const TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.bold)),
-          ],
+      body: widgets.buildCommonForm(
+        networkSelector: _buildNetworkSelector(), // Передаємо специфічний для сторінки віджет
+        actionButtons: widgets.buildActionButtons(
+          onSave: () => onSaveHttpUpdate(widget.selectedLocation),
+          saveLabel: "START PROVISIONING (UDP)",
         ),
       ),
     );
   }
 
-  // Допоміжні методи ...
   Widget _buildOptimizedHint() {
-    final bool hasMac = _scanSuccess && _detectedMac != null;
+    final bool hasMac = _scanSuccess && detectedMac != null;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -307,7 +188,7 @@ class _UsrProvisionUdpPageState extends State<UsrProvisionUdpPage> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: _scanSuccess ? Colors.green.withValues(alpha: 0.2) : Colors.blue.withValues(alpha: 0.2)),
       ),
-      child: Text(hasMac ? "MAC: $_detectedMac" : _provision.getHint(), textAlign: TextAlign.center, style: TextStyle(color: _scanSuccess ? Colors.green.shade700 : Colors.blue.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
+      child: Text(hasMac ? "MAC: $detectedMac" : _provision.getHint(), textAlign: TextAlign.center, style: TextStyle(color: _scanSuccess ? Colors.green.shade700 : Colors.blue.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
     );
   }
 
@@ -319,20 +200,24 @@ class _UsrProvisionUdpPageState extends State<UsrProvisionUdpPage> {
         child: DropdownButton<String>(
           value: _selectedPrefix, isDense: true,
           items: _usrPrefixes.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value.replaceFirst("USR-WIFI232-", "").replaceFirst("_", ""), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)))).toList(),
-          onChanged: (String? nv) { if (nv != null) setState(() { _selectedPrefix = nv; if (_detectedMac != null) { final s = _detectedMac!.replaceAll(':', '').substring(_detectedMac!.replaceAll(':', '').length - 4).toUpperCase(); _ssidNameController.text = "$_selectedPrefix$s"; } }); },
+          onChanged: (String? nv) { if (nv != null) setState(() { _selectedPrefix = nv; if (detectedMac != null) { ssidNameController.text = _getEffectiveSsidName(detectedMac); } }); },
         ),
       ),
     );
   }
 
-  Widget _buildCompactField(TextEditingController ctrl, String label, {bool obscure = false, Widget? suffix}) {
-    return TextField(controller: ctrl, obscureText: obscure, style: const TextStyle(fontSize: 13), decoration: InputDecoration(labelText: label, isDense: true, suffixIcon: suffix, border: const OutlineInputBorder(), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12)));
+  Widget _buildNetworkSelector() {
+    final bool hasValue = _networks.any((n) => n['ssid'].toString() == _selectedSsid);
+    return DropdownButtonFormField<String>(isExpanded: true, value: hasValue ? _selectedSsid : null, isDense: true, decoration: const InputDecoration(labelText: "Available Networks", isDense: true, border: OutlineInputBorder()),
+      items: _networks.map((n) => DropdownMenuItem<String>(value: n['ssid'].toString(), child: Text("${n['ssid']} (${n['level']}%)", style: const TextStyle(fontSize: 12)))).toList(),
+      onChanged: (v) { setState(() { _selectedSsid = v; if (v != null) targetSsidController.text = v; }); },
+    );
   }
 
-  Widget _buildNetworkSelector() {
-    return DropdownButtonFormField<String>(isExpanded: true, initialValue: _selectedSsid, isDense: true, decoration: const InputDecoration(labelText: "Available Networks", isDense: true, border: OutlineInputBorder()),
-      items: _networks.map((n) => DropdownMenuItem<String>(value: n['ssid'].toString(), child: Text("${n['ssid']} (${n['level']}%)", style: const TextStyle(fontSize: 12)))).toList(),
-      onChanged: (v) { setState(() { _selectedSsid = v; if (v != null) _ssidController.text = v; }); },
-    );
+  String _getEffectiveSsidName(String? mac) {
+    if (ssidNameController.text.isNotEmpty && mac == null) return ssidNameController.text;
+    final String cleanMac = (mac ?? "f4:70:0c:62:26:d0").replaceAll(':', '');
+    final String suffix = cleanMac.length >= 4 ? cleanMac.substring(cleanMac.length - 4).toUpperCase() : "0000";
+    return "$_selectedPrefix$suffix";
   }
 }

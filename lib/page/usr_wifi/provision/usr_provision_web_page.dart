@@ -1,172 +1,169 @@
-import 'package:flutter/foundation.dart';
+import 'dart:io';
+
+import 'package:floor_front/page/usr_wifi/provision/usr_provision_widgets.dart';
 import 'package:flutter/material.dart';
-import 'http/usr_http_client_helper.dart';
-import 'usr_provision_web.dart';
+import 'usr_provision_base_page.dart';
 import 'http/usr_http_client.dart';
+import 'http/usr_http_client_helper.dart';
 import '../../data_home/data_location_type.dart';
-import '../info/data_usr_wifi_info.dart';
-import '../info/usr_wifi_info_storage.dart';
+
 
 class UsrProvisionWebPage extends StatefulWidget {
-  final LocationType selectedLocation; // Додано параметр від батька
-
-  const UsrProvisionWebPage({
-    super.key,
-    required this.selectedLocation, // Обов'язковий параметр
-  });
+  final LocationType selectedLocation;
+  const UsrProvisionWebPage({super.key, required this.selectedLocation});
 
   @override
   State<UsrProvisionWebPage> createState() => _UsrProvisionWebPageState();
 }
 
-class _UsrProvisionWebPageState extends State<UsrProvisionWebPage> {
-  final _provision = UsrProvisionWeb();
+class _UsrProvisionWebPageState extends UsrProvisionBasePage<UsrProvisionWebPage> {
   final _httpClient = UsrHttpClient();
-  final _infoStorage = UsrWiFiInfoStorage(); // Для локального збереження
+  final TextEditingController _macController = TextEditingController();
 
-  late final TextEditingController _urlController = TextEditingController(
-      text: UsrHttpClientHelper.baseUrlHttp
-  );
-
-  // Контролери для даних (як у UDP версії)
-  final _idController = TextEditingController(text: "9");
-  late final TextEditingController _ipAController;
-
-  String? _detectedMac;
-  String _status = "Очікування...";
-  bool _isLoading = false;
+  List<Map<String, dynamic>> _networks = [];
+  String? _selectedSsid;
 
   @override
   void initState() {
     super.initState();
-    // Ініціалізуємо IP відповідно до локації
-    _ipAController = TextEditingController(
-      text: widget.selectedLocation == LocationType.golego
-          ? UsrHttpClientHelper.backendHostKubernet
-          : UsrHttpClientHelper.backendHostHome,
-    );
-    _checkModuleConnection();
+    _macController.addListener(() {
+      setState(() {
+        detectedMac = _macController.text.trim().toUpperCase();
+      });
+      // ДОДАЙТЕ ЦЕ: викликає перевірку кнопки "Зберегти"
+      validateFormInternal();
+    });
+    _onRefresh();
   }
 
-  // Слідкуємо за зміною локації у верхньому контейнері
   @override
-  void didUpdateWidget(UsrProvisionWebPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedLocation != widget.selectedLocation) {
-      setState(() {
-        _ipAController.text = widget.selectedLocation == LocationType.golego
-            ? UsrHttpClientHelper.backendHostKubernet
-            : UsrHttpClientHelper.backendHostHome;
-      });
+  void updateModuleSsid(String mac) {
+    // 1. Виконуємо базову логіку (оновлення SSID модуля)
+    super.updateModuleSsid(mac);
+
+    // 2. Синхронізуємо текст у полі вводу з отриманим MAC
+    if (_macController.text != mac) {
+      _macController.text = mac;
     }
   }
 
-  Future<void> _checkModuleConnection() async {
-    final mac = await _httpClient.getMacAddress();
-    if (mac != null) {
-      setState(() { _detectedMac = mac; });
+  Future<void> _onRefresh() async {
+    setState(() {
+      isLoading = true;
+      status = "Отримання даних...";
+
+      // Чистимо ВСЕ: змінні та контролери
+      detectedMac = null;
+      macController.clear();
+      targetSsidController.clear();
+      passController.clear();
+      // Якщо хочеш скидати і назву модуля:
+      ssidNameController.clear();
+    });
+
+    try {
+      final mac = await _httpClient.getMacAddress();
+      if (mac != null) {
+        updateModuleSsid(mac); // Це знову заповнить контролери новими даними
+      }
+    } catch (e) {
+      setState(() => status = "Помилка: $e");
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
-  // НОВИЙ МЕТОД: Збереження локальної інфо (аналог UDP)
-  void _onSaveLocalInfo() async {
-    final int id = int.tryParse(_idController.text) ?? 9;
+  void _onOpenWebPanel() async {
+    final authUrl = "http://${UsrHttpClientHelper.baseHttpLogin}:${UsrHttpClientHelper.baseHttpPwd}@${UsrHttpClientHelper.baseIpAtHttp}";
 
-    final wifiInfo = DataUsrWiFiInfo(
-      id: id,
-      locationType: widget.selectedLocation, // З верхнього фільтра
-      bssidMac: _detectedMac ?? '',
-      ssidWifiBms: "WEB_CONFIGURED", // Або зчитати з модуля
-      netIpA: _ipAController.text,
-      netAPort: 18890 + id,
-      netIpB: "0.0.0.0", // Web mode не завжди дає ці дані одразу
-      netBPort: 8890 + id,
-    );
+    if (Platform.isLinux) {
+      try {
+        // Намагаємося запустити google-chrome або google-chrome-stable
+        // Передаємо URL як аргумент
+        await Process.run('google-chrome', [authUrl]);
 
-    await _infoStorage.saveInfo(wifiInfo); // Зберігаємо в SharedPreferences
-    setState(() { _status = "Інфо збережено для ${widget.selectedLocation.label}"; });
-  }
-
-  void _onOpen() async {
-    _onSaveLocalInfo(); // Зберігаємо інфу при відкритті панелі
-
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux) {
-      UsrHttpClientHelper.openModuleInChrome();
-      setState(() { _status = "Запуск Chrome..."; });
+        setState(() => status = "Chrome відкрито (Linux)");
+      } catch (e) {
+        // Якщо команда 'google-chrome' не знайдена, пробуємо 'chromium'
+        try {
+          await Process.run('chromium', [authUrl]);
+          setState(() => status = "Chromium відкрито (Linux)");
+        } catch (e) {
+          setState(() => status = "Помилка: Chrome не встановлено");
+        }
+      }
     } else {
-      setState(() { _isLoading = true; });
-      final authUrl = "http://${UsrHttpClientHelper.baseHttpLogin}:${UsrHttpClientHelper.baseHttpPwd}@${UsrHttpClientHelper.baseIpAtHttp}";
-      final result = await _provision.saveAndRestart(authUrl, "");
-      setState(() {
-        _isLoading = false;
-        _status = result == "opened_in_browser" ? "Відкрито сторінку" : "Помилка: $result";
-      });
+      // Код для інших платформ (Android/iOS), який ми обговорювали раніше
     }
   }
 
+  // Метод тільки для збереження в базу (з повною перевіркою)
+  // void _onSaveToDatabase() async {
+  //   final int id = int.tryParse(idController.text) ?? 9;
+  //
+  //   if (detectedMac == null || detectedMac!.isEmpty) {
+  //     setState(() => status = "Помилка: MAC адресу не вказано!");
+  //     return;
+  //   }
+  //
+  //   final wifiInfo = DataUsrWiFiInfo(
+  //     id: id,
+  //     locationType: widget.selectedLocation,
+  //     bssidMac: detectedMac!, // Тут буде або отриманий через HTTP, або введений вручну
+  //     ssidWifiBms: ssidNameController.text,
+  //     netIpA: ipAController.text,
+  //     netAPort: int.tryParse(portAController.text) ?? 0,
+  //     netIpB: ipBController.text,
+  //     netBPort: int.tryParse(portBController.text) ?? 0,
+  //   );
+  //
+  //   await _infoStorage.updateOrAddById(wifiInfo);
+  //   setState(() => status = "Дані успішно збережені в базу");
+  // }
+
+  @override
   @override
   Widget build(BuildContext context) {
+    final widgets = UsrProvisionWidgets(this); // Передаємо 'this' (State)
+
     return Scaffold(
-      // Прибираємо AppBar, бо він є у батьківському UsrWifiPage
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildHintCard("Platform: ${defaultTargetPlatform.name} | Location: ${widget.selectedLocation.label}"),
-            const SizedBox(height: 16),
-            if (_detectedMac != null) _buildMacInfo(),
-
-            // Додаємо поля ID та IP як у UDP версії для синхронності
-            Row(
-              children: [
-                SizedBox(width: 60, child: TextField(controller: _idController, decoration: const InputDecoration(labelText: "ID", border: OutlineInputBorder()))),
-                const SizedBox(width: 8),
-                Expanded(child: TextField(controller: _ipAController, decoration: const InputDecoration(labelText: "Server IP A", border: OutlineInputBorder()))),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextField(controller: _urlController, decoration: const InputDecoration(labelText: "URL модуля", border: OutlineInputBorder())),
-            const SizedBox(height: 24),
-
-            if (_isLoading) const CircularProgressIndicator()
-            else SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                  onPressed: _onOpen,
-                  child: const Text("ВІДКРИТИ ПАНЕЛЬ ТА ЗБЕРЕГТИ ІНФО")
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text("Статус: $_status", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-          ],
+      appBar: AppBar(
+        title: const Text("Web Configuration"),
+        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _onRefresh)],
+      ),
+      body: widgets.buildCommonForm(
+        actionButtons: widgets.buildActionButtons(
+          onSave: () => onSaveHttpUpdate(widget.selectedLocation),
+          saveLabel: "ЗБЕРЕГТИ ТА РЕСТАРТ",
         ),
       ),
     );
   }
 
-  Widget _buildMacInfo() => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(12),
-    margin: const EdgeInsets.only(bottom: 24),
-    decoration: BoxDecoration(
-      color: Colors.green.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
-    ),
-    child: Text(
-      "З'єднано з пристроєм: $_detectedMac",
-      style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
-    ),
-  );
+  // Метод для Dropdown списку мереж
+  Widget _buildNetworkSelector() {
+    return DropdownButtonFormField<String>(
+      isExpanded: true,
+      isDense: true,
+      value: _selectedSsid,
+      decoration: const InputDecoration(labelText: "Available Networks", border: OutlineInputBorder(), isDense: true),
+      items: _networks.map((n) => DropdownMenuItem<String>(
+          value: n['ssid'].toString(),
+          child: Text("${n['ssid']} (${n['level']}%)", style: const TextStyle(fontSize: 12))
+      )).toList(),
+      onChanged: (v) {
+        setState(() {
+          _selectedSsid = v;
+          if (v != null) targetSsidController.text = v;
+        });
+      },
+    );
+  }
 
   Widget _buildHintCard(String hint) => Container(
     width: double.infinity,
     padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-        color: Colors.blue.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8)
-    ),
+    decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
     child: Text(hint, textAlign: TextAlign.center, style: const TextStyle(color: Colors.blue)),
   );
 }
