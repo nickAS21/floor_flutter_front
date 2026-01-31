@@ -362,40 +362,4 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       throw "$errorLabel: $res";
     }
   }
-
-// У файлі usr_provision_base_page.dart
-  void openInChrome() async {
-    // Формат: http://user:password@ip
-    final authUrl = "http://${UsrHttpClientHelper.baseHttpLogin}:${UsrHttpClientHelper.baseHttpPwd}@${UsrHttpClientHelper.baseIpAtHttp}";
-
-    if (Platform.isLinux) {
-      try {
-        // Запуск процесу Chrome (Linux)
-        await Process.run('google-chrome', [authUrl]);
-        setState(() => status = "Chrome відкрито");
-      } catch (e) {
-        try {
-          // Якщо Chrome не знайдено, пробуємо Chromium
-          await Process.run('chromium-browser', [authUrl]);
-          setState(() => status = "Chromium відкрито");
-        } catch (err) {
-          setState(() => status = "Браузер не знайдено в системі");
-        }
-      }
-    }
-  }
-
-  void openExternalChrome() async {
-    final url = Uri.parse("http://admin:admin@10.10.100.254");
-
-    if (kIsWeb) {
-      // Якщо запущено в Chrome (Web) — відкриваємо нову вкладку
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url);
-      }
-    } else if (Platform.isLinux) {
-      // Якщо запущено як Linux-додаток — запускаємо Chrome окремим процесом
-      Process.run('google-chrome', [url.toString()]);
-    }
-  }
 }

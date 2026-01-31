@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:floor_front/page/usr_wifi/provision/usr_provision_utils.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'usr_provision_base_page.dart';
@@ -87,14 +88,14 @@ class UsrProvisionWidgets {
     return Column(
       children: [
         // Кнопка для перегляду сторінки модуля на Linux
-        if (kIsWeb || Platform.isLinux) ...[
+        if (Platform.isLinux) ...[
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              // Тепер кнопка буде і в Chrome (Web), і в Linux додатку
-              onPressed: state.openExternalChrome,
+              // Виклик статичного методу утиліт замість методу стану
+              onPressed: () => UsrProvisionUtils.openDeviceWeb(),
               icon: const Icon(Icons.open_in_new),
-              label: const Text("ВІДКРИТИ 10.10.100.254"),
+              label: const Text(UsrProvisionUtils.openHttpOn254),
             ),
           ),
         ],
