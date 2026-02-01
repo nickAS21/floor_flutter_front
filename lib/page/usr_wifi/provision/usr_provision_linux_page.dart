@@ -80,28 +80,40 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
 
 
   Future<void> _onRefresh() async {
+    // Додаємо перевірку на самому вході
+    if (!mounted) return;
+
     setState(() {
       isLoading = true;
       status = "Отримання даних...";
 
-      // Чистимо ВСЕ: змінні та контролери
       detectedMac = null;
       macController.clear();
       targetSsidController.clear();
       passController.clear();
-      // Якщо хочеш скидати і назву модуля:
       ssidNameController.clear();
     });
 
     try {
-      final mac = await httpClient.getMacAddress();
-      if (mac != null) {
-        updateModuleSsid(mac); // Це знову заповнить контролери новими даними
+      // Додаємо .timeout, щоб запит не "висів" у пам'яті довше 2 секунд
+      final mac = await httpClient.getMacAddress().timeout(
+        const Duration(seconds: 2),
+      );
+
+      // ПЕРЕВІРКА: чи ми ще на цій вкладці після того, як прийшла відповідь?
+      if (mounted && mac != null) {
+        updateModuleSsid(mac);
       }
     } catch (e) {
-      setState(() => status = "Помилка: $e");
+      // Захищаємо setState в блоці помилки
+      if (mounted) {
+        setState(() => status = "Помилка: $e");
+      }
     } finally {
-      setState(() => isLoading = false);
+      // Захищаємо фінальний setState
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 

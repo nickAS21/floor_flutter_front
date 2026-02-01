@@ -7,7 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 class AppHelper {
   static const String localBackendHost = 'http://localhost:8084';
   static const String localBackendHostHome = 'http://192.168.8.119:8084';
-  static const String localBackendHostDacha = 'http://192.168.28.15:8084';
+  static const String localBackendHostDacha = 'http://192.168.28.27:8084';
   static const String localBackendChrome = 'http://127.0.0.1:8084';
   static const String localBackendEmulator = 'http://10.0.2.2:8084'; // Emulator
   static const String localBackendDevice = 'http://192.168.251.92:8084'; //  Device
@@ -22,6 +22,7 @@ class AppHelper {
   static const String apiPathHistory = '$apiPathApi/history';
   static const String apiPathAnalytics = '$apiPathApi/analytics';
   static const String apiPathAlarm = '$apiPathApi/alarm';
+  static const String apiPathProvision = '$apiPathApi/provision';
 
   static const String apiPathTuya = '$apiPathApi/tuya';
   static const String apiPathSmart = '$apiPathApi/smart';

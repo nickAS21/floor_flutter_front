@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data_home/data_location_type.dart';
+import 'info/usr_wifi_info_list_locale.dart';
 import 'info/usr_wifi_info_list_page.dart';
 import 'provision/usr_provision_page.dart';
 
@@ -63,7 +64,8 @@ class _UsrWifiPageState extends State<UsrWifiPage> {
         ),
         body: TabBarView(
           children: [
-            UsrWiFiInfoListPage(selectedLocation: _selectedLocation),
+            // ЗАМІСТЬ UsrWiFiInfoListPage викликаємо Locale-обгортку
+            UsrWiFiInfoListLocale(selectedLocation: _selectedLocation),
             UsrProvisionPage(selectedLocation: _selectedLocation),
           ],
         ),

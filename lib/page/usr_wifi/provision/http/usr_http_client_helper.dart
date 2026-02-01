@@ -19,7 +19,7 @@ class UsrHttpClientHelper {
 
   // const port + ip
   static const String backendHostHome = '192.168.8.119';
-  static const String backendHostDacha = '192.168.28.15';
+  static const String backendHostDacha = '192.168.28.27';
   static const String backendHostKubernet = '89.35.145.1';
   static const int netPortADef = 18890;
   static const int netPortBDef = 8890;

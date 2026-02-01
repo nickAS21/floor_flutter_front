@@ -1,3 +1,4 @@
+import 'package:floor_front/page/usr_wifi/connection_server/usr_wifi_info_lists_page.dart';
 import 'package:flutter/material.dart';
 import 'data_home/data_location_type.dart';
 import 'data_home/data_home_page.dart';
@@ -29,14 +30,12 @@ class _MenuPageState extends State<MenuPage> {
     _buildPages();
   }
 
-  // Оновлений список сторінок з UsrWiFiInfoListPage між Unit та History
   void _buildPages() {
     _pages = [
       HomePage(location: _selectedLocation),
       SettingsPage(location: _selectedLocation),
       UnitPage(location: _selectedLocation),
-      // НОВА СТОРІНКА
-      UsrWiFiInfoListPage(selectedLocation: _selectedLocation),
+      UsrWiFiInfoListsPage(selectedLocation: _selectedLocation),
       HistoryPage(location: _selectedLocation),
       AnalyticsPage(location: _selectedLocation),
       AlarmPage(location: _selectedLocation),
@@ -128,7 +127,6 @@ class _MenuPageState extends State<MenuPage> {
             icon: Icon(Icons.developer_board),
             label: "Unit",
           ),
-          // НОВИЙ ЕЛЕМЕНТ МЕНЮ
           const BottomNavigationBarItem(
             icon: Icon(Icons.info_outline),
             label: "UsrInfos",

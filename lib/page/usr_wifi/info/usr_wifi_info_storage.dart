@@ -55,4 +55,17 @@ class UsrWiFiInfoStorage {
     if (list.isNotEmpty) return list.first;
     return DataUsrWiFiInfo(locationType: type);
   }
+
+  // --- НОВІ МЕТОДИ ТІЛЬКИ ДЛЯ СИНХРОНІЗАЦІЇ ---
+
+  /// НОВИЙ: Повне видалення гілки локації перед синхронізацією з сервером
+  Future<void> clearLocationData(LocationType type) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyPrefix + type.name);
+  }
+
+  /// НОВИЙ: Масове збереження (те саме, що saveFullList, але з назвою для логіки синхронізації)
+  Future<void> replaceAllWithServerData(LocationType type, List<DataUsrWiFiInfo> list) async {
+    await saveFullList(type, list);
+  }
 }
