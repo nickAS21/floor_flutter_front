@@ -2,8 +2,6 @@ import 'package:floor_front/page/usr_wifi/provision/usr_provision_widgets.dart';
 import 'package:flutter/material.dart';
 import 'usr_provision_base_page.dart';
 import 'usr_provision_udp.dart';
-import 'http/usr_http_client.dart';
-import 'http/usr_http_client_helper.dart';
 import '../../data_home/data_location_type.dart';
 
 class UsrProvisionUdpPage extends StatefulWidget {
@@ -15,55 +13,34 @@ class UsrProvisionUdpPage extends StatefulWidget {
 }
 
 class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage> {
-  final _provision = UsrProvisionUdp();
-  final _httpClient = UsrHttpClient();
 
-  List<Map<String, dynamic>> _networks = [];
-  String? _selectedSsid;
-  bool _scanSuccess = false;
-  bool _isFormValid = false;
-
-  String _selectedPrefix = UsrHttpClientHelper.wifiSsidB2;
+  @override
+  final provision = UsrProvisionUdp();
 
   @override
   void initState() {
     super.initState();
-    // Повертаємо твої оригінальні слухачі для валідації
-    targetSsidController.addListener(_validateForm);
-    passController.addListener(_validateForm);
-    idController.addListener(_validateForm);
-    ssidNameController.addListener(_validateForm);
-    ipAController.addListener(_validateForm);
-    ipBController.addListener(_validateForm);
-
+    // Усі слухачі вже підключені в базовому класі
     WidgetsBinding.instance.addPostFrameCallback((_) => _onScan());
-  }
-
-  void _validateForm() {
-    final bool isValid = targetSsidController.text.isNotEmpty &&
-        passController.text.isNotEmpty &&
-        idController.text.isNotEmpty &&
-        ssidNameController.text.isNotEmpty;
-    if (isValid != _isFormValid) setState(() => _isFormValid = isValid);
   }
 
   void _onScan() async {
     if (!mounted) return;
-    setState(() { isLoading = true; status = "Пошук..."; detectedMac = null; _scanSuccess = false; _networks = []; _selectedSsid = null; });
+    setState(() { isLoading = true; status = "Пошук..."; detectedMac = null; scanSuccess = false; networks = []; selectedSsid = null; });
 
-    final results = await _provision.scanNetworks(null);
+    final results = await provision.scanNetworks(null);
 
     if (mounted) {
       if (results.isNotEmpty) {
-        _scanSuccess = true;
+        scanSuccess = true;
         // Отримуємо MAC
-        final mac = await _httpClient.getMacAddress();
+        final mac = await httpClient.getMacAddress();
         if (mac != null) {
           final String cleanMac = mac.replaceAll(':', '');
           final String suffix = cleanMac.substring(cleanMac.length - 4).toUpperCase();
           setState(() {
             detectedMac = mac;
-            ssidNameController.text = "$_selectedPrefix$suffix";
+            ssidNameController.text = "$selectedPrefix$suffix";
           });
         }
 
@@ -77,13 +54,13 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
         }
 
         setState(() {
-          _networks = uniqueMap.values.toList();
-          _networks.sort((a, b) => (b['level'] ?? 0).compareTo(a['level'] ?? 0));
-          status = "Знайдено: ${_networks.length}";
+          networks = uniqueMap.values.toList();
+          networks.sort((a, b) => (b['level'] ?? 0).compareTo(a['level'] ?? 0));
+          status = "Знайдено: ${networks.length}";
           isLoading = false;
         });
       } else {
-        setState(() { _networks = []; status = "Timeout"; isLoading = false; _scanSuccess = false; });
+        setState(() { networks = []; status = "Timeout"; isLoading = false; scanSuccess = false; });
       }
     }
   }
@@ -108,12 +85,12 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
   }
 
   Widget _buildNetworkSelector() {
-    final bool hasValue = _networks.any((n) => n['ssid'].toString() == _selectedSsid);
-    return DropdownButtonFormField<String>(isExpanded: true, value: hasValue ? _selectedSsid : null, isDense: true, decoration: const InputDecoration(labelText: "Available Networks", isDense: true, border: OutlineInputBorder()),
-      items: _networks.map((n) => DropdownMenuItem<String>(value: n['ssid'].toString(), child: Text("${n['ssid']} (${n['level']}%)", style: const TextStyle(fontSize: 12)))).toList(),
+    final bool hasValue = networks.any((n) => n['ssid'].toString() == selectedSsid);
+    return DropdownButtonFormField<String>(isExpanded: true, initialValue: hasValue ? selectedSsid : null, isDense: true, decoration: const InputDecoration(labelText: "Available Networks", isDense: true, border: OutlineInputBorder()),
+      items: networks.map((n) => DropdownMenuItem<String>(value: n['ssid'].toString(), child: Text("${n['ssid']} (${n['level']}%)", style: const TextStyle(fontSize: 12)))).toList(),
       onChanged: (v) {
         setState(() {
-          _selectedSsid = v;
+          selectedSsid = v;
           if (v != null) targetSsidController.text = v;
         });
       },

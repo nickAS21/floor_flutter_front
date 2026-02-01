@@ -1,4 +1,3 @@
-// lib/page/menu_page.dart
 import 'package:flutter/material.dart';
 import 'data_home/data_location_type.dart';
 import 'data_home/data_home_page.dart';

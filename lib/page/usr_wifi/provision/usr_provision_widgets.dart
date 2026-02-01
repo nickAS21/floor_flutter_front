@@ -16,6 +16,28 @@ class UsrProvisionWidgets {
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
+          // ДОДАНО: Показуємо підказку, якщо MAC ще не визначено
+          if (state.detectedMac == null || state.detectedMac!.isEmpty)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Text(
+                state.provision.getHint(),
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.blueAccent
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
           state.buildMacStatus(), // Виклик існуючого методу з бази
           const SizedBox(height: 10),
 
@@ -42,7 +64,7 @@ class UsrProvisionWidgets {
             obscure: state.obscurePassword,
             suffix: IconButton(
               icon: Icon(state.obscurePassword ? Icons.visibility : Icons.visibility_off, size: 18),
-              onPressed: () => state.setState(() => state.obscurePassword = !state.obscurePassword),
+              onPressed: state.togglePasswordVisibility,
             ),
           ),
           const SizedBox(height: 10),

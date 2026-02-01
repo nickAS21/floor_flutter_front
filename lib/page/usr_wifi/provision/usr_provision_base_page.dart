@@ -1,9 +1,8 @@
 import 'dart:io';
-
+import 'package:floor_front/page/usr_wifi/provision/usr_provision_base.dart';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_udp.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../data_home/data_location_type.dart';
 import '../info/data_usr_wifi_info.dart';
 import '../info/usr_wifi_info_storage.dart';
@@ -11,57 +10,36 @@ import 'http/usr_http_client.dart';
 import 'http/usr_http_client_helper.dart';
 
 abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
-  // Спільні контролери для обох сторінок
+// Контролери
   final idController = TextEditingController(text: "0");
   final macController = TextEditingController();
-  final ssidNameController = TextEditingController(); // Назва модуля (AP)
-  final targetSsidController = TextEditingController(); // Цільовий WiFi (STA)
+  final ssidNameController = TextEditingController();
+  final targetSsidController = TextEditingController();
   final passController = TextEditingController();
-
   final ipAController = TextEditingController(text: UsrHttpClientHelper.backendHostHome);
   final portAController = TextEditingController();
   final ipBController = TextEditingController(text: UsrHttpClientHelper.backendHostKubernet);
   final portBController = TextEditingController();
-  final _provision = UsrProvisionUdp();
-  final _httpClient = UsrHttpClient();
 
-  // Спільні стани
+  // Спільні стани (тепер публічні для віджетів)
   String? detectedMac;
   bool obscurePassword = true;
   String status = "Очікування...";
   bool isLoading = false;
   bool isFormValid = false;
 
+  List<Map<String, dynamic>> networks = []; // Винесено з нащадків
+  bool scanSuccess = false;                 // Винесено з нащадків
+  String? selectedSsid;                     // Винесено з нащадків
   String selectedPrefix = UsrHttpClientHelper.wifiSsidB2;
 
-  @override
-  void initState() {
-    super.initState();
+  // Інструменти
+  final httpClient = UsrHttpClient();
 
-    // Ініціалізація портів та слухачів
-    _updatePortsInternal();
-    idController.addListener(_updatePortsInternal);
+  // АБСТРАКТНИЙ геттер: кожен нащадок підставить свою версію (UDP або Linux)
+  UsrProvisionBase get provision;
 
-    // Слухачі для загальної валідації форми
-    idController.addListener(validateFormInternal);
-    targetSsidController.addListener(validateFormInternal);
-    passController.addListener(validateFormInternal);
-    ssidNameController.addListener(validateFormInternal);
-  }
-
-  // Розрахунок портів на основі ID
-  void _updatePortsInternal() {
-    final int id = int.tryParse(idController.text) ?? 0;
-    // Прямий запис у контролери, щоб UI миттєво бачив зміни
-    portAController.text = (UsrHttpClientHelper.netPortADef + id).toString();
-    portBController.text = (UsrHttpClientHelper.netPortBDef + id).toString();
-
-    // Виклик валідації після оновлення портів
-    validateFormInternal();
-  }
-
-  // Єдина логіка валідації
-// Єдина логіка валідації
+  // Спільна логіка валідації (щоб не писати в кожному файлі)
   void validateFormInternal() {
     final String idText = idController.text.trim();
     final int? idValue = int.tryParse(idText);
@@ -77,6 +55,70 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       setState(() => isFormValid = isValid);
     }
   }
+
+  final _provisionUdp = UsrProvisionUdp();
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 1. Оновлення портів при зміні ID
+    _updatePortsInternal();
+    idController.addListener(_updatePortsInternal);
+
+    // 2. Синхронізація MAC-адреси (винесено з Linux)
+    macController.addListener(() {
+      if (!mounted) return;
+      final cleanMac = macController.text.trim().toUpperCase();
+      if (detectedMac != cleanMac) {
+        setState(() => detectedMac = cleanMac);
+      }
+    });
+
+    // 3. Загальна валідація для ВСІХ полів (винесено з UDP та Linux)
+    final controllers = [
+      idController,
+      macController,
+      targetSsidController,
+      passController,
+      ssidNameController,
+      ipAController,
+      ipBController,
+    ];
+
+    for (var c in controllers) {
+      c.addListener(validateFormInternal);
+    }
+  }
+
+  // Розрахунок портів на основі ID
+  void _updatePortsInternal() {
+    final int id = int.tryParse(idController.text) ?? 0;
+    // Прямий запис у контролери, щоб UI миттєво бачив зміни
+    portAController.text = (UsrHttpClientHelper.netPortADef + id).toString();
+    portBController.text = (UsrHttpClientHelper.netPortBDef + id).toString();
+
+    // Виклик валідації після оновлення портів
+    validateFormInternal();
+  }
+
+  // Єдина логіка валідації
+// Єдина логіка валідації
+//   void validateFormInternal() {
+//     final String idText = idController.text.trim();
+//     final int? idValue = int.tryParse(idText);
+//
+//     final bool isValid = targetSsidController.text.isNotEmpty &&
+//         passController.text.isNotEmpty &&
+//         // ПЕРЕВІРКА: ID не порожній, є числом і НЕ дорівнює 0
+//         idText.isNotEmpty && idValue != null && idValue != 0 &&
+//         ssidNameController.text.isNotEmpty &&
+//         (detectedMac != null && detectedMac!.isNotEmpty); // Додаткова перевірка MAC
+//
+//     if (isValid != isFormValid) {
+//       setState(() => isFormValid = isValid);
+//     }
+//   }
   // Оновлення SSID модуля при отриманні MAC або зміні префікса
   void updateModuleSsid(String mac) {
     final String cleanMac = mac.replaceAll(':', '');
@@ -186,7 +228,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 
     setState(() { isLoading = true; status = "Скидання..."; });
     try {
-      await _httpClient.postLoadDefaultWtithRestart();
+      await httpClient.postLoadDefaultWtithRestart();
       setState(() {
         status = "Заводські параметри встановлено!";
         detectedMac = null;
@@ -240,18 +282,18 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 
     try {
       // Кожен запит тепер сам "кричить" про помилку, якщо вона є
-      await _safeRequest(_httpClient.postApStaMode(), "Режим");
-      await _safeRequest(_httpClient.postApStaOn(), "Активація");
-      await _safeRequest(_httpClient.postDhcpModeWanAuto(ssidNameController.text) , "Wan name, Ip auto");
-      await _safeRequest(_httpClient.postApLan(ssidNameController.text), "SSID модуля");
+      await _safeRequest(httpClient.postApStaMode(), "Режим");
+      await _safeRequest(httpClient.postApStaOn(), "Активація");
+      await _safeRequest(httpClient.postDhcpModeWanAuto(ssidNameController.text) , "Wan name, Ip auto");
+      await _safeRequest(httpClient.postApLan(ssidNameController.text), "SSID модуля");
 
       await _safeRequest(
-          _httpClient.postApStaOnWithUpdateSsidPwd(targetSsidController.text, passController.text),
+          httpClient.postApStaOnWithUpdateSsidPwd(targetSsidController.text, passController.text),
           "Пароль WiFi"
       );
 
       await _safeRequest(
-          _httpClient.postAppSetting(
+          httpClient.postAppSetting(
               serverIpA: ipAController.text,
               serverPortA: int.tryParse(portAController.text)!,
               serverIpB: ipBController.text,
@@ -299,9 +341,9 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     String res = "";
     try {
       if (Platform.isLinux) {
-        res = await _httpClient.postRestart();
+        res = await httpClient.postRestart();
       } else {
-        res = await _provision.saveAndRestart(targetSsidController.text, passController.text);
+        res = await _provisionUdp.saveAndRestart(targetSsidController.text, passController.text);
       }
 
       bool success = Platform.isLinux
@@ -355,5 +397,11 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       // Передаємо і ваш ярлик, і те, що реально відповів модуль
       throw "$errorLabel: $res";
     }
+  }
+
+  void togglePasswordVisibility() {
+    setState(() {
+      obscurePassword = !obscurePassword;
+    });
   }
 }

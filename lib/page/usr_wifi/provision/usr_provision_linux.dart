@@ -1,12 +1,8 @@
 import 'dart:io';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_base.dart';
-import 'package:floor_front/page/usr_wifi/provision/usr_provision_utils.dart';
 
-class UsrProvisionLinux implements UsrProvisionBase {
-  @override
-  String getHint() => UsrProvisionUtils.provisionHint;
+class UsrProvisionLinux extends UsrProvisionBase {
 
-  @override
   @override
   Future<List<Map<String, dynamic>>> scanNetworks(String? mac) async {
     List<Map<String, dynamic>> found = [];

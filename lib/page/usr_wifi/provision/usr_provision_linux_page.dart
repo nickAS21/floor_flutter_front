@@ -1,13 +1,9 @@
 import 'dart:io';
-
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_linux.dart';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_widgets.dart';
 import 'package:flutter/material.dart';
-import 'http/usr_http_client_helper.dart';
 import 'usr_provision_base_page.dart';
-import 'http/usr_http_client.dart';
 import '../../data_home/data_location_type.dart';
-
 
 class UsrProvisionLinuxPage extends StatefulWidget {
   final LocationType selectedLocation;
@@ -18,26 +14,16 @@ class UsrProvisionLinuxPage extends StatefulWidget {
 }
 
 class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinuxPage> {
-  final _httpClient = UsrHttpClient();
-  final _provision = UsrProvisionLinux();
-  final TextEditingController _macController = TextEditingController();
 
-  List<Map<String, dynamic>> _networks = [];
-  bool _scanSuccess = false;
-  String? _selectedSsid;
-  String _selectedPrefix = UsrHttpClientHelper.wifiSsidB2;
+  @override
+  late final provision = UsrProvisionLinux();
 
   @override
   void initState() {
     super.initState();
-    _macController.addListener(() {
-      setState(() {
-        detectedMac = _macController.text.trim().toUpperCase();
-      });
-      // ДОДАЙТЕ ЦЕ: викликає перевірку кнопки "Зберегти"
-      validateFormInternal();
-    });
-    _onRefresh();
+    // super.initState() вже додав слухача для MAC та валідації
+
+    _onRefresh(); // Отримуємо початковий MAC
     WidgetsBinding.instance.addPostFrameCallback((_) => _onScan());
   }
 
@@ -47,30 +33,30 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
     super.updateModuleSsid(mac);
 
     // 2. Синхронізуємо текст у полі вводу з отриманим MAC
-    if (_macController.text != mac) {
-      _macController.text = mac;
+    if (macController.text != mac) {
+      macController.text = mac;
     }
   }
 
   Future<void> _onScan() async {
     if (!mounted) return;
-    setState(() { isLoading = true; status = "Пошук..."; detectedMac = null; _scanSuccess = false; _networks = []; _selectedSsid = null; });
+    setState(() { isLoading = true; status = "Пошук..."; detectedMac = null; scanSuccess = false; networks = []; selectedSsid = null; });
 
     // Отримуємо MAC
-    final mac = await _httpClient.getMacAddress();
+    final mac = await httpClient.getMacAddress();
     if (mac != null) {
       final String cleanMac = mac.replaceAll(':', '');
       final String suffix = cleanMac.substring(cleanMac.length - 4).toUpperCase();
       setState(() {
         detectedMac = mac;
-        ssidNameController.text = "$_selectedPrefix$suffix";
+        ssidNameController.text = "$selectedPrefix$suffix";
       });
     }
-    final results = await _provision.scanNetworks(mac);
+    final results = await provision.scanNetworks(mac);
 
     if (mounted) {
       if (results.isNotEmpty) {
-        _scanSuccess = true;
+        scanSuccess = true;
         final Map<String, Map<String, dynamic>> uniqueMap = {};
         for (var net in results) {
           final String ssid = (net['ssid'] ?? "").toString();
@@ -81,13 +67,13 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
         }
 
         setState(() {
-          _networks = uniqueMap.values.toList();
-          _networks.sort((a, b) => (b['level'] ?? 0).compareTo(a['level'] ?? 0));
-          status = "Знайдено: ${_networks.length}";
+          networks = uniqueMap.values.toList();
+          networks.sort((a, b) => (b['level'] ?? 0).compareTo(a['level'] ?? 0));
+          status = "Знайдено: ${networks.length}";
           isLoading = false;
         });
       } else {
-        setState(() { _networks = []; status = "Timeout"; isLoading = false; _scanSuccess = false; });
+        setState(() { networks = []; status = "Timeout"; isLoading = false; scanSuccess = false; });
       }
     }
   }
@@ -108,7 +94,7 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
     });
 
     try {
-      final mac = await _httpClient.getMacAddress();
+      final mac = await httpClient.getMacAddress();
       if (mac != null) {
         updateModuleSsid(mac); // Це знову заповнить контролери новими даними
       }
@@ -139,13 +125,13 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
   }
 
   Widget _buildNetworkSelector() {
-    final bool hasValue = _networks.any((n) => n['ssid'].toString() == _selectedSsid);
+    final bool hasValue = networks.any((n) => n['ssid'].toString() == selectedSsid);
     return DropdownButtonFormField<String>(
       isExpanded: true,
-      initialValue: hasValue ? _selectedSsid : null,
+      initialValue: hasValue ? selectedSsid : null,
       isDense: true,
       decoration: const InputDecoration(labelText: "Available Networks", isDense: true, border: OutlineInputBorder()),
-      items: _networks.map((n) => DropdownMenuItem<String>(
+      items: networks.map((n) => DropdownMenuItem<String>(
           value: n['ssid'].toString(),
           child: Text("${n['ssid']} (${n['level']}%)", style: const TextStyle(fontSize: 12))
       )).toList(),
@@ -153,7 +139,7 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
         if (v == null) return;
 
         setState(() {
-          _selectedSsid = v;
+          selectedSsid = v;
           targetSsidController.text = v;
         });
 

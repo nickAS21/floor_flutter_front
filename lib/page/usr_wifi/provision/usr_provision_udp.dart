@@ -3,9 +3,8 @@ import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:async';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_base.dart';
-import 'package:floor_front/page/usr_wifi/provision/usr_provision_utils.dart';
 
-class UsrProvisionUdp implements UsrProvisionBase {
+class UsrProvisionUdp extends UsrProvisionBase {
   static const int port = 49000;
   static const String broadcastIp = "255.255.255.255";
   final packetTest1 = Uint8List.fromList([
@@ -13,9 +12,6 @@ class UsrProvisionUdp implements UsrProvisionBase {
   ]);
   static const String ssidTest = "TEST1";
   static const String pwdTest = "123456";
-
-  @override
-  String getHint() => UsrProvisionUtils.provisionHint;
 
   @override
   Future<List<Map<String, dynamic>>> scanNetworks(String? mac) async {
