@@ -4,5 +4,5 @@ abstract class UsrProvisionBase {
   String getHint() => "Перевірте підключення до Device в режимі AP: USR-WIFI-XX-XXXX";
 
   /// Сканування мереж
-  Future<List<Map<String, dynamic>>> scanNetworks();
+  Future<List<Map<String, dynamic>>> scanNetworks(String? mac);
 }

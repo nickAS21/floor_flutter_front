@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_widgets.dart';
 import 'package:flutter/material.dart';
 import 'usr_provision_base_page.dart';
@@ -53,7 +51,7 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
     if (!mounted) return;
     setState(() { isLoading = true; status = "Пошук..."; detectedMac = null; _scanSuccess = false; _networks = []; _selectedSsid = null; });
 
-    final results = await _provision.scanNetworks();
+    final results = await _provision.scanNetworks(null);
 
     if (mounted) {
       if (results.isNotEmpty) {
@@ -113,14 +111,12 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
     final bool hasValue = _networks.any((n) => n['ssid'].toString() == _selectedSsid);
     return DropdownButtonFormField<String>(isExpanded: true, value: hasValue ? _selectedSsid : null, isDense: true, decoration: const InputDecoration(labelText: "Available Networks", isDense: true, border: OutlineInputBorder()),
       items: _networks.map((n) => DropdownMenuItem<String>(value: n['ssid'].toString(), child: Text("${n['ssid']} (${n['level']}%)", style: const TextStyle(fontSize: 12)))).toList(),
-      onChanged: (v) { setState(() { _selectedSsid = v; if (v != null) targetSsidController.text = v; }); },
+      onChanged: (v) {
+        setState(() {
+          _selectedSsid = v;
+          if (v != null) targetSsidController.text = v;
+        });
+      },
     );
-  }
-
-  String _getEffectiveSsidName(String? mac) {
-    if (ssidNameController.text.isNotEmpty && mac == null) return ssidNameController.text;
-    final String cleanMac = (mac ?? "f4:70:0c:62:26:d0").replaceAll(':', '');
-    final String suffix = cleanMac.length >= 4 ? cleanMac.substring(cleanMac.length - 4).toUpperCase() : "0000";
-    return "$_selectedPrefix$suffix";
   }
 }
