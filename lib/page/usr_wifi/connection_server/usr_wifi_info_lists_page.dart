@@ -5,6 +5,7 @@ import '../info/usr_wifi_info_storage.dart';
 import '../info/usr_wifi_info_list_locale.dart';
 import '../info/usr_wifi_info_page.dart'; // Форма редагування
 import '../../data_home/data_location_type.dart';
+import '../provision/http/usr_http_client_helper.dart';
 import 'usr_wifi_info_connection.dart';
 import 'usr_wifi_info_synchronization.dart';
 
@@ -22,6 +23,7 @@ class _UsrWiFiInfoListsPageState extends State<UsrWiFiInfoListsPage> with Single
 
   List<DataUsrWiFiInfo> _serverListUsrInfo = [];
   bool _isLoading = false;
+  int _localSyncCounter = 0;
 
   @override
   void initState() {
@@ -30,11 +32,28 @@ class _UsrWiFiInfoListsPageState extends State<UsrWiFiInfoListsPage> with Single
     _fetchFromServer();
   }
 
+  @override
+  void didUpdateWidget(UsrWiFiInfoListsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedLocation != widget.selectedLocation) {
+      setState(() {
+        _serverListUsrInfo = [];
+        _localSyncCounter = 0; // Скидаємо лічильник для нової локації
+      });
+      _fetchFromServer();
+    }
+  }
+
   // GET
   Future<void> _fetchFromServer() async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _serverListUsrInfo = []; // Очищення кешу перед новим запитом
+    });
+
     final result = await UsrWiFiInfoConnection.fetchFromServer(widget.selectedLocation);
+
     if (mounted) {
       setState(() {
         _serverListUsrInfo = result;
@@ -70,20 +89,16 @@ class _UsrWiFiInfoListsPageState extends State<UsrWiFiInfoListsPage> with Single
     }
   }
 
-  // Синхронізація: Server Tab -> Local Prefs
-// У файлі UsrWiFiInfoListsPage.dart виклик тепер виглядає так:
   Future<void> _handleSyncServerToLocale() async {
     if (_serverListUsrInfo.isEmpty) return;
-
-    // 1. Викликаємо логіку з вашого класу синхронізації
     final dataToSave = UsrWiFiInfoSynchronization.copyServerToLocal(_serverListUsrInfo);
-
-    // 2. Викликаємо збереження
     await _storage.saveFullList(widget.selectedLocation, dataToSave);
 
     if (mounted) {
+      setState(() {
+        _localSyncCounter++; // Змінюємо стан, щоб Key оновився
+      });
       _tabController.animateTo(0);
-      setState(() {}); // Тільки оновлюємо UI
     }
   }
 
@@ -131,7 +146,11 @@ class _UsrWiFiInfoListsPageState extends State<UsrWiFiInfoListsPage> with Single
         ),
         const Divider(height: 1),
         Expanded(
-          child: UsrWiFiInfoListLocale(selectedLocation: widget.selectedLocation),
+          child: UsrWiFiInfoListLocale(
+            // Ключ змусить Flutter перестворити віджет і заново вичитати SharedPrefs
+            key: ValueKey("${widget.selectedLocation.name}_$_localSyncCounter"),
+            selectedLocation: widget.selectedLocation,
+          ),
         ),
       ],
     );
@@ -165,7 +184,7 @@ class _UsrWiFiInfoListsPageState extends State<UsrWiFiInfoListsPage> with Single
                 locationType: widget.selectedLocation,
                 ssidWifiBms: "",
                 bssidMac: "",
-                netIpA: "", netAPort: 18890, netIpB: "0.0.0.0", netBPort: 8890,
+                netIpA: "", netAPort: UsrHttpClientHelper.netPortADef, netIpB: "0.0.0.0", netBPort: UsrHttpClientHelper.netPortBDef,
               );
 
               final result = await Navigator.push(
@@ -218,23 +237,6 @@ class _UsrWiFiInfoListsPageState extends State<UsrWiFiInfoListsPage> with Single
     );
   }
 
-  // Стилізовані кнопки
-  Widget _buildActionBtn({required String label, required IconData icon, required Color color, VoidCallback? onPressed}) {
-    return Padding(
-      padding: const EdgeInsets.all(12.0),
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size.fromHeight(45),
-          backgroundColor: color.withOpacity(0.1),
-          foregroundColor: color,
-          side: BorderSide(color: color),
-        ),
-        icon: Icon(icon),
-        label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
 
   Widget _buildMiniBtn(String label, IconData icon, Color color, VoidCallback? onPressed) {
     return ElevatedButton.icon(

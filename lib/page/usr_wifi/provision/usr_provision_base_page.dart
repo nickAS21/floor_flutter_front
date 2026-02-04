@@ -3,6 +3,7 @@ import 'package:floor_front/page/usr_wifi/provision/usr_provision_base.dart';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_udp.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../helpers/app_helper.dart';
 import '../../data_home/data_location_type.dart';
 import '../info/data_usr_wifi_info.dart';
 import '../info/usr_wifi_info_storage.dart';
@@ -16,9 +17,9 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   final ssidNameController = TextEditingController();
   final targetSsidController = TextEditingController();
   final passController = TextEditingController();
-  final ipAController = TextEditingController(text: UsrHttpClientHelper.backendHostHome);
+  final ipAController = TextEditingController(text: AppHelper.backendHostHome);
   final portAController = TextEditingController();
-  final ipBController = TextEditingController(text: UsrHttpClientHelper.backendHostKubernet);
+  final ipBController = TextEditingController(text: AppHelper.backendHostKubernet);
   final portBController = TextEditingController();
 
   // Спільні стани (тепер публічні для віджетів)

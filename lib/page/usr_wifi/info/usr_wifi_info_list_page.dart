@@ -188,10 +188,21 @@ class _UsrWiFiInfoListPageState extends State<UsrWiFiInfoListPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start, // Щоб текст рівнявся по верхній лінії, якщо буде 2 рядки
         children: [
-          Text(label, style: const TextStyle(color: Colors.blueGrey, fontSize: 13)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(
+              label,
+              style: const TextStyle(color: Colors.blueGrey, fontSize: 13)
+          ),
+          const SizedBox(width: 12), // Мінімальний відступ між назвою та значенням
+          Expanded( // <--- Цей віджет змушує текст вписатися у ширину, що залишилася
+            child: Text(
+              value,
+              textAlign: TextAlign.right, // Зберігаємо логіку "по різних боках"
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              softWrap: true, // Дозволяє перенос на новий рядок, якщо текст дуже довгий
+            ),
+          ),
         ],
       ),
     );

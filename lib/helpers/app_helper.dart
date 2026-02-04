@@ -6,11 +6,14 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 class AppHelper {
   static const String localBackendHost = 'http://localhost:8084';
-  static const String localBackendHostHome = 'http://192.168.8.119:8084';
-  static const String localBackendHostDacha = 'http://192.168.28.27:8084';
+  static const String backendHostHome = '192.168.8.102';
+  static const String localBackendHostHome = 'http://$backendHostHome:8084';
+  static const String backendHostDacha = '192.168.28.27';
+  static const String localBackendHostDacha = 'http://$backendHostDacha:8084';
   static const String localBackendChrome = 'http://127.0.0.1:8084';
   static const String localBackendEmulator = 'http://10.0.2.2:8084'; // Emulator
   static const String localBackendDevice = 'http://192.168.251.92:8084'; //  Device
+  static const String backendHostKubernet = '89.35.145.1';
   static const String kubernetesBackend = 'https://tuya.k8s.solk.pl';
   static const String apiPathLogin = '/api/auth/login';
   static const String apiPathApi = '/api';

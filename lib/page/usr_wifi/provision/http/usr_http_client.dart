@@ -233,7 +233,7 @@ class UsrHttpClient {
       GO app_config.html
       SET0 285999616=client
       SET1 286064896=18890          // portA
-      SET2 286130688=192.168.8.119  // apiA
+      SET2 286130688=backendHostHome // apiA
       SET3 286392576=8890           // portB
       SET4 286458368=40.81.42.93    // apiB
    */
