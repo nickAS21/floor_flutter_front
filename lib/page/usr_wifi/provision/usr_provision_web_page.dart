@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'usr_provision_utils.dart';
-import 'http/usr_http_client_helper.dart'; // Переконайтеся, що імпорт є
+import 'http/usr_wifi_232_http_client_helper.dart'; // Переконайтеся, що імпорт є
 
 class UsrProvisionWebPage extends StatefulWidget {
   final dynamic selectedLocation; // Тип dynamic, щоб не було конфліктів

@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_base.dart';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_helper.dart';
 
-class UsrProvisionUdp extends UsrProvisionBase {
+class UsrWiFi232ProvisionUdp extends UsrProvisionBase {
 
   @override
   Future<List<Map<String, dynamic>>> scanNetworks(String? mac) async {

@@ -1,5 +1,5 @@
 import '../../data_home/data_location_type.dart';
-import '../provision/http/usr_http_client_helper.dart';
+import '../provision/http/usr_wifi_232_http_client_helper.dart';
 
 class DataUsrWiFiInfo {
   int id;                         // netIpA - 18890 = id
@@ -18,9 +18,9 @@ class DataUsrWiFiInfo {
     this.bssidMac = '',
     this.ssidWifiBms = '',
     this.netIpA = '',
-    this.netAPort = UsrHttpClientHelper.netPortADef,
+    this.netAPort = UsrWiFi232HttpClientHelper.netPortADef,
     this.netIpB = '',
-    this.netBPort = UsrHttpClientHelper.netPortBDef,
+    this.netBPort = UsrWiFi232HttpClientHelper.netPortBDef,
     this.oui,
   });
 
@@ -33,9 +33,9 @@ class DataUsrWiFiInfo {
       bssidMac: json['bssidMac'] ?? '',
       ssidWifiBms: json['ssidWifiBms'] ?? '',
       netIpA: json['netIpA'] ?? '',
-      netAPort: json['netAPort'] ?? UsrHttpClientHelper.netPortADef,
+      netAPort: json['netAPort'] ?? UsrWiFi232HttpClientHelper.netPortADef,
       netIpB: json['netIpB'] ?? '',
-      netBPort: json['netBPort'] ?? UsrHttpClientHelper.netPortBDef,
+      netBPort: json['netBPort'] ?? UsrWiFi232HttpClientHelper.netPortBDef,
       oui: json['oui'],
     );
   }

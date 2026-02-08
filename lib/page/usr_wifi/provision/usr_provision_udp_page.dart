@@ -1,7 +1,7 @@
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_widgets.dart';
 import 'package:flutter/material.dart';
 import 'usr_provision_base_page.dart';
-import 'usr_provision_udp.dart';
+import 'usr_wifi_232_provision_udp.dart';
 import '../../data_home/data_location_type.dart';
 
 class UsrProvisionUdpPage extends StatefulWidget {
@@ -15,7 +15,7 @@ class UsrProvisionUdpPage extends StatefulWidget {
 class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage> {
 
   @override
-  final provision = UsrProvisionUdp();
+  final provision = UsrWiFi232ProvisionUdp();
 
   @override
   void initState() {

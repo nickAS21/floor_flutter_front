@@ -1,13 +1,13 @@
 import 'dart:convert';
-import 'package:floor_front/page/usr_wifi/provision/http/usr_http_client_helper.dart';
+import 'package:floor_front/page/usr_wifi/provision/http/usr_wifi_232_http_client_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-class UsrHttpClient {
-  static const String _baseUrl = "http://${UsrHttpClientHelper.baseIpAtHttp}/EN/${UsrHttpClientHelper.htmlDoCmd}";
+class UsrWiFi232HttpClient {
+  static const String _baseUrl = "http://${UsrWiFi232HttpClientHelper.baseIpAtHttpWiFi232}/EN/${UsrWiFi232HttpClientHelper.htmlDoCmd}";
 
   final Map<String, String> _headers = {
-    'Authorization': UsrHttpClientHelper.authBasicHeader,
+    'Authorization': UsrWiFi232HttpClientHelper.authBasicHeader,
     'Content-Type': 'application/x-www-form-urlencoded',
   };
 
@@ -16,8 +16,8 @@ class UsrHttpClient {
 
     try {
       final response = await http.get(
-        Uri.parse(UsrHttpClientHelper.baseUrlHttpFast),
-        headers: {'Authorization': UsrHttpClientHelper.authBasicHeader},
+        Uri.parse(UsrWiFi232HttpClientHelper.baseUrlHttpFast),
+        headers: {'Authorization': UsrWiFi232HttpClientHelper.authBasicHeader},
       ).timeout(const Duration(seconds: 2));
 
       if (response.statusCode == 200) {
@@ -37,8 +37,8 @@ class UsrHttpClient {
 
     try {
       final response = await http.get(
-        Uri.parse(UsrHttpClientHelper.baseUrlHttpSiteSurvey),
-        headers: {'Authorization': UsrHttpClientHelper.authBasicHeader},
+        Uri.parse(UsrWiFi232HttpClientHelper.baseUrlHttpSiteSurvey),
+        headers: {'Authorization': UsrWiFi232HttpClientHelper.authBasicHeader},
       ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
@@ -140,17 +140,17 @@ class UsrHttpClient {
     */
   Future<String> postApStaMode() async {
     return await _sendRequest({
-      UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdWirelessBasic,
-      UsrHttpClientHelper.mainGo: UsrHttpClientHelper.htmlOpmode,
+      UsrWiFi232HttpClientHelper.mainCmd: UsrWiFi232HttpClientHelper.cmdWirelessBasic,
+      UsrWiFi232HttpClientHelper.mainGo: UsrWiFi232HttpClientHelper.htmlOpmode,
       // STA mode = 1 AP mode = 0
-      UsrHttpClientHelper.set0: '${UsrHttpClientHelper.fieldApCliEnable}=${UsrHttpClientHelper.values1}',
+      UsrWiFi232HttpClientHelper.set0: '${UsrWiFi232HttpClientHelper.fieldApCliEnable}=${UsrWiFi232HttpClientHelper.values1}',
       // "", STA, AP => STA
-      UsrHttpClientHelper.set1: '${UsrHttpClientHelper.fieldWifiMode}=${UsrHttpClientHelper.valuesSta}',
+      UsrWiFi232HttpClientHelper.set1: '${UsrWiFi232HttpClientHelper.fieldWifiMode}=${UsrWiFi232HttpClientHelper.valuesSta}',
       // STA mode = 2 AP mode = 1 => STA
-      UsrHttpClientHelper.set2: '${UsrHttpClientHelper.fieldSysOpmode}=${UsrHttpClientHelper.values2}',
+      UsrWiFi232HttpClientHelper.set2: '${UsrWiFi232HttpClientHelper.fieldSysOpmode}=${UsrWiFi232HttpClientHelper.values2}',
       // Transparent mode = 0; Serial Comand Mode = 1; GPIO Mode = 3; HTTP Mode = 4; Modbus TCP<=>Modbus RTU = 5;
-      UsrHttpClientHelper.set3: '${UsrHttpClientHelper.fieldDataTransformMode}=${UsrHttpClientHelper.values0}',
-      UsrHttpClientHelper.set4: '${UsrHttpClientHelper.fieldCountryCode}=${UsrHttpClientHelper.values5}',
+      UsrWiFi232HttpClientHelper.set3: '${UsrWiFi232HttpClientHelper.fieldDataTransformMode}=${UsrWiFi232HttpClientHelper.values0}',
+      UsrWiFi232HttpClientHelper.set4: '${UsrWiFi232HttpClientHelper.fieldCountryCode}=${UsrWiFi232HttpClientHelper.values5}',
     });
   }
 
@@ -166,10 +166,10 @@ class UsrHttpClient {
 
   Future<String> postApLan(String fullSsidName) async {
     return await _sendRequest({
-      UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdWirelessBasic,
-      UsrHttpClientHelper.mainGo: UsrHttpClientHelper.htmlAp,
-      UsrHttpClientHelper.set0: '${UsrHttpClientHelper.fieldNkSsidName}=$fullSsidName',
-      UsrHttpClientHelper.set1: '${UsrHttpClientHelper.fieldFrequencyAuto}=${UsrHttpClientHelper.values1}',
+      UsrWiFi232HttpClientHelper.mainCmd: UsrWiFi232HttpClientHelper.cmdWirelessBasic,
+      UsrWiFi232HttpClientHelper.mainGo: UsrWiFi232HttpClientHelper.htmlAp,
+      UsrWiFi232HttpClientHelper.set0: '${UsrWiFi232HttpClientHelper.fieldNkSsidName}=$fullSsidName',
+      UsrWiFi232HttpClientHelper.set1: '${UsrWiFi232HttpClientHelper.fieldFrequencyAuto}=${UsrWiFi232HttpClientHelper.values1}',
     });
   }
 
@@ -181,11 +181,11 @@ class UsrHttpClient {
    */
   Future<String> postApStaOn() async {
     return await _sendRequest({
-      UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdLan,
-      UsrHttpClientHelper.mainGo: UsrHttpClientHelper.htmlStaConfig,
+      UsrWiFi232HttpClientHelper.mainCmd: UsrWiFi232HttpClientHelper.cmdLan,
+      UsrWiFi232HttpClientHelper.mainGo: UsrWiFi232HttpClientHelper.htmlStaConfig,
       // AP + STA - on
-      UsrHttpClientHelper.set0: '${UsrHttpClientHelper.fieldApStaEnable}=${UsrHttpClientHelper.valuesOn}',
-      UsrHttpClientHelper.set1: '${UsrHttpClientHelper.fieldWlanClinum}=${UsrHttpClientHelper.values100}',
+      UsrWiFi232HttpClientHelper.set0: '${UsrWiFi232HttpClientHelper.fieldApStaEnable}=${UsrWiFi232HttpClientHelper.valuesOn}',
+      UsrWiFi232HttpClientHelper.set1: '${UsrWiFi232HttpClientHelper.fieldWlanClinum}=${UsrWiFi232HttpClientHelper.values100}',
     });
   }
 
@@ -199,12 +199,12 @@ class UsrHttpClient {
    */
   Future<String> postDhcpModeWanAuto(String fullSsidName) async {
     return await _sendRequest({
-      UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdLan,
-      UsrHttpClientHelper.mainGo: UsrHttpClientHelper.htmlStaConfig,
+      UsrWiFi232HttpClientHelper.mainCmd: UsrWiFi232HttpClientHelper.cmdLan,
+      UsrWiFi232HttpClientHelper.mainGo: UsrWiFi232HttpClientHelper.htmlStaConfig,
       // AP + STA - on
-      UsrHttpClientHelper.set0: '${UsrHttpClientHelper.fieldWanType}=${UsrHttpClientHelper.values2}',
-      UsrHttpClientHelper.set1: '${UsrHttpClientHelper.fieldHNWanName}=$fullSsidName',
-      UsrHttpClientHelper.set2: '${UsrHttpClientHelper.fieldSWanDnsFix}=${UsrHttpClientHelper.values0}',
+      UsrWiFi232HttpClientHelper.set0: '${UsrWiFi232HttpClientHelper.fieldWanType}=${UsrWiFi232HttpClientHelper.values2}',
+      UsrWiFi232HttpClientHelper.set1: '${UsrWiFi232HttpClientHelper.fieldHNWanName}=$fullSsidName',
+      UsrWiFi232HttpClientHelper.set2: '${UsrWiFi232HttpClientHelper.fieldSWanDnsFix}=${UsrWiFi232HttpClientHelper.values0}',
     });
   }
 
@@ -239,98 +239,98 @@ class UsrHttpClient {
    */
   Future<String> postApStaOnWithUpdateSsidPwd(String ssid, String pwd) async {
     return await _sendRequest({
-      UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdLan,
-      UsrHttpClientHelper.mainGo: UsrHttpClientHelper.htmlStaConfig,
+      UsrWiFi232HttpClientHelper.mainCmd: UsrWiFi232HttpClientHelper.cmdLan,
+      UsrWiFi232HttpClientHelper.mainGo: UsrWiFi232HttpClientHelper.htmlStaConfig,
 
       // Профіль 1 (STA)
       // 'SET0': '81723904=$ssid',           // SSID
-      UsrHttpClientHelper.set0: '${UsrHttpClientHelper.fieldSsidName}=$ssid',
+      UsrWiFi232HttpClientHelper.set0: '${UsrWiFi232HttpClientHelper.fieldSsidName}=$ssid',
       // 'SET1': '81134080=WPA2PSK',        // Auth Mode
-      UsrHttpClientHelper.set1: '${UsrHttpClientHelper.fieldSSecurityMode}=${UsrHttpClientHelper.valuesWPA2PSK}',
+      UsrWiFi232HttpClientHelper.set1: '${UsrWiFi232HttpClientHelper.fieldSSecurityMode}=${UsrWiFi232HttpClientHelper.valuesWPA2PSK}',
       // 'SET2': '81199616=AES',            // Encryption
-      UsrHttpClientHelper.set2: '${UsrHttpClientHelper.fieldSEncryptionType}=${UsrHttpClientHelper.valuesAES}',
+      UsrWiFi232HttpClientHelper.set2: '${UsrWiFi232HttpClientHelper.fieldSEncryptionType}=${UsrWiFi232HttpClientHelper.valuesAES}',
       // 'SET3': '81264896=1',              // Активація профілю (важливо для nLink)
-      UsrHttpClientHelper.set3: '${UsrHttpClientHelper.fieldSEnTyWEP}=${UsrHttpClientHelper.values1}',
+      UsrWiFi232HttpClientHelper.set3: '${UsrWiFi232HttpClientHelper.fieldSEnTyWEP}=${UsrWiFi232HttpClientHelper.values1}',
       // 'SET4': '81658368=$pwd',            // Password [cite: 150]
-      UsrHttpClientHelper.set4: '${UsrHttpClientHelper.fieldSEnTyPassP}=$pwd',
+      UsrWiFi232HttpClientHelper.set4: '${UsrWiFi232HttpClientHelper.fieldSEnTyPassP}=$pwd',
       // Заглушки (OPEN)
       // 'SET5': '82706944=OPEN',
-      UsrHttpClientHelper.set5: '${UsrHttpClientHelper.fieldSSecurityMode1}=${UsrHttpClientHelper.valuesOPEN}',
+      UsrWiFi232HttpClientHelper.set5: '${UsrWiFi232HttpClientHelper.fieldSSecurityMode1}=${UsrWiFi232HttpClientHelper.valuesOPEN}',
       // 'SET6': '82772480=NONE',
-      UsrHttpClientHelper.set6: '${UsrHttpClientHelper.fieldSEncryptionType1}=${UsrHttpClientHelper.valuesNONE}',
+      UsrWiFi232HttpClientHelper.set6: '${UsrWiFi232HttpClientHelper.fieldSEncryptionType1}=${UsrWiFi232HttpClientHelper.valuesNONE}',
       // 'SET7': '83231232=OPEN',
-      UsrHttpClientHelper.set7: '${UsrHttpClientHelper.fieldSSecurityMode2}=${UsrHttpClientHelper.valuesOPEN}',
+      UsrWiFi232HttpClientHelper.set7: '${UsrWiFi232HttpClientHelper.fieldSSecurityMode2}=${UsrWiFi232HttpClientHelper.valuesOPEN}',
       // 'SET8': '83296768=NONE',
-      UsrHttpClientHelper.set8: '${UsrHttpClientHelper.fieldSEncryptionType2}=${UsrHttpClientHelper.valuesNONE}',
+      UsrWiFi232HttpClientHelper.set8: '${UsrWiFi232HttpClientHelper.fieldSEncryptionType2}=${UsrWiFi232HttpClientHelper.valuesNONE}',
       // Профіль 2 (дублювання для стабільності)
       // 'SET9': '304087552=$ssid',
-      UsrHttpClientHelper.set9: '${UsrHttpClientHelper.fieldSsidName3}=$ssid',
+      UsrWiFi232HttpClientHelper.set9: '${UsrWiFi232HttpClientHelper.fieldSsidName3}=$ssid',
       // 'SET10': '303694336=WPA2PSK',
-      UsrHttpClientHelper.set10: '${UsrHttpClientHelper.fieldSSecurityMode3}=${UsrHttpClientHelper.valuesWPA2PSK}',
+      UsrWiFi232HttpClientHelper.set10: '${UsrWiFi232HttpClientHelper.fieldSSecurityMode3}=${UsrWiFi232HttpClientHelper.valuesWPA2PSK}',
       // 'SET11': '303759872=AES',
-      UsrHttpClientHelper.set11: '${UsrHttpClientHelper.fieldSEncryptionType3}=${UsrHttpClientHelper.valuesAES}',
+      UsrWiFi232HttpClientHelper.set11: '${UsrWiFi232HttpClientHelper.fieldSEncryptionType3}=${UsrWiFi232HttpClientHelper.valuesAES}',
       // 'SET12': '303825408=1',            // Активація профілю 2
-      UsrHttpClientHelper.set12: '${UsrHttpClientHelper.fieldSEnTyWEP3}=${UsrHttpClientHelper.values1}',
+      UsrWiFi232HttpClientHelper.set12: '${UsrWiFi232HttpClientHelper.fieldSEnTyWEP3}=${UsrWiFi232HttpClientHelper.values1}',
       // 'SET13': '304022016=$pwd',
-      UsrHttpClientHelper.set13: '${UsrHttpClientHelper.fieldSEnTyPassP3}=$pwd',
+      UsrWiFi232HttpClientHelper.set13: '${UsrWiFi232HttpClientHelper.fieldSEnTyPassP3}=$pwd',
       // 'SET14': '305136128=0',            // Прапорець захисту
-      UsrHttpClientHelper.set14: '${UsrHttpClientHelper.fieldStaProtec}=${UsrHttpClientHelper.values0}',
+      UsrWiFi232HttpClientHelper.set14: '${UsrWiFi232HttpClientHelper.fieldStaProtec}=${UsrWiFi232HttpClientHelper.values0}',
     });
   }
 
   Future<String> postApStaOnWithUpdateSsidPwd1(String ssid, String pwd) async {
     return await _sendRequest({
-      UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdLan,
-      UsrHttpClientHelper.mainGo: UsrHttpClientHelper.htmlStaConfig,
+      UsrWiFi232HttpClientHelper.mainCmd: UsrWiFi232HttpClientHelper.cmdLan,
+      UsrWiFi232HttpClientHelper.mainGo: UsrWiFi232HttpClientHelper.htmlStaConfig,
       // SET0 81723904=lebed
-      UsrHttpClientHelper.set0: '${UsrHttpClientHelper.fieldSsidName}=$ssid',
+      UsrWiFi232HttpClientHelper.set0: '${UsrWiFi232HttpClientHelper.fieldSsidName}=$ssid',
       // SET1 81134080=WPA2PSK
-      UsrHttpClientHelper.set1: '${UsrHttpClientHelper.fieldSSecurityMode}=${UsrHttpClientHelper.valuesWPA2PSK}',
+      UsrWiFi232HttpClientHelper.set1: '${UsrWiFi232HttpClientHelper.fieldSSecurityMode}=${UsrWiFi232HttpClientHelper.valuesWPA2PSK}',
       // SET2 81199616=AES
-      UsrHttpClientHelper.set2: '${UsrHttpClientHelper.fieldSSecurityMode}=${UsrHttpClientHelper.valuesAES}',
+      UsrWiFi232HttpClientHelper.set2: '${UsrWiFi232HttpClientHelper.fieldSSecurityMode}=${UsrWiFi232HttpClientHelper.valuesAES}',
       // SET3 81658368=lebedhome???
-      UsrHttpClientHelper.set3: '${UsrHttpClientHelper.fieldSEnTyPassP}=$pwd',
+      UsrWiFi232HttpClientHelper.set3: '${UsrWiFi232HttpClientHelper.fieldSEnTyPassP}=$pwd',
       });
   }  
     Future<String> postApStaOnWithUpdateSsidPwd2() async {
     return await _sendRequest({
-      UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdLan,
-      UsrHttpClientHelper.mainGo: UsrHttpClientHelper.htmlStaConfig,
-      UsrHttpClientHelper.set0: '${UsrHttpClientHelper.fieldApStaEnable}=${UsrHttpClientHelper.valuesOn}'
+      UsrWiFi232HttpClientHelper.mainCmd: UsrWiFi232HttpClientHelper.cmdLan,
+      UsrWiFi232HttpClientHelper.mainGo: UsrWiFi232HttpClientHelper.htmlStaConfig,
+      UsrWiFi232HttpClientHelper.set0: '${UsrWiFi232HttpClientHelper.fieldApStaEnable}=${UsrWiFi232HttpClientHelper.valuesOn}'
       });
   }
 
   Future<String> postApStaOnWithUpdateSsidPwd12(String ssid, String pwd) async {
     return await _sendRequest({
-      UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdLan,
-      UsrHttpClientHelper.mainGo: UsrHttpClientHelper.htmlStaConfig,
+      UsrWiFi232HttpClientHelper.mainCmd: UsrWiFi232HttpClientHelper.cmdLan,
+      UsrWiFi232HttpClientHelper.mainGo: UsrWiFi232HttpClientHelper.htmlStaConfig,
       // SET0 81723904=lebed
-      UsrHttpClientHelper.set0: '${UsrHttpClientHelper.fieldSsidName}=$ssid',
+      UsrWiFi232HttpClientHelper.set0: '${UsrWiFi232HttpClientHelper.fieldSsidName}=$ssid',
       // SET1 81134080=WPA2PSK
-      UsrHttpClientHelper.set1: '${UsrHttpClientHelper.fieldSSecurityMode}=${UsrHttpClientHelper.valuesWPA2PSK}',
+      UsrWiFi232HttpClientHelper.set1: '${UsrWiFi232HttpClientHelper.fieldSSecurityMode}=${UsrWiFi232HttpClientHelper.valuesWPA2PSK}',
       // SET2 81199616=AES
-      UsrHttpClientHelper.set2: '${UsrHttpClientHelper.fieldSSecurityMode}=${UsrHttpClientHelper.valuesAES}',
+      UsrWiFi232HttpClientHelper.set2: '${UsrWiFi232HttpClientHelper.fieldSSecurityMode}=${UsrWiFi232HttpClientHelper.valuesAES}',
       // SET3 81658368=lebedhome???
-      UsrHttpClientHelper.set3: '${UsrHttpClientHelper.fieldSEnTyPassP}=$pwd',
+      UsrWiFi232HttpClientHelper.set3: '${UsrWiFi232HttpClientHelper.fieldSEnTyPassP}=$pwd',
       // SET4 82706944=OPEN
-      UsrHttpClientHelper.set4: '${UsrHttpClientHelper.fieldSSecurityMode1}=${UsrHttpClientHelper.valuesOPEN}',
+      UsrWiFi232HttpClientHelper.set4: '${UsrWiFi232HttpClientHelper.fieldSSecurityMode1}=${UsrWiFi232HttpClientHelper.valuesOPEN}',
       // SET5 82772480=NONE
-      UsrHttpClientHelper.set5: '${UsrHttpClientHelper.fieldSEncryptionType1}=${UsrHttpClientHelper.valuesNONE}',
+      UsrWiFi232HttpClientHelper.set5: '${UsrWiFi232HttpClientHelper.fieldSEncryptionType1}=${UsrWiFi232HttpClientHelper.valuesNONE}',
       // SET6 83231232=OPEN
-      UsrHttpClientHelper.set6: '${UsrHttpClientHelper.fieldSSecurityMode2}=${UsrHttpClientHelper.valuesOPEN}',
+      UsrWiFi232HttpClientHelper.set6: '${UsrWiFi232HttpClientHelper.fieldSSecurityMode2}=${UsrWiFi232HttpClientHelper.valuesOPEN}',
       // SET7 83296768=NONE
-      UsrHttpClientHelper.set7: '${UsrHttpClientHelper.fieldSEncryptionType2}=${UsrHttpClientHelper.valuesNONE}',
+      UsrWiFi232HttpClientHelper.set7: '${UsrWiFi232HttpClientHelper.fieldSEncryptionType2}=${UsrWiFi232HttpClientHelper.valuesNONE}',
       // SET8 304087552=lebed
-      UsrHttpClientHelper.set8: '${UsrHttpClientHelper.fieldSsidName3}=$ssid',
+      UsrWiFi232HttpClientHelper.set8: '${UsrWiFi232HttpClientHelper.fieldSsidName3}=$ssid',
       // SET9 303694336=WPA2PSK
-      UsrHttpClientHelper.set9: '${UsrHttpClientHelper.fieldSSecurityMode3}=${UsrHttpClientHelper.valuesWPA2PSK}',
+      UsrWiFi232HttpClientHelper.set9: '${UsrWiFi232HttpClientHelper.fieldSSecurityMode3}=${UsrWiFi232HttpClientHelper.valuesWPA2PSK}',
       // SET10 303759872=AES
-      UsrHttpClientHelper.set10: '${UsrHttpClientHelper.fieldSEncryptionType3}=${UsrHttpClientHelper.valuesAES}',
+      UsrWiFi232HttpClientHelper.set10: '${UsrWiFi232HttpClientHelper.fieldSEncryptionType3}=${UsrWiFi232HttpClientHelper.valuesAES}',
       // SET11 304022016=lebedhome???
-      UsrHttpClientHelper.set11: '${UsrHttpClientHelper.fieldSEnTyPassP3}=$pwd',
+      UsrWiFi232HttpClientHelper.set11: '${UsrWiFi232HttpClientHelper.fieldSEnTyPassP3}=$pwd',
       // SET12 304677376=on => AP + STA - on
-      UsrHttpClientHelper.set12: '${UsrHttpClientHelper.fieldApStaEnable}=${UsrHttpClientHelper.valuesOn}',
-      UsrHttpClientHelper.set13: '${UsrHttpClientHelper.fieldWlanClinum}=${UsrHttpClientHelper.values100}',
+      UsrWiFi232HttpClientHelper.set12: '${UsrWiFi232HttpClientHelper.fieldApStaEnable}=${UsrWiFi232HttpClientHelper.valuesOn}',
+      UsrWiFi232HttpClientHelper.set13: '${UsrWiFi232HttpClientHelper.fieldWlanClinum}=${UsrWiFi232HttpClientHelper.values100}',
       //?? SET14 305136128=0 => fieldStaProtec = '305136128'; => addCfg('sta_protect',0x12300200,'off');
     });
   }
@@ -343,16 +343,16 @@ class UsrHttpClient {
     required int serverPortB
   }) async {
     return await _sendRequest({
-      UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdApplication,
-      UsrHttpClientHelper.mainGo: UsrHttpClientHelper.htmlAppConfig,
+      UsrWiFi232HttpClientHelper.mainCmd: UsrWiFi232HttpClientHelper.cmdApplication,
+      UsrWiFi232HttpClientHelper.mainGo: UsrWiFi232HttpClientHelper.htmlAppConfig,
       // 'client'/'server' -> 'client'
-      UsrHttpClientHelper.set0: '${UsrHttpClientHelper.fieldNetMode}=${UsrHttpClientHelper.valuesClient}',
-      UsrHttpClientHelper.set1: '${UsrHttpClientHelper.fieldNetPort}=$serverPortA',
-      UsrHttpClientHelper.set2: '${UsrHttpClientHelper.fieldNetIp}=$serverIpA',
+      UsrWiFi232HttpClientHelper.set0: '${UsrWiFi232HttpClientHelper.fieldNetMode}=${UsrWiFi232HttpClientHelper.valuesClient}',
+      UsrWiFi232HttpClientHelper.set1: '${UsrWiFi232HttpClientHelper.fieldNetPort}=$serverPortA',
+      UsrWiFi232HttpClientHelper.set2: '${UsrWiFi232HttpClientHelper.fieldNetIp}=$serverIpA',
       // Socket B Setting off = 0; on = 1
-      UsrHttpClientHelper.set3: '${UsrHttpClientHelper.fieldNetbMode}=${UsrHttpClientHelper.values1}',
-      UsrHttpClientHelper.set4: '${UsrHttpClientHelper.fieldNetbPort}=$serverPortB',
-      UsrHttpClientHelper.set5: '${UsrHttpClientHelper.fieldNetbIp}=$serverIpB',
+      UsrWiFi232HttpClientHelper.set3: '${UsrWiFi232HttpClientHelper.fieldNetbMode}=${UsrWiFi232HttpClientHelper.values1}',
+      UsrWiFi232HttpClientHelper.set4: '${UsrWiFi232HttpClientHelper.fieldNetbPort}=$serverPortB',
+      UsrWiFi232HttpClientHelper.set5: '${UsrWiFi232HttpClientHelper.fieldNetbIp}=$serverIpB',
     });
   }
 
@@ -363,9 +363,9 @@ class UsrHttpClient {
    */
   Future<String> postRestart()  async {
     return await _sendRequest({
-      UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdASysConf,
-      UsrHttpClientHelper.mainGo: UsrHttpClientHelper.htmlManagement,
-      UsrHttpClientHelper.mainCCMD: '${UsrHttpClientHelper.values0}',
+      UsrWiFi232HttpClientHelper.mainCmd: UsrWiFi232HttpClientHelper.cmdASysConf,
+      UsrWiFi232HttpClientHelper.mainGo: UsrWiFi232HttpClientHelper.htmlManagement,
+      UsrWiFi232HttpClientHelper.mainCCMD: '${UsrWiFi232HttpClientHelper.values0}',
     });
   }
 
@@ -376,16 +376,16 @@ class UsrHttpClient {
    */
   Future<String> postLoadDefaultWtithRestart()  async {
     return await _sendRequest({
-      UsrHttpClientHelper.mainCmd: UsrHttpClientHelper.cmdASysConf,
-      UsrHttpClientHelper.mainGo: UsrHttpClientHelper.htmlManagement,
-      UsrHttpClientHelper.mainCCMD: '${UsrHttpClientHelper.values1}',
+      UsrWiFi232HttpClientHelper.mainCmd: UsrWiFi232HttpClientHelper.cmdASysConf,
+      UsrWiFi232HttpClientHelper.mainGo: UsrWiFi232HttpClientHelper.htmlManagement,
+      UsrWiFi232HttpClientHelper.mainCCMD: '${UsrWiFi232HttpClientHelper.values1}',
     });
   }
 
   Future<String> postApplyAndRestart() async {
     // Команда AT+Z — це і є "Apply" для цих модулів
     return await _sendRequest({
-      UsrHttpClientHelper.mainCmd: 'Z', // Команда перезавантаження
+      UsrWiFi232HttpClientHelper.mainCmd: 'Z', // Команда перезавантаження
       // Якщо ваш CGI вимагає інший формат, можна спробувати прямий GET: "/at+z"
     });
   }

@@ -4,11 +4,11 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-class UsrHttpClientHelper {
+class UsrWiFi232HttpClientHelper {
 
   // main for connect
-  static const String baseIpAtHttp = "10.10.100.254";
-  static const String baseUrlHttp = "http://$baseIpAtHttp";
+  static const String baseIpAtHttpWiFi232 = "10.10.100.254";
+  static const String baseUrlHttpWiFi232 = "http://$baseIpAtHttpWiFi232";
   static const String baseHttpLogin = "admin";
   static const String baseHttpPwd = "admin";
   static String get authBasicHeader {
@@ -22,13 +22,13 @@ class UsrHttpClientHelper {
   static const int netPortBDef = 8890;
   static const String wifiSsidB2 = "USR-WIFI232-B2_";
   static const String wifiSsidA2 = "USR-WIFI232-A2_";
-  static const String wifiSsidAx = "USR-WIFI232-AX_";
+  static const String wifiSsidAs = "USR-S100-";
   static const List<String> usrPrefixes = [
-    UsrHttpClientHelper.wifiSsidB2,
-    UsrHttpClientHelper.wifiSsidA2,
-    UsrHttpClientHelper.wifiSsidAx
+    UsrWiFi232HttpClientHelper.wifiSsidB2,
+    UsrWiFi232HttpClientHelper.wifiSsidA2,
+    UsrWiFi232HttpClientHelper.wifiSsidAs
   ];
-  static const List<String> usrSsidPrefixes = [wifiSsidB2, wifiSsidA2, wifiSsidAx];
+  static const List<String> usrSsidPrefixes = [wifiSsidB2, wifiSsidA2, wifiSsidAs];
 
   // html
   static const String htmlDoCmd = "do_cmd.html";
@@ -38,8 +38,8 @@ class UsrHttpClientHelper {
   static const String htmlAp = "ap.html";
   static const String htmlFast = "fast.html";
   static const String htmlSiteSurvey = "site_survey.html";
-  static const String baseUrlHttpFast = "$baseUrlHttp/EN/$htmlFast";
-  static const String baseUrlHttpSiteSurvey = "$baseUrlHttp/EN/$htmlSiteSurvey";
+  static const String baseUrlHttpFast = "$baseUrlHttpWiFi232/EN/$htmlFast";
+  static const String baseUrlHttpSiteSurvey = "$baseUrlHttpWiFi232/EN/$htmlSiteSurvey";
   static const String htmlRestart = "restart.html";
   static const String htmlManagement = "management.html";
 
@@ -214,7 +214,7 @@ class UsrHttpClientHelper {
     if (kIsWeb) return;
 
     // Формуємо URL виду http://admin:admin@10.10.100.254
-    final String authUrl = "http://$baseHttpLogin:$baseHttpPwd@$baseIpAtHttp"; //
+    final String authUrl = "http://$baseHttpLogin:$baseHttpPwd@$baseIpAtHttpWiFi232"; //
 
     if (Platform.isLinux) {
       // Запускаємо Chrome з URL, що вже містить логін/пароль

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../provision/http/usr_http_client_helper.dart';
+import '../provision/http/usr_wifi_232_http_client_helper.dart';
 import 'data_usr_wifi_info.dart';
 import 'usr_wifi_info_storage.dart';
 
@@ -24,7 +24,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
   late TextEditingController _portBController;
   late TextEditingController _ouiController;
 
-  String _selectedPrefix = UsrHttpClientHelper.wifiSsidB2;
+  String _selectedPrefix = UsrWiFi232HttpClientHelper.wifiSsidB2;
 
   @override
   void initState() {
@@ -38,7 +38,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     _portBController = TextEditingController(text: widget.info.netBPort.toString());
     _ouiController = TextEditingController(text: widget.info.oui ?? '');
 
-    for (var prefix in UsrHttpClientHelper.usrPrefixes) {
+    for (var prefix in UsrWiFi232HttpClientHelper.usrPrefixes) {
       if (widget.info.ssidWifiBms.startsWith(prefix)) {
         _selectedPrefix = prefix;
         break;
@@ -70,8 +70,8 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     final int? id = int.tryParse(_idController.text);
     if (id != null) {
       setState(() {
-        _portAController.text = (UsrHttpClientHelper.netPortADef + id).toString();
-        _portBController.text = (UsrHttpClientHelper.netPortBDef + id).toString();
+        _portAController.text = (UsrWiFi232HttpClientHelper.netPortADef + id).toString();
+        _portBController.text = (UsrWiFi232HttpClientHelper.netPortBDef + id).toString();
       });
     }
   }
@@ -125,9 +125,9 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     widget.info.bssidMac = _macController.text;
     widget.info.ssidWifiBms = _ssidController.text;
     widget.info.netIpA = _ipAController.text;
-    widget.info.netAPort = int.tryParse(_portAController.text) ?? (UsrHttpClientHelper.netPortADef + newId);
+    widget.info.netAPort = int.tryParse(_portAController.text) ?? (UsrWiFi232HttpClientHelper.netPortADef + newId);
     widget.info.netIpB = _ipBController.text;
-    widget.info.netBPort = int.tryParse(_portBController.text) ?? (UsrHttpClientHelper.netPortBDef + newId);
+    widget.info.netBPort = int.tryParse(_portBController.text) ?? (UsrWiFi232HttpClientHelper.netPortBDef + newId);
     // oui не чіпаємо, воно тільки для читання
 
     // Остаточне збереження в SharedPreferences
@@ -198,7 +198,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                     ),
-                    items: UsrHttpClientHelper.usrPrefixes.map((String value) {
+                    items: UsrWiFi232HttpClientHelper.usrPrefixes.map((String value) {
                       return DropdownMenuItem<String>(
                         value: value,
                         child: Text(

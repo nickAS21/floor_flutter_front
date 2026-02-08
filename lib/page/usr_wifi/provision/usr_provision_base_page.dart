@@ -1,14 +1,14 @@
 import 'dart:io';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_base.dart';
-import 'package:floor_front/page/usr_wifi/provision/usr_provision_udp.dart';
+import 'package:floor_front/page/usr_wifi/provision/usr_wifi_232_provision_udp.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../helpers/app_helper.dart';
 import '../../data_home/data_location_type.dart';
 import '../info/data_usr_wifi_info.dart';
 import '../info/usr_wifi_info_storage.dart';
-import 'http/usr_http_client.dart';
-import 'http/usr_http_client_helper.dart';
+import 'http/usr_wifi_232_http_client.dart';
+import 'http/usr_wifi_232_http_client_helper.dart';
 
 abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 // Контролери
@@ -32,10 +32,10 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   List<Map<String, dynamic>> networks = []; // Винесено з нащадків
   bool scanSuccess = false;                 // Винесено з нащадків
   String? selectedSsid;                     // Винесено з нащадків
-  String selectedPrefix = UsrHttpClientHelper.wifiSsidB2;
+  String selectedPrefix = UsrWiFi232HttpClientHelper.wifiSsidB2;
 
   // Інструменти
-  final httpClient = UsrHttpClient();
+  final httpClient = UsrWiFi232HttpClient();
 
   // АБСТРАКТНИЙ геттер: кожен нащадок підставить свою версію (UDP або Linux)
   UsrProvisionBase get provision;
@@ -57,7 +57,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     }
   }
 
-  final _provisionUdp = UsrProvisionUdp();
+  final _provisionUdp = UsrWiFi232ProvisionUdp();
 
   @override
   void initState() {
@@ -96,8 +96,8 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   void _updatePortsInternal() {
     final int id = int.tryParse(idController.text) ?? 0;
     // Прямий запис у контролери, щоб UI миттєво бачив зміни
-    portAController.text = (UsrHttpClientHelper.netPortADef + id).toString();
-    portBController.text = (UsrHttpClientHelper.netPortBDef + id).toString();
+    portAController.text = (UsrWiFi232HttpClientHelper.netPortADef + id).toString();
+    portBController.text = (UsrWiFi232HttpClientHelper.netPortBDef + id).toString();
 
     // Виклик валідації після оновлення портів
     validateFormInternal();
@@ -146,7 +146,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
         child: DropdownButton<String>(
           value: selectedPrefix,
           isDense: true,
-          items: UsrHttpClientHelper.usrPrefixes.map((s) => DropdownMenuItem(
+          items: UsrWiFi232HttpClientHelper.usrPrefixes.map((s) => DropdownMenuItem(
               value: s,
               child: Text(
                   s.replaceFirst("USR-WIFI232-", "").replaceFirst("_", ""),
