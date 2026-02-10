@@ -3,6 +3,7 @@ class HistoryModel {
   final double batterySoc;
   final String batteryStatus;
   final double batteryVol;
+  final double batteryCurrent;
   final bool gridStatusRealTimeOnLine;
   final bool gridStatusRealTimeSwitch;
   final int inverterPort;
@@ -15,6 +16,7 @@ class HistoryModel {
     required this.batterySoc,
     required this.batteryStatus,
     required this.batteryVol,
+    required this.batteryCurrent,
     required this.gridStatusRealTimeOnLine,
     required this.gridStatusRealTimeSwitch,
     required this.inverterPort,
@@ -29,6 +31,7 @@ class HistoryModel {
       batterySoc: (json['batterySoc'] ?? 0.0).toDouble(),
       batteryStatus: json['batteryStatus'] ?? '--',
       batteryVol: (json['batteryVol'] ?? 0.0).toDouble(),
+      batteryCurrent: (json['batteryCurrent'] ?? 0.0).toDouble(),
       gridStatusRealTimeOnLine: json['gridStatusRealTimeOnLine'] ?? false,
       gridStatusRealTimeSwitch: json['gridStatusRealTimeSwitch'] ?? false,
       inverterPort: json['inverterPort'] ?? 0,

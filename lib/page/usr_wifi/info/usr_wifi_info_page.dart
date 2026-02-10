@@ -38,7 +38,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     _portBController = TextEditingController(text: widget.info.netBPort.toString());
     _ouiController = TextEditingController(text: widget.info.oui ?? '');
 
-    for (var prefix in UsrWiFi232HttpClientHelper.usrPrefixes) {
+    for (var prefix in UsrWiFi232HttpClientHelper.usrSsidPrefixes) {
       if (widget.info.ssidWifiBms.startsWith(prefix)) {
         _selectedPrefix = prefix;
         break;
@@ -191,14 +191,14 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
                   width: 75,
                   height: 47, // Фіксована висота для вирівнювання з TextField
                   child: DropdownButtonFormField<String>(
-                    value: _selectedPrefix,
+                    initialValue: _selectedPrefix,
                     isDense: true,
                     decoration: const InputDecoration(
                       isDense: true,
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                     ),
-                    items: UsrWiFi232HttpClientHelper.usrPrefixes.map((String value) {
+                    items: UsrWiFi232HttpClientHelper.usrSsidPrefixes.map((String value) {
                       return DropdownMenuItem<String>(
                         value: value,
                         child: Text(

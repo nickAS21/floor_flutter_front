@@ -135,6 +135,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
             children: [
               _dialogRow("Зв'язок", b['connectionStatus'], UnitHelper.getConnectionColor(b['connectionStatus'])),
               _dialogRow("Напруга", "${(b['voltageCurV'] ?? 0.0).toStringAsFixed(2)} V", null),
+              _dialogRow("Струм", "${(b['voltageCurA'] ?? 0.0).toStringAsFixed(2)} A", null),
               _dialogRow("Заряд", "${(b['socPercent'] ?? 0.0).toInt()}%", Colors.blue),
               _dialogRow("Статус BMS", b['bmsStatusStr'], UnitHelper.getStatusColor(b['bmsStatusStr'] ?? '')),
               _dialogRow(
