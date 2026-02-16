@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../info/data_usr_wifi_info.dart';
 import '../info/usr_wifi_info_storage.dart';
 import '../info/usr_wifi_info_page.dart';
-import '../provision/http/usr_wifi_232_http_client_helper.dart';
+import '../provision/client/http/usr_wifi_232_http_client_helper.dart';
 import 'usr_wifi_info_list_page.dart';
 import '../../data_home/data_location_type.dart';
 

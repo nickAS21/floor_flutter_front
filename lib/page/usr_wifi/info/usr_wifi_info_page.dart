@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../provision/http/usr_wifi_232_http_client_helper.dart';
+import '../provision/client/http/usr_wifi_232_http_client_helper.dart';
 import 'data_usr_wifi_info.dart';
 import 'usr_wifi_info_storage.dart';
 
@@ -23,6 +23,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
   late TextEditingController _ipBController;
   late TextEditingController _portBController;
   late TextEditingController _ouiController;
+  late TextEditingController _bitrateController;
 
   String _selectedPrefix = UsrWiFi232HttpClientHelper.wifiSsidB2;
 
@@ -37,6 +38,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     _ipBController = TextEditingController(text: widget.info.netIpB);
     _portBController = TextEditingController(text: widget.info.netBPort.toString());
     _ouiController = TextEditingController(text: widget.info.oui ?? '');
+    _bitrateController = TextEditingController(text: widget.info.bitrate.toString());
 
     for (var prefix in UsrWiFi232HttpClientHelper.usrSsidPrefixes) {
       if (widget.info.ssidWifiBms.startsWith(prefix)) {
@@ -86,6 +88,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     _ipBController.dispose();
     _portBController.dispose();
     _ouiController.dispose();
+    _bitrateController.dispose();
     super.dispose();
   }
 
@@ -128,6 +131,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     widget.info.netAPort = int.tryParse(_portAController.text) ?? (UsrWiFi232HttpClientHelper.netPortADef + newId);
     widget.info.netIpB = _ipBController.text;
     widget.info.netBPort = int.tryParse(_portBController.text) ?? (UsrWiFi232HttpClientHelper.netPortBDef + newId);
+    widget.info.bitrate = int.tryParse(_bitrateController.text) ?? 2400;
     // oui не чіпаємо, воно тільки для читання
 
     // Остаточне збереження в SharedPreferences
@@ -175,10 +179,11 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
               children: [
                 Expanded(flex: 1, child: _buildField(_idController, "ID", isNumber: true)),
                 const SizedBox(width: 8),
-                Expanded(flex: 2, child: _buildField(_ouiController, "OUI (Vendor/Chip)", readOnly: true, isOptional: true)),
+                Expanded(flex: 2, child: _buildField(_bitrateController, "Bit Rate (Baud)", isNumber: true)),
               ],
             ),
-            _buildField(_macController, "MAC-адреса", isMac: true,),
+            Expanded(flex: 1, child: _buildField(_ouiController, "OUI (Vendor/Chip)", readOnly: true, isOptional: true)),
+            Expanded(flex: 1, child: _buildField(_macController, "MAC-адреса", isMac: true)),
 
             const Text("Налаштування SSID модуля", style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
             const SizedBox(height: 6),
@@ -188,33 +193,37 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
-                  width: 75,
-                  height: 47, // Фіксована висота для вирівнювання з TextField
+                  width: 75, // Можна навіть 70-75
+                  height: 47,
                   child: DropdownButtonFormField<String>(
                     initialValue: _selectedPrefix,
                     isDense: true,
+                    isExpanded: true, // ДОДАЙ ЦЕ: змушує вміст вписуватися в SizedBox
                     decoration: const InputDecoration(
                       isDense: true,
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 10), // Мінімальні відступи
                     ),
+                    // Цей блок відповідає за те, ЯК виглядає вибраний елемент у закритому списку
+                    selectedItemBuilder: (BuildContext context) {
+                      return UsrWiFi232HttpClientHelper.usrSsidPrefixes.map((String value) {
+                        return Text(
+                          value.replaceFirst("USR-WIFI232-", "").replaceFirst("_", ""),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), // Трохи менший шрифт
+                          overflow: TextOverflow.ellipsis, // Захист від переповнення всередині
+                        );
+                      }).toList();
+                    },
                     items: UsrWiFi232HttpClientHelper.usrSsidPrefixes.map((String value) {
                       return DropdownMenuItem<String>(
                         value: value,
                         child: Text(
                           value.replaceFirst("USR-WIFI232-", "").replaceFirst("_", ""),
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          style: const TextStyle(fontSize: 13), // В самому списку може бути більше
                         ),
                       );
                     }).toList(),
-                    onChanged: (nv) {
-                      if (nv != null) {
-                        setState(() {
-                          _selectedPrefix = nv;
-                          _updateSsidFromMac();
-                        });
-                      }
-                    },
+                    onChanged: (nv) { /* ... твій код ... */ },
                   ),
                 ),
                 const SizedBox(width: 8),

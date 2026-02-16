@@ -5,7 +5,7 @@ import '../info/usr_wifi_info_storage.dart';
 import '../info/usr_wifi_info_list_locale.dart';
 import '../info/usr_wifi_info_page.dart'; // Форма редагування
 import '../../data_home/data_location_type.dart';
-import '../provision/http/usr_wifi_232_http_client_helper.dart';
+import '../provision/client/http/usr_wifi_232_http_client_helper.dart';
 import 'usr_wifi_info_connection.dart';
 import 'usr_wifi_info_synchronization.dart';
 

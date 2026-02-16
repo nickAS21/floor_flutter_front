@@ -1,5 +1,5 @@
 import '../../data_home/data_location_type.dart';
-import '../provision/http/usr_wifi_232_http_client_helper.dart';
+import '../provision/client/http/usr_wifi_232_http_client_helper.dart';
 
 class DataUsrWiFiInfo {
   int id;                         // netIpA - 18890 = id
@@ -11,6 +11,7 @@ class DataUsrWiFiInfo {
   String netIpB;                  // IP BMS
   int netBPort;                   // Port BMS (8890 + id)
   String? oui;                    // Chip manufacturer (Vendor)
+  int bitrate;                    // Додано поле bitrate
 
   DataUsrWiFiInfo({
     this.id = 0,
@@ -22,6 +23,7 @@ class DataUsrWiFiInfo {
     this.netIpB = '',
     this.netBPort = UsrWiFi232HttpClientHelper.netPortBDef,
     this.oui,
+    this.bitrate = 2400,
   });
 
   factory DataUsrWiFiInfo.fromJson(Map<String, dynamic> json) {
@@ -37,6 +39,7 @@ class DataUsrWiFiInfo {
       netIpB: json['netIpB'] ?? '',
       netBPort: json['netBPort'] ?? UsrWiFi232HttpClientHelper.netPortBDef,
       oui: json['oui'],
+      bitrate: json['bitrate'] ?? 2400,
     );
   }
 
@@ -50,5 +53,6 @@ class DataUsrWiFiInfo {
     'netIpB': netIpB,
     'netBPort': netBPort,
     'oui': oui,
+    'bitrate': bitrate,
   };
 }

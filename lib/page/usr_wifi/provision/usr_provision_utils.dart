@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'http/usr_wifi_232_http_client_helper.dart';
+
+import 'client/http/usr_wifi_232_http_client_helper.dart';
 
 class UsrProvisionUtils {
 

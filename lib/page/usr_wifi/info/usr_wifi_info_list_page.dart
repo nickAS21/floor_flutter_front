@@ -155,6 +155,7 @@ class _UsrWiFiInfoListPageState extends State<UsrWiFiInfoListPage> {
             children: [
               _detailRow("ID (BMS Index)", info.id.toString()),
               _detailRow("MAC Address", info.bssidMac),
+              _detailRow("Bit Rate (Baud)", info.bitrate.toString()),
               if (info.oui != null && info.oui!.isNotEmpty)
                 _detailRow("Vendor (OUI)", info.oui!),
               const Divider(),

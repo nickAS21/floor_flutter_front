@@ -68,7 +68,9 @@ class UsrProvisionWidgets {
             ),
           ),
           const SizedBox(height: 10),
-
+          // Нове поле для BitRate
+          state.buildCompactField(state.bitrateController, "Bit Rate (Baud)", isNumber: true),
+          const SizedBox(height: 10),
           // Поля серверів та портів
           _buildIpPortRow(state.ipAController, state.portAController, "Server IP A"),
           const SizedBox(height: 10),
