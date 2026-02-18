@@ -23,7 +23,7 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
   void initState() {
     super.initState();
     // Початкове отримання даних при завантаженні сторінки
-    _onScan();
+    onScan();
   }
 
   @override
@@ -35,7 +35,8 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
   }
 
   /// ОСНОВНИЙ МЕТОД СКАНУВАННЯ ТА РОЗВІДКИ
-  Future<void> _onScan() async {
+  @override
+  Future<void> onScan() async {
     if (!mounted) return;
     setState(() {
       isLoading = true;
@@ -90,7 +91,7 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
     }
   }
 
-  Future<void> _onRefresh() async {
+  Future<void> onRefreshDevice() async {
     if (!mounted) return;
     setState(() {
       isLoading = true;
@@ -121,13 +122,13 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
 
     return Scaffold(
       appBar: AppBar(
-          title: const Text("Linux Configuration"),
-          actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _onScan)]
+      title: const Text("Linux Configuration"),
+      actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: onScan)],
       ),
       body: widgets.buildCommonForm(
         networkSelector: _buildNetworkSelector(),
         actionButtons: widgets.buildActionButtons(
-          onSave: () => onSaveHttpUpdate(widget.selectedLocation), // Виклик уніфікованого методу
+          onSave: () => onSaveHttpUpdate(widget.selectedLocation),
           saveLabel: "ЗБЕРЕГТИ ТА РЕСТАРТ",
         ),
       ),
@@ -161,7 +162,7 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
             final result = await Process.run('nmcli', ['dev', 'wifi', 'connect', v]);
             if (result.exitCode == 0) {
               await Future.delayed(const Duration(seconds: 2)); // Даємо час на асоціацію
-              await _onScan(); // Повний Rescan після підключення
+              await onScan(); // Повний Rescan після підключення
             } else {
               setState(() => status = "Помилка підключення nmcli");
             }

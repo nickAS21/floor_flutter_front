@@ -1,5 +1,6 @@
 import '../../data_home/data_location_type.dart';
 import '../provision/client/http/usr_wifi_232_http_client_helper.dart';
+import '../provision/usr_provision_helper.dart';
 
 class DataUsrWiFiInfo {
   int id;                         // netIpA - 18890 = id
@@ -23,7 +24,7 @@ class DataUsrWiFiInfo {
     this.netIpB = '',
     this.netBPort = UsrWiFi232HttpClientHelper.netPortBDef,
     this.oui,
-    this.bitrate = 2400,
+    this.bitrate = UsrProvisionHelper.bitrateDef,
   });
 
   factory DataUsrWiFiInfo.fromJson(Map<String, dynamic> json) {
@@ -39,7 +40,7 @@ class DataUsrWiFiInfo {
       netIpB: json['netIpB'] ?? '',
       netBPort: json['netBPort'] ?? UsrWiFi232HttpClientHelper.netPortBDef,
       oui: json['oui'],
-      bitrate: json['bitrate'] ?? 2400,
+      bitrate: json['bitrate'] ?? UsrProvisionHelper.bitrateDef,
     );
   }
 

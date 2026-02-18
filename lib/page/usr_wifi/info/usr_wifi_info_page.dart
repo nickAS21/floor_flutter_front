@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../provision/client/http/usr_wifi_232_http_client_helper.dart';
+import '../provision/usr_provision_helper.dart';
 import 'data_usr_wifi_info.dart';
 import 'usr_wifi_info_storage.dart';
 
@@ -131,7 +132,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     widget.info.netAPort = int.tryParse(_portAController.text) ?? (UsrWiFi232HttpClientHelper.netPortADef + newId);
     widget.info.netIpB = _ipBController.text;
     widget.info.netBPort = int.tryParse(_portBController.text) ?? (UsrWiFi232HttpClientHelper.netPortBDef + newId);
-    widget.info.bitrate = int.tryParse(_bitrateController.text) ?? 2400;
+    widget.info.bitrate = int.tryParse(_bitrateController.text) ?? UsrProvisionHelper.bitrateDef;
     // oui не чіпаємо, воно тільки для читання
 
     // Остаточне збереження в SharedPreferences

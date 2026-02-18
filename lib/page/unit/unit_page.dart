@@ -253,6 +253,10 @@ class _UnitPageState extends State<UnitPage> {
   // --- Battery Widgets (Expansion in Inverter Style) ---
 
   Widget _buildBatteryExpansion(List<BatteryInfoModel> list) {
+    // 1. Сортуємо список за номером порту перед рендерингом
+    final sortedList = List<BatteryInfoModel>.from(list)
+      ..sort((a, b) => a.port.compareTo(b.port));
+
     return Card(
       elevation: 3,
       margin: const EdgeInsets.all(10),
@@ -260,19 +264,21 @@ class _UnitPageState extends State<UnitPage> {
       child: ExpansionTile(
         leading: Icon(
           Icons.battery_charging_full,
-          color: list.any((b) => UnitHelper.hasRealError(b.errorInfoDataHex)) ? Colors.red : Colors.blue,
+          // Використовуємо вже відсортований список для перевірки помилок
+          color: sortedList.any((b) => UnitHelper.hasRealError(b.errorInfoDataHex)) ? Colors.red : Colors.blue,
           size: 40,
         ),
         title: const Text("Система акумуляторів", style: TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text("Модулів: ${list.length}"),
-        children: list.map((b) => ListTile(
+        subtitle: Text("Модулів: ${sortedList.length}"),
+        // 2. Ітеруємося по sortedList замість оригінального list
+        children: sortedList.map((b) => ListTile(
           leading: Icon(
             UnitHelper.getConnectionIcon(b.connectionStatus),
             color: UnitHelper.hasRealError(b.errorInfoDataHex) ? Colors.red : UnitHelper.getConnectionColor(b.connectionStatus),
           ),
           title: Text("Battery ${b.port}"),
           subtitle: Text("${b.socPercent.toInt()}% | ${b.voltageCurV.toStringAsFixed(2)}V"),
-          onTap: () => _showBatteryDetails(b), // Ваш існуючий метод деталей
+          onTap: () => _showBatteryDetails(b),
         )).toList(),
       ),
     );

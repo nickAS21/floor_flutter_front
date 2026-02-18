@@ -184,47 +184,59 @@ class HistoryDetailsSheet extends StatelessWidget {
     );
   }
 
-  Widget _batterySystem(BuildContext context, List batteries) => Card(
-    elevation: 3,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    child: ExpansionTile(
-      leading: Icon(Icons.battery_charging_full,
-          color: batteries.any((b) =>
-          UnitHelper.hasRealError(b['errorInfoDataHex'] ?? '') ||
-              ((b['deltaMv'] ?? 0.0) >= UnitHelper.cellsCriticalDeltaMin))
-              ? Colors.red
-              : Colors.blue,
-          size: 40),
-      title: const Text("Система акумуляторів",
-          style: TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(
-          "Модулів: ${batteries.length} | SOC: ${record.batterySoc.toInt()}%"),
-      children: batteries.map((b) {
-        final bool hasError = UnitHelper.hasRealError(b['errorInfoDataHex'] ?? '');
-        final bool isCritical = (b['deltaMv'] ?? 0.0) >= UnitHelper.cellsCriticalDeltaMin;
+  Widget _batterySystem(BuildContext context, List batteries) {
+    // 1. Створюємо ВІДСОРТОВАНИЙ список як окрему зміну
+    final List sortedList = List.from(batteries);
+    sortedList.sort((a, b) {
+      final int portA = int.tryParse(a['port']?.toString() ?? '0') ?? 0;
+      final int portB = int.tryParse(b['port']?.toString() ?? '0') ?? 0;
+      return portA.compareTo(portB);
+    });
 
-        // Визначаємо колір статусу для списку
-        Color statusColor = UnitHelper.getConnectionColor(b['connectionStatus']);
-        if (hasError) {
-          statusColor = Colors.red;
-        } else if (isCritical) {
-          statusColor = Colors.orange;
-        }
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ExpansionTile(
+        leading: Icon(Icons.battery_charging_full,
+            // 2. Використовуємо sortedList для іконки
+            color: sortedList.any((b) =>
+            UnitHelper.hasRealError(b['errorInfoDataHex'] ?? '') ||
+                ((b['deltaMv'] ?? 0.0) >= UnitHelper.cellsCriticalDeltaMin))
+                ? Colors.red
+                : Colors.blue,
+            size: 40),
+        title: const Text("Система акумуляторів",
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(
+          // 3. Використовуємо sortedList для підрахунку
+            "Модулів: ${sortedList.length} | SOC: ${record.batterySoc.toInt()}%"),
+        // 4. ТУТ ГОЛОВНЕ: ітеруємося по sortedList, а не по оригінальному batteries
+        children: sortedList.map((b) {
+          final bool hasError = UnitHelper.hasRealError(b['errorInfoDataHex'] ?? '');
+          final bool isCritical = (b['deltaMv'] ?? 0.0) >= UnitHelper.cellsCriticalDeltaMin;
 
-        return ListTile(
-          onTap: () => onBatteryTap(b),
-          leading: Icon(
-            UnitHelper.getConnectionIcon(b['connectionStatus']),
-            color: statusColor,
-          ),
-          title: Text("Battery ${b['port'] ?? ''}"),
-          subtitle: Text(
-              "${(b['socPercent'] ?? 0).toInt()}% | ${(b['voltageCurV'] ?? 0).toStringAsFixed(2)}V"),
-          trailing: const Icon(Icons.chevron_right),
-        );
-      }).toList(),
-    ),
-  );
+          Color statusColor = UnitHelper.getConnectionColor(b['connectionStatus']);
+          if (hasError) {
+            statusColor = Colors.red;
+          } else if (isCritical) {
+            statusColor = Colors.orange;
+          }
+
+          return ListTile(
+            onTap: () => onBatteryTap(b),
+            leading: Icon(
+              UnitHelper.getConnectionIcon(b['connectionStatus']),
+              color: statusColor,
+            ),
+            title: Text("Battery ${b['port'] ?? ''}"),
+            subtitle: Text(
+                "${(b['socPercent'] ?? 0).toInt()}% | ${(b['voltageCurV'] ?? 0).toStringAsFixed(2)}V"),
+            trailing: const Icon(Icons.chevron_right),
+          );
+        }).toList(),
+      ),
+    );
+  }
 
   Widget _row(String l, String? v, {Color? color}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),

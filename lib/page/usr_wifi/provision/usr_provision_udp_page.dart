@@ -21,57 +21,55 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
   void initState() {
     super.initState();
     // Усі слухачі вже підключені в базовому класі
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onScan());
+    WidgetsBinding.instance.addPostFrameCallback((_) => onScan());
   }
 
-  void _onScan() async {
+  @override
+  Future<void> onScan() async {
     if (!mounted) return;
-    setState(() { isLoading = true; status = "Пошук..."; detectedMac = null; scanSuccess = false; networks = []; selectedSsid = null; });
 
-    final results = await provision.scanNetworks(null);
+    // 1. Повне скидання через наш метод
+    resetProvisioningState();
 
-    if (mounted) {
-      if (results.isNotEmpty) {
-        scanSuccess = true;
-        // Отримуємо MAC
-        final mac = await httpClient.getMacAddress();
-        if (mac != null) {
-          final String cleanMac = mac.replaceAll(':', '');
-          final String suffix = cleanMac.substring(cleanMac.length - 4).toUpperCase();
-          setState(() {
-            detectedMac = mac;
-            ssidNameController.text = "$selectedPrefix$suffix";
-          });
-        }
+    setState(() {
+      isLoading = true;
+      status = "Пошук...";
+    });
 
+    try {
+      final results = await provision.scanNetworks(null);
+
+      if (mounted && results.isNotEmpty) {
+        // 2. Отримуємо мережі
         final Map<String, Map<String, dynamic>> uniqueMap = {};
         for (var net in results) {
           final String ssid = (net['ssid'] ?? "").toString();
           if (ssid.isEmpty || ssid.toLowerCase().contains("empty")) continue;
-          if (!uniqueMap.containsKey(ssid) || (net['level'] ?? 0) > (uniqueMap[ssid]!['level'] ?? 0)) {
-            uniqueMap[ssid] = net;
-          }
+          uniqueMap[ssid] = net;
         }
 
         setState(() {
           networks = uniqueMap.values.toList();
           networks.sort((a, b) => (b['level'] ?? 0).compareTo(a['level'] ?? 0));
-
-          // Формуємо статус залежно від наявності MAC-адреси
-          if (detectedMac == null || detectedMac!.isEmpty) {
-            status = "Знайдено доступних в Linux WiFi мереж: ${networks.length}";
-          } else {
-            status = "Знайдено доступних через пристрій WiFi мереж: ${networks.length}";
-          }
-
-          // Логіка очищення: якщо keepTargetSettings = false — обнуляємо
-          if (!keepTargetSettings) {
-            targetSsidController.clear();
-            passController.clear();
-          }
+          scanSuccess = true;
+          isLoading = false; // РОЗБЛОКУЄМО ВІДЖЕТИ ВІДРАЗУ ТУТ
+          status = "Знайдено мереж: ${networks.length}";
         });
+
+        // 3. Тільки ПІСЛЯ розблокування спокійно шукаємо MAC
+        final mac = await httpClient.getMacAddress().timeout(const Duration(seconds: 2)).catchError((_) => null);
+        if (mac != null && mounted) {
+          updateModuleSsid(mac); // Оновить MAC та валідує форму
+        }
       } else {
-        setState(() { networks = []; status = "Timeout"; isLoading = false; scanSuccess = false; });
+        if (mounted) setState(() { status = "Мереж не знайдено"; isLoading = false; });
+      }
+    } catch (e) {
+      if (mounted) setState(() { status = "Помилка: $e"; isLoading = false; });
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+        validateFormInternal(); // Активує кнопку Save
       }
     }
   }
@@ -83,7 +81,7 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
     return Scaffold(
       appBar: AppBar(
         title: const Text("UDP Configuration"),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _onScan)],
+        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: onScan)],
       ),
       body: widgets.buildCommonForm(
         networkSelector: _buildNetworkSelector(), // Передаємо специфічний для сторінки віджет

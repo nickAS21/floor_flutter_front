@@ -1,4 +1,5 @@
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_base.dart';
+import 'package:floor_front/page/usr_wifi/provision/usr_provision_helper.dart';
 import 'package:floor_front/page/usr_wifi/provision/usr_wifi_232_provision_udp.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,7 +23,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   final portAController = TextEditingController();
   final ipBController = TextEditingController(text: AppHelper.backendHostKubernet);
   final portBController = TextEditingController();
-  final bitrateController = TextEditingController(text: "2400");
+  final bitrateController = TextEditingController(text: UsrProvisionHelper.bitrateDef.toString());
   bool keepTargetSettings = true;
 
   // Спільні стани
@@ -39,18 +40,20 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 
   // Інструменти
   late UsrClient httpClient;
-  final _provisionUdp = UsrWiFi232ProvisionUdp();
 
   // АБСТРАКТНИЙ геттер
   UsrProvisionBase get provision;
 
+  Future<void> onScan();
+
   @override
   void initState() {
     super.initState();
-
     httpClient = UsrWiFi232HttpClient();
-// ВІДНОВЛЕНО: Тепер дані реально завантажуються при старті
-    _loadPreferences().then((_) => _initDevice());
+
+    _loadPreferences().then((_) {
+      if (mounted) _initDevice(); // Стартуємо розвідку відразу
+    });
 
     _updatePortsInternal();
 
@@ -75,26 +78,47 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   }
 
   Future<void> _initDevice() async {
-    // 1. Скидання старих даних перед пошуком нового пристрою
+    if (!mounted) return;
     setState(() {
       detectedMac = null;
       macController.clear();
-      status = "Пошук пристрою...";
+      status = "Розвідка пристрою...";
     });
 
-    // Discovery оновить клієнт на правильний (наприклад, S100), коли отримає відповідь
-    final discoveredClient = await UsrClientFactory.discoverDevice();
-    setState(() {
-      httpClient = discoveredClient;
-    });
+    String? mac;
+    int retryCount = 0;
+    const int maxRetries = 5; // Спробуємо до 5 разів
 
-    final mac = await httpClient.getMacAddress();
-    if (mac != null) {
-      updateModuleSsid(mac);
-    } else {
-      setState(() => status = "Пристрій не знайдено");
+    try {
+      // 1. Discovery (UDP/MDNS)
+      httpClient = await UsrClientFactory.discoverDevice();
+
+      // 2. Пошук MAC через HTTP з короткими спробами
+      while (mac == null && retryCount < maxRetries && mounted) {
+        try {
+          // Кожна спроба має власний жорсткий таймаут
+          mac = await httpClient.getMacAddress().timeout(const Duration(milliseconds: 800));
+        } catch (e) {
+          retryCount++;
+          if (retryCount < maxRetries) {
+            setState(() => status = "Спроба $retryCount: очікування відповіді...");
+            // Коротка пауза між сокетами, щоб не "забити" чергу
+            await Future.delayed(const Duration(milliseconds: 200));
+          }
+        }
+      }
+
+      if (mounted && mac != null) {
+        updateModuleSsid(mac); // Успіх
+        setState(() => status = "Пристрій готовий");
+      } else {
+        if (mounted) setState(() => status = "Пристрій не відповідає (Timeout)");
+      }
+    } catch (e) {
+      if (mounted) setState(() => status = "Помилка: $e");
+    } finally {
+      if (mounted) validateFormInternal(); // Оновлюємо кнопку
     }
-    validateFormInternal();
   }
 
   void _updatePortsInternal() {
@@ -213,7 +237,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
         portA: int.tryParse(portAController.text) ?? 0,
         ipB: ipBController.text,
         portB: int.tryParse(portBController.text) ?? 0,
-        bitrate: int.tryParse(bitrateController.text) ?? 2400,
+        bitrate: int.tryParse(bitrateController.text) ?? UsrProvisionHelper.bitrateDef,
       );
 
       final infoBms = await _onUpdateDataUsrWiFiInfo(selectedLocation);
@@ -273,11 +297,9 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       String? savedIpB = prefs.getString('ipB');
       if (savedIpB != null) ipBController.text = savedIpB;
 
-      // Якщо галочка активна, повертаємо SSID та Pass
-      if (keepTargetSettings) {
-        targetSsidController.text = prefs.getString('targetSsid') ?? "";
-        passController.text = prefs.getString('targetPass') ?? "";
-      }
+      String? savedBitrate = prefs.getString('bitrate');
+      if (savedBitrate != null) bitrateController.text = savedBitrate;
+
     });
   }
 
@@ -286,9 +308,63 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     await prefs.setBool('keepTargetSettings', keepTargetSettings);
     await prefs.setString('ipA', ipAController.text);
     await prefs.setString('ipB', ipBController.text);
+    await prefs.setString('bitrate', bitrateController.text);
+  }
 
-    // Завжди зберігаємо поточні дані, щоб вони були доступні при наступному старті
-    await prefs.setString('targetSsid', targetSsidController.text);
-    await prefs.setString('targetPass', passController.text);
+  @override
+  Future<void> onRefreshDevice() async {
+    if (!mounted) return;
+
+    setState(() {
+      isLoading = true;
+      status = "Оновлення даних пристрою...";
+    });
+
+    try {
+      // 1. Перевизначаємо клієнта (розвідка типу пристрою)
+      httpClient = await UsrClientFactory.discoverDevice();
+
+      // 2. Отримуємо свіжий MAC
+      final mac = await httpClient.getMacAddress().timeout(const Duration(seconds: 3));
+
+      if (mounted && mac != null) {
+        updateModuleSsid(mac); // Оновлює MAC, контролери та валідує форму
+        setState(() => status = "Пристрій: $mac");
+      } else {
+        if (mounted) setState(() => status = "MAC не отримано (перевірте зв'язок)");
+      }
+    } catch (e) {
+      if (mounted) setState(() => status = "Помилка розвідки: $e");
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+        validateFormInternal();
+      }
+    }
+  }
+
+  void resetProvisioningState() {
+    setState(() {
+      // 1. Ідентифікатори - завжди в 0/null
+      idController.text = "0";
+      detectedMac = null;
+      macController.clear();
+
+      // 2. Стан сканування
+      networks = [];
+      scanSuccess = false;
+      selectedSsid = null;
+
+      // 3. Поля, що залежать від keepTargetSettings.  Якщо true - нічого не робимо, залишаємо значення з контролерів
+      if (!keepTargetSettings) {
+        targetSsidController.clear();
+        passController.clear();
+        bitrateController.text = UsrProvisionHelper.bitrateDef.toString(); // Скидаємо до заводського для BMS
+      }
+
+      // 4. Скидання статусу та префікса модуля
+      ssidNameController.text = selectedPrefix;
+      status = "Очікування розвідки...";
+    });
   }
 }

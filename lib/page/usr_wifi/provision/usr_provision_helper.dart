@@ -15,6 +15,7 @@ class UsrProvisionHelper {
   static const int timeoutSocketDuration = 30; // TimeOut response in s
   static const String broadcastIp = "255.255.255.255";
   static List<int> get initPacket => List<int>.from([0xFF, 0x00, 0x01, 0x01, 0x02]);
+  static const int bitrateDef = 2400;
 
 
   // Tetst
