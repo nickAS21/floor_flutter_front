@@ -1,8 +1,7 @@
-import 'dart:io';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_base.dart';
 import 'package:floor_front/page/usr_wifi/provision/usr_wifi_232_provision_udp.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../helpers/app_helper.dart';
 import '../../data_home/data_location_type.dart';
 import '../info/data_usr_wifi_info.dart';
@@ -24,6 +23,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   final ipBController = TextEditingController(text: AppHelper.backendHostKubernet);
   final portBController = TextEditingController();
   final bitrateController = TextEditingController(text: "2400");
+  bool keepTargetSettings = true;
 
   // Спільні стани
   String? detectedMac;
@@ -49,7 +49,8 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     super.initState();
 
     httpClient = UsrWiFi232HttpClient();
-    _initDevice();
+// ВІДНОВЛЕНО: Тепер дані реально завантажуються при старті
+    _loadPreferences().then((_) => _initDevice());
 
     _updatePortsInternal();
 
@@ -74,6 +75,13 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   }
 
   Future<void> _initDevice() async {
+    // 1. Скидання старих даних перед пошуком нового пристрою
+    setState(() {
+      detectedMac = null;
+      macController.clear();
+      status = "Пошук пристрою...";
+    });
+
     // Discovery оновить клієнт на правильний (наприклад, S100), коли отримає відповідь
     final discoveredClient = await UsrClientFactory.discoverDevice();
     setState(() {
@@ -83,7 +91,10 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     final mac = await httpClient.getMacAddress();
     if (mac != null) {
       updateModuleSsid(mac);
+    } else {
+      setState(() => status = "Пристрій не знайдено");
     }
+    validateFormInternal();
   }
 
   void _updatePortsInternal() {
@@ -121,6 +132,12 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       detectedMac = mac.toUpperCase();
       macController.text = detectedMac!;
       ssidNameController.text = "$selectedPrefix$suffix";
+
+      // ЛОГІКА: якщо false — очищаємо, якщо true — не трогаємо
+      if (!keepTargetSettings) {
+        targetSsidController.clear();
+        passController.clear();
+      }
     });
   }
 
@@ -129,6 +146,14 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     setState(() {
       obscurePassword = !obscurePassword;
     });
+    _savePreferences(); // Зберігаємо вибір негайно
+  }
+
+  void toggleKeepSettings(bool? value) {
+    setState(() {
+      keepTargetSettings = value ?? false;
+    });
+    _savePreferences(); // Зберігаємо вибір негайно
   }
 
   // --- UI Методи ---
@@ -193,6 +218,9 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 
       final infoBms = await _onUpdateDataUsrWiFiInfo(selectedLocation);
       setState(() { isLoading = false; status = "Успіх! Налаштування збережено."; });
+      // ВІДНОВЛЕНО: Зберігаємо останній успішний IP та прапорець
+      await _savePreferences();
+
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Оновлено: $infoBms"), backgroundColor: Colors.green));
     } catch (e) {
       setState(() { status = "Помилка: $e"; isLoading = false; });
@@ -228,5 +256,39 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     ipAController.dispose(); portAController.dispose(); ipBController.dispose(); portBController.dispose();
     bitrateController.dispose();
     super.dispose();
+  }
+// lib/page/usr_wifi/provision/usr_provision_base_page.dart
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Важливо: обгортаємо в setState, щоб UI оновився
+    setState(() {
+      keepTargetSettings = prefs.getBool('keepTargetSettings') ?? true;
+
+      // Завантажуємо IP, якщо вони були збережені
+      String? savedIpA = prefs.getString('ipA');
+      if (savedIpA != null) ipAController.text = savedIpA;
+
+      String? savedIpB = prefs.getString('ipB');
+      if (savedIpB != null) ipBController.text = savedIpB;
+
+      // Якщо галочка активна, повертаємо SSID та Pass
+      if (keepTargetSettings) {
+        targetSsidController.text = prefs.getString('targetSsid') ?? "";
+        passController.text = prefs.getString('targetPass') ?? "";
+      }
+    });
+  }
+
+  Future<void> _savePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('keepTargetSettings', keepTargetSettings);
+    await prefs.setString('ipA', ipAController.text);
+    await prefs.setString('ipB', ipBController.text);
+
+    // Завжди зберігаємо поточні дані, щоб вони були доступні при наступному старті
+    await prefs.setString('targetSsid', targetSsidController.text);
+    await prefs.setString('targetPass', passController.text);
   }
 }

@@ -56,7 +56,30 @@ class UsrProvisionWidgets {
           ),
           const SizedBox(height: 10),
 
-          state.buildCompactField(state.targetSsidController, "Target WiFi SSID"),
+          Row(
+            children: [
+              Expanded(
+                child: Tooltip(
+                  message: "Мережа призначення (куди підключиться модуль)",
+                  preferBelow: false, // ТЕПЕР ВІДМАЛЬОВУЄТЬСЯ ЗВЕРХУ
+                  verticalOffset: 25, // Відступ від поля до хмарки підказки
+                  child: state.buildCompactField(state.targetSsidController, "Target WiFi SSID"),
+                ),
+              ),
+              const SizedBox(width: 4),
+              SizedBox(
+                width: 40,
+                child: Tooltip(
+                  message: "Не очищувати дані мережі для наступного модуля",
+                  preferBelow: false,
+                  child: Checkbox(
+                    value: state.keepTargetSettings,
+                      onChanged: state.toggleKeepSettings,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
           state.buildCompactField(
             state.passController,

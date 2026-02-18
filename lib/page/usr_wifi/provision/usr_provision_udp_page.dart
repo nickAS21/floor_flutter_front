@@ -56,8 +56,19 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
         setState(() {
           networks = uniqueMap.values.toList();
           networks.sort((a, b) => (b['level'] ?? 0).compareTo(a['level'] ?? 0));
-          status = "Знайдено: ${networks.length}";
-          isLoading = false;
+
+          // Формуємо статус залежно від наявності MAC-адреси
+          if (detectedMac == null || detectedMac!.isEmpty) {
+            status = "Знайдено доступних в Linux WiFi мереж: ${networks.length}";
+          } else {
+            status = "Знайдено доступних через пристрій WiFi мереж: ${networks.length}";
+          }
+
+          // Логіка очищення: якщо keepTargetSettings = false — обнуляємо
+          if (!keepTargetSettings) {
+            targetSsidController.clear();
+            passController.clear();
+          }
         });
       } else {
         setState(() { networks = []; status = "Timeout"; isLoading = false; scanSuccess = false; });

@@ -11,7 +11,7 @@ class DataUsrWiFiInfo {
   String netIpB;                  // IP BMS
   int netBPort;                   // Port BMS (8890 + id)
   String? oui;                    // Chip manufacturer (Vendor)
-  int bitrate;                    // Додано поле bitrate
+  int bitrate;                    // Bit Rate (Baud)
 
   DataUsrWiFiInfo({
     this.id = 0,

@@ -74,7 +74,7 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
           setState(() {
             networks = uniqueMap.values.toList();
             networks.sort((a, b) => (b['level'] ?? 0).compareTo(a['level'] ?? 0));
-            status = "Знайдено: ${networks.length}";
+            status = "Знайдено доступних (Linux) через пристрій WiFi мереж: ${networks.length}";
           });
         } else {
           setState(() { status = "Мереж не знайдено (Timeout)"; scanSuccess = false; });
@@ -138,7 +138,7 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
     final bool hasValue = networks.any((n) => n['ssid'].toString() == selectedSsid);
     return DropdownButtonFormField<String>(
       isExpanded: true,
-      value: hasValue ? selectedSsid : null,
+      initialValue: hasValue ? selectedSsid : null,
       isDense: true,
       decoration: const InputDecoration(labelText: "Available Networks", isDense: true, border: OutlineInputBorder()),
       items: networks.map((n) => DropdownMenuItem<String>(
