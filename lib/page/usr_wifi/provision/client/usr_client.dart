@@ -1,5 +1,7 @@
-// lib/page/usr_wifi/provision/client/usr_client.dart
+
 abstract class UsrClient {
+  String? mac;
+  String? ssidName;
   Future<String?> getMacAddress();
   Future<List<Map<String, dynamic>>> getScanResults();
   Future<String> postRestart();

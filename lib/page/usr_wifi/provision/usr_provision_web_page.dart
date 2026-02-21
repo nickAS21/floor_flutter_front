@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'usr_provision_utils.dart';
+import 'client/usr_client_helper.dart';
 
 class UsrProvisionWebPage extends StatefulWidget {
   final dynamic selectedLocation; // Тип dynamic, щоб не було конфліктів
@@ -29,20 +29,17 @@ class _UsrProvisionWebPageState extends State<UsrProvisionWebPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 10),
-
-            // КНОПКА (Єдина, що залишилась на малюнку)
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => UsrProvisionUtils.openDeviceWeb(),
-                icon: const Icon(Icons.open_in_new),
-                // Прибираємо const тут, щоб не було помилок компіляції
-                label: Text(UsrProvisionUtils.openHttpOn254),
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
+            const SizedBox(height: 10),
+            // Кнопка для WiFi232 (10.10.100.254)
+            _buildWebButton(
+              label: UsrClientHelper.openHttp232On10_10_100_254,
+              onPressed: () => UsrClientHelper.openDeviceWeb(isS100: false),
+            ),
+            const SizedBox(height: 12),
+            // Кнопка для S100 (192.168.1.1)
+            _buildWebButton(
+              label: UsrClientHelper.openHttpS100On168_8_1_1,
+              onPressed: () => UsrClientHelper.openDeviceWeb(isS100: true),
             ),
 
             const SizedBox(height: 20),
@@ -56,6 +53,22 @@ class _UsrProvisionWebPageState extends State<UsrProvisionWebPage> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // Допоміжний метод для кнопок
+  Widget _buildWebButton({required String label, required VoidCallback onPressed}) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.open_in_new),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          padding: const EdgeInsets.symmetric(vertical: 12),
         ),
       ),
     );

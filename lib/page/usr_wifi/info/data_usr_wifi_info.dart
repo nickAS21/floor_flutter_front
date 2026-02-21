@@ -1,5 +1,5 @@
 import '../../data_home/data_location_type.dart';
-import '../provision/client/http/usr_wifi_232_http_client_helper.dart';
+import '../provision/client/usr_client_helper.dart';
 import '../provision/usr_provision_helper.dart';
 
 class DataUsrWiFiInfo {
@@ -20,9 +20,9 @@ class DataUsrWiFiInfo {
     this.bssidMac = '',
     this.ssidWifiBms = '',
     this.netIpA = '',
-    this.netAPort = UsrWiFi232HttpClientHelper.netPortADef,
+    this.netAPort = UsrClientHelper.netPortADef,
     this.netIpB = '',
-    this.netBPort = UsrWiFi232HttpClientHelper.netPortBDef,
+    this.netBPort = UsrClientHelper.netPortBDef,
     this.oui,
     this.bitrate = UsrProvisionHelper.bitrateDef,
   });
@@ -36,9 +36,9 @@ class DataUsrWiFiInfo {
       bssidMac: json['bssidMac'] ?? '',
       ssidWifiBms: json['ssidWifiBms'] ?? '',
       netIpA: json['netIpA'] ?? '',
-      netAPort: json['netAPort'] ?? UsrWiFi232HttpClientHelper.netPortADef,
+      netAPort: json['netAPort'] ?? UsrClientHelper.netPortADef,
       netIpB: json['netIpB'] ?? '',
-      netBPort: json['netBPort'] ?? UsrWiFi232HttpClientHelper.netPortBDef,
+      netBPort: json['netBPort'] ?? UsrClientHelper.netPortBDef,
       oui: json['oui'],
       bitrate: json['bitrate'] ?? UsrProvisionHelper.bitrateDef,
     );

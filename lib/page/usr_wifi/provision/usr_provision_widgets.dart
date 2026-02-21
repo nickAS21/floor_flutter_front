@@ -1,8 +1,8 @@
 import 'dart:io';
-
-import 'package:floor_front/page/usr_wifi/provision/usr_provision_utils.dart';
+import 'package:floor_front/helpers/app_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'client/usr_client_helper.dart';
 import 'usr_provision_base_page.dart';
 
 class UsrProvisionWidgets {
@@ -12,23 +12,28 @@ class UsrProvisionWidgets {
 
   // Спільна форма для обох сторінок
   Widget buildCommonForm({required Widget actionButtons, Widget? networkSelector}) {
+    final bool isConnectedToModule = state.macController.text.isNotBlank;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
           // ДОДАНО: Показуємо підказку, якщо MAC ще не визначено
-          if (state.detectedMac == null || state.detectedMac!.isEmpty)
+          // if (state.detectedMac == null || state.detectedMac!.isEmpty)
+          // state.buildMacStatus(), // Виклик існуючого методу з бази
             Container(
               width: double.infinity,
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                // Якщо підключено — зелений фон, якщо ні — синій
+                color: isConnectedToModule ? Colors.green.shade50 : Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.shade200),
+                border: Border.all(color: isConnectedToModule ? Colors.green.shade200 : Colors.blue.shade200),
               ),
               child: Text(
-                state.provision.getHint(),
+                (isConnectedToModule)
+                    ? "Підключено до модуля з MAC: ${state.macController.text}"
+                    : state.provision.getHint(),
                 style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -37,8 +42,6 @@ class UsrProvisionWidgets {
                 textAlign: TextAlign.center,
               ),
             ),
-
-          state.buildMacStatus(), // Виклик існуючого методу з бази
           const SizedBox(height: 10),
 
           // Рядок: ID + Префікс + SSID модуля
@@ -139,10 +142,15 @@ class UsrProvisionWidgets {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              // Виклик статичного методу утиліт замість методу стану
-              onPressed: () => UsrProvisionUtils.openDeviceWeb(),
+              onPressed: () {
+                // Якщо префікс починається на USR-S100, відкриваємо 1.1
+                final bool isS100 = state.selectedPrefix.contains("S100");
+                UsrClientHelper.openDeviceWeb(isS100: isS100);
+              },
               icon: const Icon(Icons.open_in_new),
-              label: const Text(UsrProvisionUtils.openHttpOn254),
+              label: Text(state.selectedPrefix.contains("S100")
+                  ? UsrClientHelper.openHttpS100On168_8_1_1
+                  : UsrClientHelper.openHttp232On10_10_100_254),
             ),
           ),
         ],
@@ -151,12 +159,12 @@ class UsrProvisionWidgets {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: (state.detectedMac != null) ? state.onLoadDefault : null,
+            onPressed: (state.httpClient.mac.isNotBlank) ? state.onLoadDefault : null,
             icon: const Icon(Icons.factory, color: Colors.red, size: 18),
             label: const Text("FACTORY RESET"),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.red,
-              side: BorderSide(color: (state.detectedMac != null) ? Colors.red : Colors.grey),
+              side: BorderSide(color: (state.httpClient.mac.isNotBlank) ? Colors.red : Colors.grey),
             ),
           ),
         ),
@@ -178,7 +186,7 @@ class UsrProvisionWidgets {
 
   void openExternalChrome() {
     // Пряме посилання з паролем, щоб не було "червоного" в браузері
-    const url = "http://admin:admin@10.10.100.254";
+    const url = "http://admin:admin@${UsrClientHelper.baseIpAtHttpWiFi232}";
 
     // Просто запуск Chrome у Linux. Без перевірок Platform, щоб не глючило.
     Process.run('google-chrome', [url]);

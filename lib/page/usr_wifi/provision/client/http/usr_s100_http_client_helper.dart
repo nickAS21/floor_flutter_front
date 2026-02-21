@@ -299,8 +299,6 @@ class UsrS100HttpClientHelper {
 //   "wifi.con_interval":	5
 //   }
 
-  static const String baseIpAtHttpS100 = "192.168.1.1";
-  static const String baseUrlHttpS100 = "http://$baseIpAtHttpS100";
   static const String s100SearchKeyword = "www.usr.cn";
   static const int s100UdpPort = 48899;
 }

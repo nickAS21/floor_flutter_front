@@ -1,34 +1,6 @@
-
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
+import '../usr_client_helper.dart';
 
 class UsrWiFi232HttpClientHelper {
-
-  // main for connect
-  static const String baseIpAtHttpWiFi232 = "10.10.100.254";
-  static const String baseUrlHttpWiFi232 = "http://$baseIpAtHttpWiFi232";
-  static const String baseHttpLogin = "admin";
-  static const String baseHttpPwd = "admin";
-  static String get authBasicHeader {
-    final credentials = '$baseHttpLogin:$baseHttpPwd';
-    final encoded = base64Encode(utf8.encode(credentials));
-    return 'Basic $encoded';
-  }
-
-  // const port + ip
-  static const int netPortADef = 18890;
-  static const int netPortBDef = 8890;
-  static const String wifiSsidB2 = "USR-WIFI232-B2_";
-  static const String wifiSsidA2 = "USR-WIFI232-A2_";
-  static const String wifiSsidAs = "USR-S100-";
-  static const List<String> usrPrefixes = [
-    UsrWiFi232HttpClientHelper.wifiSsidB2,
-    UsrWiFi232HttpClientHelper.wifiSsidA2,
-    UsrWiFi232HttpClientHelper.wifiSsidAs
-  ];
-  static const List<String> usrSsidPrefixes = [wifiSsidB2, wifiSsidA2, wifiSsidAs];
 
   // html
   static const String htmlDoCmd = "do_cmd.html";
@@ -38,8 +10,8 @@ class UsrWiFi232HttpClientHelper {
   static const String htmlAp = "ap.html";
   static const String htmlFast = "fast.html";
   static const String htmlSiteSurvey = "site_survey.html";
-  static const String baseUrlHttpFast = "$baseUrlHttpWiFi232/EN/$htmlFast";
-  static const String baseUrlHttpSiteSurvey = "$baseUrlHttpWiFi232/EN/$htmlSiteSurvey";
+  static const String baseUrlHttpFast = "${UsrClientHelper.baseUrlHttpWiFi232}/EN/$htmlFast";
+  static const String baseUrlHttpSiteSurvey = "${UsrClientHelper.baseUrlHttpWiFi232}/EN/$htmlSiteSurvey";
   static const String htmlRestart = "restart.html";
   static const String htmlManagement = "management.html";
 
@@ -210,17 +182,4 @@ class UsrWiFi232HttpClientHelper {
   static const String valuesOPEN = "OPEN";
   static const String valuesNONE = "NONE";
 
-  static void openModuleInChrome() {
-    if (kIsWeb) return;
-
-    // Формуємо URL виду http://admin:admin@10.10.100.254
-    final String authUrl = "http://$baseHttpLogin:$baseHttpPwd@$baseIpAtHttpWiFi232"; //
-
-    if (Platform.isLinux) {
-      // Запускаємо Chrome з URL, що вже містить логін/пароль
-      Process.run('google-chrome', [authUrl]).catchError((_) {
-        return Process.run('chromium-browser', [authUrl]);
-      });
-    }
-  }
 }

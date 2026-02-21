@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../provision/client/http/usr_wifi_232_http_client_helper.dart';
+import '../provision/client/usr_client_device_type.dart';
+import '../provision/client/usr_client_helper.dart';
 import '../provision/usr_provision_helper.dart';
 import 'data_usr_wifi_info.dart';
 import 'usr_wifi_info_storage.dart';
@@ -26,7 +27,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
   late TextEditingController _ouiController;
   late TextEditingController _bitrateController;
 
-  String _selectedPrefix = UsrWiFi232HttpClientHelper.wifiSsidB2;
+  String _selectedPrefix = UsrClientDeviceType.b2.prefix;
 
   @override
   void initState() {
@@ -41,9 +42,9 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     _ouiController = TextEditingController(text: widget.info.oui ?? '');
     _bitrateController = TextEditingController(text: widget.info.bitrate.toString());
 
-    for (var prefix in UsrWiFi232HttpClientHelper.usrSsidPrefixes) {
-      if (widget.info.ssidWifiBms.startsWith(prefix)) {
-        _selectedPrefix = prefix;
+    for (var device in UsrClientDeviceType.values) {
+      if (widget.info.ssidWifiBms.startsWith(device.prefix)) {
+        _selectedPrefix = device.prefix; // Зберігаємо рядок префікса
         break;
       }
     }
@@ -73,8 +74,8 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     final int? id = int.tryParse(_idController.text);
     if (id != null) {
       setState(() {
-        _portAController.text = (UsrWiFi232HttpClientHelper.netPortADef + id).toString();
-        _portBController.text = (UsrWiFi232HttpClientHelper.netPortBDef + id).toString();
+        _portAController.text = (UsrClientHelper.netPortADef + id).toString();
+        _portBController.text = (UsrClientHelper.netPortBDef + id).toString();
       });
     }
   }
@@ -129,9 +130,9 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     widget.info.bssidMac = _macController.text;
     widget.info.ssidWifiBms = _ssidController.text;
     widget.info.netIpA = _ipAController.text;
-    widget.info.netAPort = int.tryParse(_portAController.text) ?? (UsrWiFi232HttpClientHelper.netPortADef + newId);
+    widget.info.netAPort = int.tryParse(_portAController.text) ?? (UsrClientHelper.netPortADef + newId);
     widget.info.netIpB = _ipBController.text;
-    widget.info.netBPort = int.tryParse(_portBController.text) ?? (UsrWiFi232HttpClientHelper.netPortBDef + newId);
+    widget.info.netBPort = int.tryParse(_portBController.text) ?? (UsrClientHelper.netPortBDef + newId);
     widget.info.bitrate = int.tryParse(_bitrateController.text) ?? UsrProvisionHelper.bitrateDef;
     // oui не чіпаємо, воно тільки для читання
 
@@ -168,6 +169,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Редагувати: ${widget.info.locationType.label}")),
@@ -183,48 +185,56 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
                 Expanded(flex: 2, child: _buildField(_bitrateController, "Bit Rate (Baud)", isNumber: true)),
               ],
             ),
-            Expanded(flex: 1, child: _buildField(_ouiController, "OUI (Vendor/Chip)", readOnly: true, isOptional: true)),
-            Expanded(flex: 1, child: _buildField(_macController, "MAC-адреса", isMac: true)),
+            const SizedBox(height: 8),
+            _buildField(_ouiController, "OUI (Vendor/Chip)", readOnly: true, isOptional: true),
+            const SizedBox(height: 8),
+            _buildField(_macController, "MAC-адреса", isMac: true),
 
             const Text("Налаштування SSID модуля", style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
             const SizedBox(height: 6),
 
-            // РЯДОК: Префікс та SSID з вирівняною висотою
+            // РЯДОК: Префікс (Enum) та SSID
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
-                  width: 75, // Можна навіть 70-75
+                  width: 90, // Трохи розширив для S100
                   height: 47,
                   child: DropdownButtonFormField<String>(
                     initialValue: _selectedPrefix,
                     isDense: true,
-                    isExpanded: true, // ДОДАЙ ЦЕ: змушує вміст вписуватися в SizedBox
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       isDense: true,
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 10), // Мінімальні відступи
+                      contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                     ),
-                    // Цей блок відповідає за те, ЯК виглядає вибраний елемент у закритому списку
+                    // Використовуємо наш новий Enum UsrClientDeviceType для побудови списку
                     selectedItemBuilder: (BuildContext context) {
-                      return UsrWiFi232HttpClientHelper.usrSsidPrefixes.map((String value) {
+                      return UsrClientDeviceType.values.map((device) {
                         return Text(
-                          value.replaceFirst("USR-WIFI232-", "").replaceFirst("_", ""),
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), // Трохи менший шрифт
-                          overflow: TextOverflow.ellipsis, // Захист від переповнення всередині
+                          device.label, // Відобразить "B2", "A2" або "S100"
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
                         );
                       }).toList();
                     },
-                    items: UsrWiFi232HttpClientHelper.usrSsidPrefixes.map((String value) {
+                    items: UsrClientDeviceType.values.map((device) {
                       return DropdownMenuItem<String>(
-                        value: value,
+                        value: device.prefix,
                         child: Text(
-                          value.replaceFirst("USR-WIFI232-", "").replaceFirst("_", ""),
-                          style: const TextStyle(fontSize: 13), // В самому списку може бути більше
+                          device.label,
+                          style: const TextStyle(fontSize: 13),
                         ),
                       );
                     }).toList(),
-                    onChanged: (nv) { /* ... твій код ... */ },
+                    onChanged: (nv) {
+                      if (nv != null) {
+                        setState(() {
+                          _selectedPrefix = nv;
+                        });
+                      }
+                    },
                   ),
                 ),
                 const SizedBox(width: 8),

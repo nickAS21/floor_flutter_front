@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_linux.dart';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_widgets.dart';
 import 'package:flutter/material.dart';
-import 'client/usr_client_factory.dart';
 import 'usr_provision_base_page.dart';
 import '../../data_home/data_location_type.dart';
 
@@ -20,45 +18,10 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
   late final provision = UsrProvisionLinux();
 
   @override
-  void initState() {
-    super.initState();
-    // Початкове отримання даних при завантаженні сторінки
-    onScan();
-  }
-
-  @override
-  void updateModuleSsid(String mac) {
-    super.updateModuleSsid(mac);
-    if (macController.text != mac) {
-      macController.text = mac;
-    }
-  }
-
-  /// ОСНОВНИЙ МЕТОД СКАНУВАННЯ ТА РОЗВІДКИ
-  @override
-  Future<void> onScan() async {
-    if (!mounted) return;
-    setState(() {
-      isLoading = true;
-      status = "Розвідка пристрою...";
-      detectedMac = null;
-      scanSuccess = false;
-      networks = [];
-      selectedSsid = null;
-    });
-
+  Future<bool> onScan() async {
     try {
-      // 1. Примусовий Rescan через фабрику
-      httpClient = await UsrClientFactory.discoverDevice();
-
-      // 2. Отримуємо свіжий MAC
-      final mac = await httpClient.getMacAddress();
-      if (mac != null) {
-        updateModuleSsid(mac);
-      }
-
-      // 3. Скануємо мережі через нативного провайдера Linux
-      final results = await provision.scanNetworks(mac);
+       // 3. Скануємо мережі через нативного провайдера Linux
+      final results = await provision.scanNetworks(null, httpClient);
 
       if (mounted) {
         if (results.isNotEmpty) {
@@ -77,43 +40,22 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
             networks.sort((a, b) => (b['level'] ?? 0).compareTo(a['level'] ?? 0));
             status = "Знайдено доступних (Linux) через пристрій WiFi мереж: ${networks.length}";
           });
+          return true;
         } else {
           setState(() { status = "Мереж не знайдено (Timeout)"; scanSuccess = false; });
+          return false;
         }
       }
     } catch (e) {
       if (mounted) setState(() => status = "Помилка: $e");
+      return false;
     } finally {
       if (mounted) {
         setState(() => isLoading = false);
         validateFormInternal(); // Оновлюємо стан кнопки Save
       }
     }
-  }
-
-  Future<void> onRefreshDevice() async {
-    if (!mounted) return;
-    setState(() {
-      isLoading = true;
-      status = "Оновлення MAC...";
-    });
-
-    try {
-      // Перевизначаємо клієнта перед кожним оновленням
-      httpClient = await UsrClientFactory.discoverDevice();
-      final mac = await httpClient.getMacAddress().timeout(const Duration(seconds: 2));
-
-      if (mounted && mac != null) {
-        updateModuleSsid(mac);
-      }
-    } catch (e) {
-      if (mounted) setState(() => status = "Помилка MAC: $e");
-    } finally {
-      if (mounted) {
-        setState(() => isLoading = false);
-        validateFormInternal(); //
-      }
-    }
+    return false;
   }
 
   @override
@@ -123,7 +65,12 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
     return Scaffold(
       appBar: AppBar(
       title: const Text("Linux Configuration"),
-      actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: onScan)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => runSetupSequence(null), // Передаємо null явно
+          ),
+        ],
       ),
       body: widgets.buildCommonForm(
         networkSelector: _buildNetworkSelector(),
@@ -136,43 +83,107 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
   }
 
   Widget _buildNetworkSelector() {
-    final bool hasValue = networks.any((n) => n['ssid'].toString() == selectedSsid);
-    return DropdownButtonFormField<String>(
-      isExpanded: true,
-      initialValue: hasValue ? selectedSsid : null,
-      isDense: true,
-      decoration: const InputDecoration(labelText: "Available Networks", isDense: true, border: OutlineInputBorder()),
-      items: networks.map((n) => DropdownMenuItem<String>(
-          value: n['ssid'].toString(),
-          child: Text("${n['ssid']} (${n['level']}%)", style: const TextStyle(fontSize: 12))
-      )).toList(),
-      onChanged: (v) async {
-        if (v == null) return;
+    if (isLoading) return const SizedBox.shrink();
+    if (networks.isEmpty) return const Padding(
+      padding: EdgeInsets.all(16.0),
+      child: Text("Мереж не знайдено", style: TextStyle(color: Colors.red)),
+    );
 
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.blue.withAlpha(15),
+        border: Border.all(color: Colors.blue, width: 2), // Жирна рамка блоку
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: GlobalKey(),
+          iconColor: Colors.blue,
+          collapsedIconColor: Colors.blue,
+          leading: const Icon(Icons.wifi_find, color: Colors.blue, size: 28),
+          title: Text(
+            targetSsidController.text.isEmpty
+                ? "Оберіть Wi-Fi мережу (${networks.length})"
+                : "Обрано: ${targetSsidController.text}",
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16),
+          ),
+          children: [
+            Container(
+              color: Colors.white,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 250),
+                child: ListView.separated(
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  itemCount: networks.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final net = networks[index];
+                    return ListTile(
+                      dense: true,
+                      title: Text(net['ssid'] ?? "Unknown"),
+                      trailing: Text("${net['level']}%", style: const TextStyle(color: Colors.blueGrey)),
+                      onTap: () {
+                        setState(() {
+                          targetSsidController.text = net['ssid'] ?? "";
+                          onNetworkTap(net);
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Усередині State-класу сторінки
+  void onNetworkTap(Map<String, dynamic> network) {
+    final String ssid = network['ssid'] ?? "";
+
+    if (httpClient.mac == null) {
+      final isModule = ssid.toUpperCase().contains("USR-WIFI232") ||
+          ssid.toUpperCase().contains("USR-S100");
+
+      if (isModule) {
         setState(() {
-          selectedSsid = v;
-          targetSsidController.text = v;
+          // isLoading = true; // Вмикаємо колесо відразу
+          status = "Підключення до $ssid...";
         });
 
-        // Якщо пристрій ще не визначений (немає MAC) — пробуємо підключитися системно
-        if (detectedMac == null || detectedMac!.isEmpty) {
-          setState(() { isLoading = true; status = "Підключення до $v..."; });
+        // 1. ВИКЛИКАЄМО КОНЕКТ (через той самий метод провайдера)
+        // Ми передаємо SSID, щоб Linux виконав nmcli connect
+        provision.scanNetworks(ssid, httpClient).then((results) {
+          // Перевіряємо тільки маркер успіху
+          if (results.isNotEmpty && results.first.containsKey('connected')) {
 
-          try {
-            final result = await Process.run('nmcli', ['dev', 'wifi', 'connect', v]);
-            if (result.exitCode == 0) {
-              await Future.delayed(const Duration(seconds: 2)); // Даємо час на асоціацію
-              await onScan(); // Повний Rescan після підключення
-            } else {
-              setState(() => status = "Помилка підключення nmcli");
-            }
-          } catch (e) {
-            setState(() => status = "Помилка: $e");
-          } finally {
+            // ТІЛЬКИ ПІСЛЯ ТОГО як ОС підключилася, запускаємо п.1 архітектури
+            // Ніяких foundNetworks = results, нам це вже не цікаво
+            isLoading = false;
+            httpClient.ssidName = ssid;
+            runSetupSequence(ssid);
+
+          } else {
+            // Якщо маркера немає, значить це був просто холостий скан
             setState(() => isLoading = false);
           }
-        }
-      },
-    );
+        }).catchError((e) {
+          setState(() {
+            isLoading = false;
+            status = "Помилка підключення: $e";
+          });
+        });
+        return;
+      }
+    }
+
+    // Звичайний вибір робочої мережі
+    setState(() => targetSsidController.text = ssid);
+    validateFormInternal();
   }
 }

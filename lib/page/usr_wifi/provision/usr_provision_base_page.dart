@@ -1,6 +1,5 @@
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_base.dart';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_helper.dart';
-import 'package:floor_front/page/usr_wifi/provision/usr_wifi_232_provision_udp.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../helpers/app_helper.dart';
@@ -9,8 +8,9 @@ import '../info/data_usr_wifi_info.dart';
 import '../info/usr_wifi_info_storage.dart';
 import 'client/http/usr_wifi_232_http_client.dart';
 import 'client/usr_client.dart';
-import 'client/http/usr_wifi_232_http_client_helper.dart';
 import 'client/usr_client_factory.dart';
+import 'client/usr_client_device_type.dart';
+import 'client/usr_client_helper.dart';
 
 abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   // Контролери
@@ -27,7 +27,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   bool keepTargetSettings = true;
 
   // Спільні стани
-  String? detectedMac;
+  // String? detectedMac;
   bool obscurePassword = true;
   String status = "Очікування...";
   bool isLoading = false;
@@ -36,7 +36,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   List<Map<String, dynamic>> networks = [];
   bool scanSuccess = false;
   String? selectedSsid;
-  String selectedPrefix = UsrWiFi232HttpClientHelper.wifiSsidB2;
+  String selectedPrefix = UsrClientDeviceType.b2.prefix;
 
   // Інструменти
   late UsrClient httpClient;
@@ -44,18 +44,15 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   // АБСТРАКТНИЙ геттер
   UsrProvisionBase get provision;
 
-  Future<void> onScan();
+  Future<bool> onScan();
 
   @override
   void initState() {
     super.initState();
     httpClient = UsrWiFi232HttpClient();
 
-    _loadPreferences().then((_) {
-      if (mounted) _initDevice(); // Стартуємо розвідку відразу
-    });
-
-    _updatePortsInternal();
+    // Запускаємо єдиний ланцюжок і більше нічого не чіпаємо
+    runSetupSequence(null);
 
     // ОСЬ ЦЕЙ СПИСОК «ОЖИВИТЬ» КНОПКУ
     final fields = [
@@ -77,54 +74,86 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     }
   }
 
-  Future<void> _initDevice() async {
+  Future<void> runSetupSequence(String? ssid) async {
+    if (!mounted || isLoading) return;
     if (!mounted) return;
-    setState(() {
-      detectedMac = null;
-      macController.clear();
-      status = "Розвідка пристрою...";
-    });
-
-    String? mac;
-    int retryCount = 0;
-    const int maxRetries = 5; // Спробуємо до 5 разів
+    resetProvisioningState(true, "Розвідка пристрою...");
 
     try {
-      // 1. Discovery (UDP/MDNS)
-      httpClient = await UsrClientFactory.discoverDevice();
+      // КРОК 2: Завантажуємо налаштування (IP, Порти)
+      await _loadPreferences();
 
-      // 2. Пошук MAC через HTTP з короткими спробами
-      while (mac == null && retryCount < maxRetries && mounted) {
-        try {
-          // Кожна спроба має власний жорсткий таймаут
-          mac = await httpClient.getMacAddress().timeout(const Duration(milliseconds: 800));
-        } catch (e) {
-          retryCount++;
-          if (retryCount < maxRetries) {
-            setState(() => status = "Спроба $retryCount: очікування відповіді...");
-            // Коротка пауза між сокетами, щоб не "забити" чергу
-            await Future.delayed(const Duration(milliseconds: 200));
-          }
+      // КРОК 3: Викликаємо розвідку заліза (шукаємо MAC)
+      debugPrint("КРОК 3.1: Викликаємо розвідку заліза (шукаємо MAC)");
+      await initDevice();
+      String? mac = httpClient.mac;
+      // 2. Отримуємо свіжий MAC
+      if (mac != null) {
+        updateModuleSsid(mac);
+        if (ssid.isBlank) {
+          ssid = await provision.getActiveSsid();
+        }
+        if (ssid.isNotBlank) {
+          httpClient.ssidName = ssid;
+          debugPrint("Активний SSID встановлено: $ssid");
         }
       }
+      debugPrint("КРОК 3.2: MAC: $mac");
 
-      if (mounted && mac != null) {
-        updateModuleSsid(mac); // Успіх
+      // КРОК 4: Викликаємо сканування мереж
+      debugPrint("КРОК 4: Викликаємо сканування мереж");
+      bool isScanOk = await onScan();
+
+      if (mounted) {
+        setState(() {
+          isLoading = false; // Остаточно гасимо колесо
+          if (isScanOk) {
+            status = "Готово. Знайдено ${networks.length} мереж";
+          } else {
+            status = "Пристрій знайдено, але список WiFi порожній";
+          }
+        });
+
+        // Перевіряємо кнопку збереження ще раз
+        validateFormInternal();
+      }
+
+    } catch (e) {
+      // Якщо впало на старті — гасимо колесо тут
+      if (mounted) setState(() => isLoading = false);
+    }
+    // Зверни увагу: тут немає finally з isLoading = false,
+    // бо за вимкнення колеса тепер відповідає фінальний метод onScan
+  }
+
+  Future<void> initDevice() async {
+    if (!mounted) return;
+    // 2. КРИТИЧНО: Чекаємо 100 мілісекунд.
+    // Це звільняє потік, і Flutter встигає намалювати колесо ПЕРЕД мережевим запитом.
+    await Future(() {});
+
+    try {
+      // Фабрика сама робить всю брудну роботу: шукає, пінгує, отримує MAC
+      httpClient = await UsrClientFactory.discoverDevice();
+
+      if (mounted && httpClient.mac != null) {
+        // Якщо MAC є — ми готові
         setState(() => status = "Пристрій готовий");
       } else {
-        if (mounted) setState(() => status = "Пристрій не відповідає (Timeout)");
+        // Якщо MAC немає — показуємо, що пристрій не знайдено (режим Linux скан)
+        if (mounted) setState(() => status = "Пристрій не знайдено в мережі");
       }
     } catch (e) {
-      if (mounted) setState(() => status = "Помилка: $e");
+      if (mounted) setState(() => status = "Помилка зв'язку: $e");
     } finally {
-      if (mounted) validateFormInternal(); // Оновлюємо кнопку
+      if (mounted) validateFormInternal();
     }
   }
 
   void _updatePortsInternal() {
     final int id = int.tryParse(idController.text) ?? 0;
-    portAController.text = (UsrWiFi232HttpClientHelper.netPortADef + id).toString();
-    portBController.text = (UsrWiFi232HttpClientHelper.netPortBDef + id).toString();
+    portAController.text = (UsrClientHelper.netPortADef + id).toString();
+    portBController.text = (UsrClientHelper.netPortBDef + id).toString();
   }
 
   void validateFormInternal() {
@@ -139,29 +168,26 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
         ipAController.text.isNotEmpty &&   // ДОДАНО: перевірка IP A
         ipBController.text.isNotEmpty &&   // ДОДАНО: перевірка IP B
         bitrateController.text.isNotEmpty && // ДОДАНО: Валідація BitRate
-        (detectedMac != null && detectedMac!.isNotEmpty);
+        (httpClient.mac != null && httpClient.mac!.isNotEmpty);
 
     if (isValid != isFormValid) {
       setState(() => isFormValid = isValid);
     }
   }
 
-  void updateModuleSsid(String mac) {
+  void updateModuleSsid(String? mac) {
+    if (mac == null) return;
+
     final String cleanMac = mac.replaceAll(':', '');
     final String suffix = cleanMac.length >= 4
         ? cleanMac.substring(cleanMac.length - 4).toUpperCase()
         : "0000";
 
     setState(() {
-      detectedMac = mac.toUpperCase();
-      macController.text = detectedMac!;
+      // Встановлюємо в контролер для візуалізації
+      macController.text = mac.toUpperCase();
+      // detectedMac = mac.toUpperCase();
       ssidNameController.text = "$selectedPrefix$suffix";
-
-      // ЛОГІКА: якщо false — очищаємо, якщо true — не трогаємо
-      if (!keepTargetSettings) {
-        targetSsidController.clear();
-        passController.clear();
-      }
     });
   }
 
@@ -184,17 +210,38 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   Widget buildPrefixSelector() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400), borderRadius: BorderRadius.circular(4)),
+      decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(4)
+      ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: selectedPrefix, isDense: true,
-          items: UsrWiFi232HttpClientHelper.usrPrefixes.map((s) => DropdownMenuItem(
-              value: s, child: Text(s.replaceFirst("USR-WIFI232-", "").replaceFirst("_", ""), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))
+          value: selectedPrefix,
+          isDense: true,
+          items: UsrClientDeviceType.values.map((device) => DropdownMenuItem(
+              value: device.prefix,
+              child: Text(
+                  device.label, // Відображаємо "B2", "A2" або "S100"
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)
+              )
           )).toList(),
           onChanged: (v) {
             if (v != null) {
-              setState(() => selectedPrefix = v);
-              if (detectedMac != null) updateModuleSsid(detectedMac!);
+              setState(() {
+                selectedPrefix = v; // 1. Оновлюємо вибраний префікс
+
+                // 2. Отримуємо актуальний MAC (з детектора або з клієнта)
+                // final currentMac = detectedMac ?? httpClient.mac;
+
+                if (httpClient.mac.isNotBlank) {
+                  // Якщо MAC є — перераховуємо повний SSID (префікс + суфікс)
+                  updateModuleSsid(httpClient.mac);
+                } else {
+                  // Якщо MAC ще немає — просто записуємо префікс у поле,
+                  // щоб юзер бачив, що тип змінився
+                  ssidNameController.text = v;
+                }
+              });
             }
           },
         ),
@@ -216,14 +263,14 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     );
   }
 
-  Widget buildMacStatus() {
-    if (detectedMac == null) return const SizedBox.shrink();
-    return Container(
-      width: double.infinity, padding: const EdgeInsets.all(8), margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(color: Colors.green.withAlpha(25), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.green.withAlpha(75))),
-      child: Text("MAC: $detectedMac", textAlign: TextAlign.center, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
-    );
-  }
+  // Widget buildMacStatus() {
+  //   if (detectedMac == null) return const SizedBox.shrink();
+  //   return Container(
+  //     width: double.infinity, padding: const EdgeInsets.all(8), margin: const EdgeInsets.only(bottom: 12),
+  //     decoration: BoxDecoration(color: Colors.green.withAlpha(25), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.green.withAlpha(75))),
+  //     child: Text("MAC: $detectedMac", textAlign: TextAlign.center, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+  //   );
+  // }
 
   // ОСНОВНИЙ МЕТОД ЗБЕРЕЖЕННЯ
   void onSaveHttpUpdate(LocationType selectedLocation) async {
@@ -244,8 +291,19 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       setState(() { isLoading = false; status = "Успіх! Налаштування збережено."; });
       // ВІДНОВЛЕНО: Зберігаємо останній успішний IP та прапорець
       await _savePreferences();
-
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Оновлено: $infoBms"), backgroundColor: Colors.green));
+      if (mounted) {
+        // Перевіряємо, чи це S100 через префікс або тип клієнта
+        if (selectedPrefix.contains("S100")) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Оновлено, перепідключення нової мережі - вручну: $infoBms"), backgroundColor: Colors.green)
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Оновлено: $infoBms"), backgroundColor: Colors.green)
+          );
+        }
+        resetProvisioningState(false, "Оновлення пристрою. завершено");
+      }
     } catch (e) {
       setState(() { status = "Помилка: $e"; isLoading = false; });
     }
@@ -265,7 +323,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 
   Future<String> _onUpdateDataUsrWiFiInfo(LocationType selectedLocation) async {
     final info = DataUsrWiFiInfo(
-        locationType: selectedLocation, id: int.tryParse(idController.text)!, bssidMac: detectedMac ?? "",
+        locationType: selectedLocation, id: int.tryParse(idController.text)!, bssidMac: httpClient.mac ?? "",
         ssidWifiBms: ssidNameController.text, netIpA: ipAController.text, netAPort: int.tryParse(portAController.text)!,
         netIpB: ipBController.text, netBPort: int.tryParse(portBController.text)!
     );
@@ -281,7 +339,6 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     bitrateController.dispose();
     super.dispose();
   }
-// lib/page/usr_wifi/provision/usr_provision_base_page.dart
 
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
@@ -311,49 +368,17 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     await prefs.setString('bitrate', bitrateController.text);
   }
 
-  @override
-  Future<void> onRefreshDevice() async {
-    if (!mounted) return;
-
-    setState(() {
-      isLoading = true;
-      status = "Оновлення даних пристрою...";
-    });
-
-    try {
-      // 1. Перевизначаємо клієнта (розвідка типу пристрою)
-      httpClient = await UsrClientFactory.discoverDevice();
-
-      // 2. Отримуємо свіжий MAC
-      final mac = await httpClient.getMacAddress().timeout(const Duration(seconds: 3));
-
-      if (mounted && mac != null) {
-        updateModuleSsid(mac); // Оновлює MAC, контролери та валідує форму
-        setState(() => status = "Пристрій: $mac");
-      } else {
-        if (mounted) setState(() => status = "MAC не отримано (перевірте зв'язок)");
-      }
-    } catch (e) {
-      if (mounted) setState(() => status = "Помилка розвідки: $e");
-    } finally {
-      if (mounted) {
-        setState(() => isLoading = false);
-        validateFormInternal();
-      }
-    }
-  }
-
-  void resetProvisioningState() {
+  void resetProvisioningState(bool isStart, String statusStr) {
     setState(() {
       // 1. Ідентифікатори - завжди в 0/null
       idController.text = "0";
-      detectedMac = null;
-      macController.clear();
 
       // 2. Стан сканування
       networks = [];
       scanSuccess = false;
       selectedSsid = null;
+      macController.clear();
+      isLoading = isStart;
 
       // 3. Поля, що залежать від keepTargetSettings.  Якщо true - нічого не робимо, залишаємо значення з контролерів
       if (!keepTargetSettings) {
@@ -364,7 +389,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 
       // 4. Скидання статусу та префікса модуля
       ssidNameController.text = selectedPrefix;
-      status = "Очікування розвідки...";
+      status = statusStr;
     });
   }
 }

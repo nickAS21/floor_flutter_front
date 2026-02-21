@@ -25,22 +25,34 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
   }
 
   @override
-  Future<void> onScan() async {
-    if (!mounted) return;
+  Future<bool> onScan() async {
+    if (!mounted) return false;
 
-    // 1. Повне скидання через наш метод
-    resetProvisioningState();
+    // 1. АНТИ-БРЕД: Якщо ми не знайшли девайс (MAC == null) — на Android сканувати нічого
+    if (httpClient.mac == null) {
+      setState(() {
+        networks = [];
+        isLoading = false; // Вимикаємо колесо
+        status = "Девайс не знайдено. Перевірте Wi-Fi.";
+      });
+      return false; // ЗАВЕРШУЄМО
+    }
 
     setState(() {
-      isLoading = true;
-      status = "Пошук...";
-    });
+      status = "Отримання мереж...";
+     });
 
     try {
-      final results = await provision.scanNetworks(null);
+      List<Map<String, dynamic>> results = [];
 
-      if (mounted && results.isNotEmpty) {
-        // 2. Отримуємо мережі
+      // 2. АНАЛІЗ ПО КЛІЄНТУ: Працюємо через залізо
+      if (selectedPrefix.contains("S100")) {
+        results = await httpClient.getScanResults();
+      } else {
+        results = await provision.scanNetworks(null, httpClient); // Твій UDP для 232
+      }
+
+      if (mounted) {
         final Map<String, Map<String, dynamic>> uniqueMap = {};
         for (var net in results) {
           final String ssid = (net['ssid'] ?? "").toString();
@@ -51,27 +63,21 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
         setState(() {
           networks = uniqueMap.values.toList();
           networks.sort((a, b) => (b['level'] ?? 0).compareTo(a['level'] ?? 0));
-          scanSuccess = true;
-          isLoading = false; // РОЗБЛОКУЄМО ВІДЖЕТИ ВІДРАЗУ ТУТ
-          status = "Знайдено мереж: ${networks.length}";
+          scanSuccess = networks.isNotEmpty;
+          status = scanSuccess ? "Знайдено: ${networks.length}" : "Мереж не знайдено";
         });
-
-        // 3. Тільки ПІСЛЯ розблокування спокійно шукаємо MAC
-        final mac = await httpClient.getMacAddress().timeout(const Duration(seconds: 2)).catchError((_) => null);
-        if (mac != null && mounted) {
-          updateModuleSsid(mac); // Оновить MAC та валідує форму
-        }
-      } else {
-        if (mounted) setState(() { status = "Мереж не знайдено"; isLoading = false; });
+        return scanSuccess;
       }
     } catch (e) {
-      if (mounted) setState(() { status = "Помилка: $e"; isLoading = false; });
+      if (mounted) setState(() => status = "Помилка: $e");
+      return false;
     } finally {
       if (mounted) {
-        setState(() => isLoading = false);
-        validateFormInternal(); // Активує кнопку Save
+        setState(() => isLoading = false); // ГАСИМО КОЛЕСО ТУТ
+        validateFormInternal();
       }
     }
+    return false;
   }
 
   @override
@@ -81,7 +87,16 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
     return Scaffold(
       appBar: AppBar(
         title: const Text("UDP Configuration"),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: onScan)],
+        actions: [
+          IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () async {
+                // ПОВНИЙ RESCAN: спочатку ініціалізація (очистить MAC), потім скан
+                await runSetupSequence(null);
+                await onScan();
+              }
+          )
+        ],
       ),
       body: widgets.buildCommonForm(
         networkSelector: _buildNetworkSelector(), // Передаємо специфічний для сторінки віджет
