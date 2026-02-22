@@ -64,7 +64,11 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
 
     return Scaffold(
       appBar: AppBar(
-      title: const Text("Linux Configuration"),
+        toolbarHeight: 40, // ВСТАНОВІТЬ БАЖАНУ ВИСОТУ ТУТ (стандартна — 56)
+        title: const Text(
+          "Linux Configuration",
+          style: TextStyle(fontSize: 16), // Можна зменшити шрифт для гармонії
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -107,7 +111,7 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
             targetSsidController.text.isEmpty
                 ? "Оберіть Wi-Fi мережу (${networks.length})"
                 : "Обрано: ${targetSsidController.text}",
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16),
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 10),
           ),
           children: [
             Container(

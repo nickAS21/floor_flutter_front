@@ -7,32 +7,49 @@ import '../usr_client_helper.dart';
 class UsrS100HttpClient implements UsrClient {
   static const String _baseUrl = UsrClientHelper.baseUrlHttpS100;
 
-  @override
-  final http.Client client = http.Client();
+
 
   @override
   Future<String?> getMacAddress() async {
+    final http.Client client = http.Client();
     try {
+    //   final response = await client.post(
+    //     Uri.parse('$_baseUrl/api/nv/get'),
+    //     headers: {
+    //       'Content-Type': 'application/json', // Спробуй змінити на json
+    //       'Accept': '*/*',
+    //       'Connection': 'close',
+    //     },
+    //     body: jsonEncode({"sys.base_mac": ""}), // Спробуй формат JSON у body
+    //   ).timeout(const Duration(seconds: 3));
+
       final response = await client.post(
         Uri.parse('$_baseUrl/api/nv/get'),
+        headers: {
+          'Content-Type': 'text/plain',
+          'Connection': 'close', // ПРИМУСОВЕ ЗАКРИТТЯ: щоб сокет не висів
+        },
         body: 'sys.base_mac',
-      ).timeout(const Duration(seconds: 2));
+      ).timeout(const Duration(seconds: 3)); // 2с мало для ESP32, ставимо 3с
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final mac = data['sys.base_mac'];
-        return mac?.toString().toUpperCase();
+        return data['sys.base_mac']?.toString().toUpperCase();
       }
     } catch (e) {
-      debugPrint("S100 MAC Error: $e");
+      debugPrint("S100 Timeout or Error: $e");
+      return null;
+    } finally {
+      client.close(); // ЗАКРИВАЄМО КЛІЄНТ: звільняємо порт для наступного запиту
     }
     return null;
   }
 
   @override
   Future<List<Map<String, dynamic>>> getScanResults() async {
+    final http.Client httpClient = http.Client();
     try {
-      final response = await client.post(
+      final response = await httpClient.post(
         Uri.parse('$_baseUrl/api/system/do_func'),
         body: 'do_get_wifi_ap_tablelist()',
       ).timeout(const Duration(seconds: 5));
@@ -80,6 +97,7 @@ class UsrS100HttpClient implements UsrClient {
     required int portB,
     required int bitrate,
   }) async {
+    final http.Client httpClient = http.Client();
     final payload = [
       'wifi.mode=3',
       'wifi.sta_ssid=$targetSsid',
@@ -95,7 +113,7 @@ class UsrS100HttpClient implements UsrClient {
       'uart0.sockb_rport=$portB',
     ].join(',');
 
-    final response = await client.post(
+    final response = await httpClient.post(
       Uri.parse('$_baseUrl/api/nv/set'),
       body: payload,
     ).timeout(const Duration(seconds: 5));
@@ -114,8 +132,9 @@ class UsrS100HttpClient implements UsrClient {
 
   @override
   Future<String> postRestart() async {
+    final http.Client httpClient = http.Client();
     try {
-      final response = await client.post(
+      final response = await httpClient.post(
         Uri.parse('$_baseUrl/api/system/do_func'),
         body: 'do_esp_restart()',
       );
@@ -134,9 +153,4 @@ class UsrS100HttpClient implements UsrClient {
 
   @override
   String? ssidName;
-
-  @override
-  void close() {
-    client.close();
-  }
 }

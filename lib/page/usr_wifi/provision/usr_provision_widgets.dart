@@ -32,7 +32,7 @@ class UsrProvisionWidgets {
               ),
               child: Text(
                 (isConnectedToModule)
-                    ? "Підключено до модуля з MAC: ${state.macController.text}"
+                    ? "Підключено до MAC: ${state.macController.text}"
                     : state.provision.getHint(),
                 style: const TextStyle(
                     fontSize: 13,
@@ -57,7 +57,7 @@ class UsrProvisionWidgets {
               Expanded(child: state.buildCompactField(state.ssidNameController, "Module SSID")),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
 
           Row(
             children: [
@@ -65,13 +65,13 @@ class UsrProvisionWidgets {
                 child: Tooltip(
                   message: "Мережа призначення (куди підключиться модуль)",
                   preferBelow: false, // ТЕПЕР ВІДМАЛЬОВУЄТЬСЯ ЗВЕРХУ
-                  verticalOffset: 25, // Відступ від поля до хмарки підказки
+                  verticalOffset: 15, // Відступ від поля до хмарки підказки
                   child: state.buildCompactField(state.targetSsidController, "Target WiFi SSID"),
                 ),
               ),
               const SizedBox(width: 4),
               SizedBox(
-                width: 40,
+                width: 20,
                 child: Tooltip(
                   message: "Не очищувати дані мережі для наступного модуля",
                   preferBelow: false,
@@ -83,7 +83,7 @@ class UsrProvisionWidgets {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           state.buildCompactField(
             state.passController,
             "WiFi Password",
@@ -93,26 +93,27 @@ class UsrProvisionWidgets {
               onPressed: state.togglePasswordVisibility,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           // Нове поле для BitRate
           state.buildCompactField(state.bitrateController, "Bit Rate (Baud)", isNumber: true),
-          const SizedBox(height: 10),
-          // Поля серверів та портів
-          _buildIpPortRow(state.ipAController, state.portAController, "Server IP A"),
-          const SizedBox(height: 10),
-          _buildIpPortRow(state.ipBController, state.portBController, "Server IP B"),
+          const SizedBox(height: 6),
+          // поле для BitRate сервер A та порт
+          _buildIpAPortRow(state.bitrateController, state.ipAController, state.portAController, "Server IP A"),
+          const SizedBox(height: 6),
+          // поле для сервер B та порт
+          _buildIpBPortRow(state.ipBController, state.portBController, "Server IP B"),
 
           if (networkSelector != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 6),
             networkSelector,
           ],
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 6),
 
           // Блок кнопок
           state.isLoading ? const CircularProgressIndicator() : actionButtons,
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Text(
             "Статус: ${state.status}",
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.blueGrey),
@@ -123,7 +124,20 @@ class UsrProvisionWidgets {
   }
 
   // Допоміжний метод для рядка IP+Port
-  Widget _buildIpPortRow(TextEditingController ip, TextEditingController port, String label) {
+  Widget _buildIpAPortRow(TextEditingController bitRate, TextEditingController ip, TextEditingController port, String label) {
+    return Row(
+      children: [
+        Expanded(flex: 3, child: state.buildCompactField(bitRate,  "Bit Rate (Baud)")),
+        const SizedBox(width: 8),
+        Expanded(flex: 3, child: state.buildCompactField(ip, label)),
+        const SizedBox(width: 8),
+        Expanded(flex: 2, child: state.buildCompactField(port, "Port", readOnly: true)),
+      ],
+    );
+  }
+
+  // Допоміжний метод для рядка IP+Port
+  Widget _buildIpBPortRow(TextEditingController ip, TextEditingController port, String label) {
     return Row(
       children: [
         Expanded(flex: 3, child: state.buildCompactField(ip, label)),
@@ -133,8 +147,9 @@ class UsrProvisionWidgets {
     );
   }
 
-// У вашому класі UsrProvisionWidgets
   Widget buildActionButtons({required VoidCallback onSave, required String saveLabel}) {
+    final isDevisesActivated = state.httpClient.mac.isNotBlank;
+    final activeColorOnSave = const Color(0xFF00897B);
     return Column(
       children: [
         // Кнопка для перегляду сторінки модуля на Linux
@@ -142,11 +157,12 @@ class UsrProvisionWidgets {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () {
-                // Якщо префікс починається на USR-S100, відкриваємо 1.1
+              onPressed: isDevisesActivated
+                  ? () {
                 final bool isS100 = state.selectedPrefix.contains("S100");
                 UsrClientHelper.openDeviceWeb(isS100: isS100);
-              },
+              }
+                  : null,
               icon: const Icon(Icons.open_in_new),
               label: Text(state.selectedPrefix.contains("S100")
                   ? UsrClientHelper.openHttpS100On168_8_1_1
@@ -159,12 +175,12 @@ class UsrProvisionWidgets {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: (state.httpClient.mac.isNotBlank) ? state.onLoadDefault : null,
+            onPressed: (isDevisesActivated) ? state.onLoadDefault : null,
             icon: const Icon(Icons.factory, color: Colors.red, size: 18),
             label: const Text("FACTORY RESET"),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.red,
-              side: BorderSide(color: (state.httpClient.mac.isNotBlank) ? Colors.red : Colors.grey),
+              side: BorderSide(color: (isDevisesActivated) ? Colors.red : Colors.grey),
             ),
           ),
         ),
@@ -173,11 +189,23 @@ class UsrProvisionWidgets {
         // Основна кнопка збереження
         SizedBox(
           width: double.infinity,
-          height: 45,
+          height: 45, // Ваша стандартна висота
           child: ElevatedButton(
-            // Не активна при ID=0 або помилках валідації
+            style: state.isFormValid
+                ? ElevatedButton.styleFrom(
+              backgroundColor: activeColorOnSave.withValues(alpha: 0.2),
+              // Текст того ж кольору 0xFF00897B для гармонії
+              foregroundColor: activeColorOnSave,
+              // Рамка основного кольору
+              side: BorderSide(color: activeColorOnSave, width: 2),
+              elevation: 0, // Пласка кнопка без тіні виглядає чистіше з рамкою
+            )
+                : null, // Дефолтна неактивна кнопка
             onPressed: state.isFormValid ? onSave : null,
-            child: Text(saveLabel),
+            child: Text(
+              saveLabel.toUpperCase(),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ),
       ],

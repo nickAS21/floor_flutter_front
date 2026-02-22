@@ -6,6 +6,7 @@ import '../../../helpers/app_helper.dart';
 import '../../data_home/data_location_type.dart';
 import '../info/data_usr_wifi_info.dart';
 import '../info/usr_wifi_info_storage.dart';
+import 'client/http/usr_s100_http_client.dart';
 import 'client/http/usr_wifi_232_http_client.dart';
 import 'client/usr_client.dart';
 import 'client/usr_client_factory.dart';
@@ -88,7 +89,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       await initDevice();
       String? mac = httpClient.mac;
       // 2. Отримуємо свіжий MAC
-      if (mac != null) {
+      if (mac.isNotBlank) {
         updateModuleSsid(mac);
         if (ssid.isBlank) {
           ssid = await provision.getActiveSsid();
@@ -110,7 +111,11 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
           if (isScanOk) {
             status = "Готово. Знайдено ${networks.length} мереж";
           } else {
-            status = "Пристрій знайдено, але список WiFi порожній";
+            if (mac.isNotBlank) {
+              status = "Пристрій знайдено, але список WiFi порожній";
+            } else {
+              status = "Пристрій не знайдено...";
+            }
           }
         });
 
@@ -185,6 +190,11 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 
     setState(() {
       // Встановлюємо в контролер для візуалізації
+      if (httpClient is UsrS100HttpClient) {
+        selectedPrefix = UsrClientDeviceType.s100.prefix;
+      } else if (selectedPrefix == UsrClientDeviceType.s100.prefix) {
+        selectedPrefix = UsrClientDeviceType.b2.prefix;
+      }
       macController.text = mac.toUpperCase();
       // detectedMac = mac.toUpperCase();
       ssidNameController.text = "$selectedPrefix$suffix";
@@ -262,15 +272,6 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       ),
     );
   }
-
-  // Widget buildMacStatus() {
-  //   if (detectedMac == null) return const SizedBox.shrink();
-  //   return Container(
-  //     width: double.infinity, padding: const EdgeInsets.all(8), margin: const EdgeInsets.only(bottom: 12),
-  //     decoration: BoxDecoration(color: Colors.green.withAlpha(25), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.green.withAlpha(75))),
-  //     child: Text("MAC: $detectedMac", textAlign: TextAlign.center, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
-  //   );
-  // }
 
   // ОСНОВНИЙ МЕТОД ЗБЕРЕЖЕННЯ
   void onSaveHttpUpdate(LocationType selectedLocation) async {
@@ -379,6 +380,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       selectedSsid = null;
       macController.clear();
       isLoading = isStart;
+      targetSsidController.clear();
 
       // 3. Поля, що залежать від keepTargetSettings.  Якщо true - нічого не робимо, залишаємо значення з контролерів
       if (!keepTargetSettings) {

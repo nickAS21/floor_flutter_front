@@ -29,7 +29,7 @@ class UsrClientHelper {
 
   static const String openHttp232On10_10_100_254 = "ВІДКРИТИ ${UsrClientHelper.baseIpAtHttpWiFi232} (WiFi232)";
   static const String openHttpS100On168_8_1_1 = "ВІДКРИТИ ${UsrClientHelper.baseIpAtHttpS100} (S100)";
-  static const String provisionHint = "Перевірте підключення до Device в режимі AP: USR-...";
+  static const String provisionHint = "Відсутній коннект Device в режимі AP: USR-...";
 
   static Future<void> openDeviceWeb({bool isS100 = false}) async {
     final String host = isS100

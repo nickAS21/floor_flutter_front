@@ -25,7 +25,7 @@ class UsrWiFi232HttpClient implements UsrClient {
       final response = await http.get(
         Uri.parse(UsrWiFi232HttpClientHelper.baseUrlHttpFast),
         headers: {'Authorization': UsrClientHelper.authBasicHeader},
-      ).timeout(const Duration(seconds: 2));
+      ).timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
         final bodyText = String.fromCharCodes(response.bodyBytes);
