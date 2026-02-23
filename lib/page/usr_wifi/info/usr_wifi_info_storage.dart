@@ -49,6 +49,38 @@ class UsrWiFiInfoStorage {
     return isUpdated;
   }
 
+  // 4. Перенесення модулів між локаціями
+  Future<void> moveItemsToLocation({
+    required LocationType from,
+    required LocationType to,
+    required List<DataUsrWiFiInfo> itemsToMove, // Передаємо вже готові об'єкти
+  }) async {
+    // 1. Вантажимо цільовий список (куди переносимо)
+    List<DataUsrWiFiInfo> targetList = await loadAllInfoForLocation(to);
+    // 2. Вантажимо вихідний список (звідки видаляємо)
+    List<DataUsrWiFiInfo> sourceList = await loadAllInfoForLocation(from);
+
+    for (var item in itemsToMove) {
+      // Оновлюємо мітку локації в самому об'єкті
+      item.locationType = to;
+
+      // Додаємо в цільову локацію (з перевіркою дублікатів по ID)
+      int existingIndex = targetList.indexWhere((target) => target.id == item.id);
+      if (existingIndex != -1) {
+        targetList[existingIndex] = item;
+      } else {
+        targetList.add(item);
+      }
+
+      // Видаляємо з початкової локації
+      sourceList.removeWhere((e) => e.id == item.id);
+    }
+
+    // 3. Зберігаємо обидва списки — це і є твоя "чиста" копія
+    await saveFullList(from, sourceList);
+    await saveFullList(to, targetList);
+  }
+
   // Для сумісності з твоїм старим кодом (якщо десь викликається loadInfo)
   Future<DataUsrWiFiInfo> loadInfo(LocationType type) async {
     final list = await loadAllInfoForLocation(type);

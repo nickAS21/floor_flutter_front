@@ -380,7 +380,6 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       selectedSsid = null;
       macController.clear();
       isLoading = isStart;
-      targetSsidController.clear();
 
       // 3. Поля, що залежать від keepTargetSettings.  Якщо true - нічого не робимо, залишаємо значення з контролерів
       if (!keepTargetSettings) {

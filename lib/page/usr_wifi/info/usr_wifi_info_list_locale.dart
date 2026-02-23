@@ -17,6 +17,7 @@ class UsrWiFiInfoListLocale extends StatefulWidget {
 
 class _UsrWiFiInfoListLocaleState extends State<UsrWiFiInfoListLocale> {
   final UsrWiFiInfoStorage _storage = UsrWiFiInfoStorage();
+  List<DataUsrWiFiInfo>? _serverListUsrInfo;
 
   // Оновлення екрана (викликає FutureBuilder заново)
   void _refresh() {
@@ -26,23 +27,49 @@ class _UsrWiFiInfoListLocaleState extends State<UsrWiFiInfoListLocale> {
   }
 
   @override
+// usr_wifi_info_list_locale.dart
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<DataUsrWiFiInfo>>(
       future: _storage.loadAllInfoForLocation(widget.selectedLocation),
       builder: (context, snapshot) {
-        // Чекаємо завантаження з Prefs
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
         return UsrWiFiInfoListPage(
           selectedLocation: widget.selectedLocation,
           localeList: snapshot.data!,
+
+          // ОСЬ ТУТ: передаємо серверний список, щоб сторінка його бачила
+          externalList: _serverListUsrInfo,
+
           onAdd: _addNewInfo,
           onDelete: _deleteSelected,
           onEdit: _editInfo,
-          onRefresh: _refresh, // Додаємо, щоб UI міг оновитися
+          onRefresh: _refresh,
+
+          // Твій новий метод перенесення
+          onMove: _moveSelected,
         );
       },
     );
+  }
+
+  Future<void> _moveSelected(List<DataUsrWiFiInfo> items, LocationType target) async {
+    await _storage.moveItemsToLocation(
+      from: widget.selectedLocation,
+      to: target,
+      itemsToMove: items,
+    );
+
+    // Тепер _serverListUsrInfo знайдено
+    if (_serverListUsrInfo != null) {
+      setState(() {
+        _serverListUsrInfo!.removeWhere((s) => items.any((m) => m.id == s.id));
+      });
+    }
+
+    _refresh();
   }
 
   Future<void> _addNewInfo() async {

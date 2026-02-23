@@ -13,16 +13,6 @@ class UsrS100HttpClient implements UsrClient {
   Future<String?> getMacAddress() async {
     final http.Client client = http.Client();
     try {
-    //   final response = await client.post(
-    //     Uri.parse('$_baseUrl/api/nv/get'),
-    //     headers: {
-    //       'Content-Type': 'application/json', // Спробуй змінити на json
-    //       'Accept': '*/*',
-    //       'Connection': 'close',
-    //     },
-    //     body: jsonEncode({"sys.base_mac": ""}), // Спробуй формат JSON у body
-    //   ).timeout(const Duration(seconds: 3));
-
       final response = await client.post(
         Uri.parse('$_baseUrl/api/nv/get'),
         headers: {

@@ -8,23 +8,14 @@ import 'package:floor_front/page/usr_wifi/provision/usr_provision_helper.dart';
 import 'client/usr_client.dart';
 
 class UsrWiFi232ProvisionUdp extends UsrProvisionBase {
-  RawDatagramSocket? _socket;
-
-  Future<RawDatagramSocket> _getSocket() async {
-    if (_socket != null) return _socket!;
-    _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-    _socket!.broadcastEnabled = true;
-    return _socket!;
-  }
 
   @override
   Future<List<Map<String, dynamic>>> scanNetworks(String? ssid, UsrClient usrClient) async {
     List<Map<String, dynamic>> found = [];
+    RawDatagramSocket socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+    socket.broadcastEnabled = true;
 
-    try {
-      final socket = await _getSocket();
-
-      // final initPacket = Uint8List.fromList([0xFF, 0x00, 0x01, 0x01, 0x02]);
+    try {      // final initPacket = Uint8List.fromList([0xFF, 0x00, 0x01, 0x01, 0x02]);
       socket.send(UsrProvisionHelper.initPacket, InternetAddress(UsrProvisionHelper.broadcastIp), UsrProvisionHelper.targetPortDef);
 
       await socket.timeout(const Duration(seconds: 3)).forEach((event) {
@@ -38,18 +29,19 @@ class UsrWiFi232ProvisionUdp extends UsrProvisionBase {
       });
     } catch (e) {
       // "stop" — це нормальний вихід, ігноруємо інші помилки
+    } finally {
+      // ГАРАНТОВАНО ЗАКРИВАЄМО СОКЕТ
+      while (socket.receive() != null) {}
+      socket.close();
     }
     return found;
   }
 
   Future<String> saveAndRestart(String ssid, String pwd) async {
-    final socket = await _getSocket();
-
-    while (socket.receive() != null) {}
-
+    RawDatagramSocket socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+    socket.broadcastEnabled = true;
     final packet = _generateSavePacket(ssid, pwd);
     socket.send(packet, InternetAddress(UsrProvisionHelper.broadcastIp), UsrProvisionHelper.targetPortDef);
-
     String result = "timeout";
     try {
       await socket.timeout(const Duration(seconds: UsrProvisionHelper.timeoutSocketDuration)).forEach((event) {
@@ -74,6 +66,10 @@ class UsrWiFi232ProvisionUdp extends UsrProvisionBase {
       });
     } catch (_) {
       // "stop" перекине нас сюди, що нормально
+    } finally {
+      // ГАРАНТОВАНО ЗАКРИВАЄМО СОКЕТ
+      while (socket.receive() != null) {}
+      socket.close();
     }
     return result;
   }
@@ -135,11 +131,6 @@ class UsrWiFi232ProvisionUdp extends UsrProvisionBase {
 
     builder.addByte(sum & UsrProvisionHelper.byteMaskTo255);
     return builder.toBytes();
-  }
-
-  void close() {
-    _socket?.close();
-    _socket = null;
   }
 
   void testSendSsidPwd() {

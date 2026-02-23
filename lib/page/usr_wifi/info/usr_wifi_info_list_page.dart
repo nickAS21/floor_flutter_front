@@ -12,6 +12,7 @@ class UsrWiFiInfoListPage extends StatefulWidget {
   final Future<void> Function(Set<int>)? onDelete;
   final Function(DataUsrWiFiInfo)? onEdit;
   final VoidCallback? onRefresh;
+  final Future<void> Function(List<DataUsrWiFiInfo>, LocationType)? onMove;
 
   const UsrWiFiInfoListPage({
     super.key,
@@ -22,6 +23,7 @@ class UsrWiFiInfoListPage extends StatefulWidget {
     this.onDelete,
     this.onEdit,
     this.onRefresh,
+    this.onMove,
   });
 
   @override
@@ -31,6 +33,7 @@ class UsrWiFiInfoListPage extends StatefulWidget {
 class _UsrWiFiInfoListPageState extends State<UsrWiFiInfoListPage> {
   final Set<int> _selectedIds = {};
   bool _isSelectionMode = false;
+  bool _isMoveMode = false;
 
   @override
   Widget build(BuildContext context) {
@@ -74,39 +77,102 @@ class _UsrWiFiInfoListPageState extends State<UsrWiFiInfoListPage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (!_isSelectionMode) ...[
+        if (!_isSelectionMode && !_isMoveMode) ...[
           IconButton(
             icon: const Icon(Icons.add_circle_outline, color: Colors.green),
             onPressed: widget.onAdd,
+          ),
+          // НОВА ІКОНКА ПЕРЕНЕСЕННЯ
+          IconButton(
+            icon: const Icon(Icons.compare_arrows, color: Colors.blue),
+            onPressed: () => setState(() {
+              _isMoveMode = true;
+              _isSelectionMode = true; // Використовуємо існуючу логіку вибору
+            }),
           ),
           IconButton(
             icon: const Icon(Icons.delete_sweep_outlined, color: Colors.redAccent),
             onPressed: () => setState(() => _isSelectionMode = true),
           ),
         ] else ...[
+          // Кнопка підтвердження дії
           IconButton(
-            icon: const Icon(Icons.check_circle_outline, color: Colors.red, size: 28),
+            icon: Icon(
+              _isMoveMode ? Icons.drive_file_move_outlined : Icons.check_circle_outline,
+              color: _isMoveMode ? Colors.blue : Colors.red,
+              size: 28,
+            ),
             onPressed: _selectedIds.isEmpty ? null : () async {
-              if (widget.onDelete != null) {
+              if (_isMoveMode) {
+                _handleMoveAction();
+              } else if (widget.onDelete != null) {
                 await widget.onDelete!(_selectedIds);
-                setState(() {
-                  _selectedIds.clear();
-                  _isSelectionMode = false;
-                });
+                _resetSelection();
               }
             },
           ),
           IconButton(
             icon: const Icon(Icons.cancel_outlined, color: Colors.grey),
-            onPressed: () => setState(() {
-              _isSelectionMode = false;
-              _selectedIds.clear();
-            }),
+            onPressed: _resetSelection,
           ),
         ],
         const Icon(Icons.expand_more),
       ],
     );
+  }
+
+  void _resetSelection() {
+    setState(() {
+      _isSelectionMode = false;
+      _isMoveMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+// 4. Логіка вибору локації та підтвердження
+  void _handleMoveAction() async {
+    // Вибір локації (всі окрім поточної)
+    final targetLocation = await showDialog<LocationType>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text("Оберіть цільову локацію"),
+        children: LocationType.values
+            .where((l) => l != widget.selectedLocation)
+            .map((l) => SimpleDialogOption(
+          onPressed: () => Navigator.pop(context, l),
+          child: Text(l.label),
+        ))
+            .toList(),
+      ),
+    );
+
+    if (targetLocation == null) return;
+
+    // Підтвердження перезапису
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Підтвердження перенесення"),
+        content: Text("Перемістити ${_selectedIds.length} модулів до ${targetLocation.label}? Якщо ID співпадають, дані будуть ПЕРЕЗАПИСАНІ."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("СКАСУВАТИ")),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("ПЕРЕМІСТИТИ", style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && widget.onMove != null) {
+      // Знаходимо саме об'єкти, а не тільки ID
+      final currentList = widget.externalList ?? widget.localeList;
+      final itemsToMove = currentList.where((e) => _selectedIds.contains(e.id)).toList();
+
+      // Віддаємо їх на перенесення
+      await widget.onMove!(itemsToMove, targetLocation);
+      _resetSelection();
+    }
   }
 
   // ПУНКТ СПИСКУ
