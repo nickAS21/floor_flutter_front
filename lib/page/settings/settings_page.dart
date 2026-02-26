@@ -105,13 +105,13 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _hasChanges() {
     bool baseChanges = _currentHandleControl != _originalHandleControl ||
         _currentAutoAllDay != _originalAutoAllDay ||
-        _logsLimitController.text.trim() != _originalLogsAppLimitValue;
+        _logsLimitController.text.trim() != _originalLogsAppLimitValue||
+        _batteryController.text.trim() != _originalBatteryValue;
 
     if (widget.location == LocationType.dacha) {
       return baseChanges ||
           _currentHeaterAuto != _originalHeaterAuto ||
-          _currentSeasonsId != _originalSeasonsId ||
-          _batteryController.text.trim() != _originalBatteryValue;
+          _currentSeasonsId != _originalSeasonsId ;
     }
     return baseChanges;
   }
@@ -162,13 +162,13 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _updateSettings() async {
     if (!_hasChanges()) return;
 
-    if (widget.location == LocationType.dacha) {
+    // if (widget.location == LocationType.dacha) {
       final error = _validateSoc(_batteryController.text);
       if (error != null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error), backgroundColor: Colors.redAccent));
         return;
       }
-    }
+    // }
 
     setState(() => _isLoading = true);
 
@@ -178,10 +178,10 @@ class _SettingsPageState extends State<SettingsPage> {
       'heaterGridOnAutoAllDay': _currentAutoAllDay,
       'logsAppLimit': int.tryParse(_logsLimitController.text) ?? 100,
       'versionBackend': _versionBackend,
+      'batteryCriticalNightSocWinter': double.tryParse(_batteryController.text),
     };
 
     if (widget.location == LocationType.dacha) {
-      body['batteryCriticalNightSocWinter'] = double.tryParse(_batteryController.text);
       body['heaterNightAutoOnDachaWinter'] = _currentHeaterAuto;
       body['seasonsId'] = _currentSeasonsId;
     }
@@ -206,13 +206,13 @@ class _SettingsPageState extends State<SettingsPage> {
           _currentHandleControl = _originalHandleControl;
           _originalAutoAllDay = updatedData.heaterGridOnAutoAllDay;
           _currentAutoAllDay = _originalAutoAllDay;
+          _originalBatteryValue = updatedData.batteryCriticalNightSocWinter?.toString() ?? "";
 
           if (widget.location == LocationType.dacha) {
             _originalHeaterAuto = updatedData.heaterNightAutoOnDachaWinter ?? false;
             _currentHeaterAuto = _originalHeaterAuto;
             _originalSeasonsId = updatedData.seasonsId;
             _currentSeasonsId = _originalSeasonsId;
-            _originalBatteryValue = updatedData.batteryCriticalNightSocWinter?.toString() ?? "";
           }
 
           _originalLogsAppLimitValue = updatedData.logsAppLimit.toString();
@@ -291,7 +291,7 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: 12),
           ],
           _buildInputCard(controller: _logsLimitController, label: labels[SettingsModel.keyLogs]!, icon: Icons.list_alt),
-          if (isDacha) ...[
+          // if (isDacha) ...[
             const SizedBox(height: 12),
             _buildInputCard(
               controller: _batteryController,
@@ -299,7 +299,7 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.battery_alert,
               isDecimal: true,
             ),
-          ],
+          // ],
           const SizedBox(height: 24),
           SizedBox(
             height: 48,

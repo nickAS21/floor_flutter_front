@@ -109,6 +109,8 @@ class HistoryDetailsSheet extends StatelessWidget {
           color: Colors.orange),
       _row("Напруга АКБ", "${record.batteryVol.toStringAsFixed(1)} V",
           color: Colors.blueGrey),
+      _row("Струм АКБ", "${record.batteryCurrent.toStringAsFixed(1)} A",
+          color: Colors.blueGrey),
       _row("Статус роботи", record.batteryStatus,
           color: UnitHelper.getStatusColor(record.batteryStatus)),
     ]);
