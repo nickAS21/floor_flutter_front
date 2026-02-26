@@ -48,7 +48,6 @@ dependencies:
   # sprintf: "^7.0.0"
   window_manager: ^0.5.1
   url_launcher: ^6.3.0
-  wifi_iot: ^0.3.19
   connectivity_plus: ^7.0.0
 
 dev_dependencies:
