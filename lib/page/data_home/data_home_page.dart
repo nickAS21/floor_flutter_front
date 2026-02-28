@@ -284,7 +284,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     double cardWidth = MediaQuery.of(context).size.width > 600 ? 180 : (MediaQuery.of(context).size.width / 2) - 20;
     return Container(
       width: cardWidth, padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.05), blurRadius: 4)]),
       child: Row(children: [
         Icon(icon, size: 22, color: Colors.blueGrey),
         const SizedBox(width: 8),

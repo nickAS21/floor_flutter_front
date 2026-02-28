@@ -120,9 +120,9 @@ class HistoryDetailsSheet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.blueGrey.withOpacity(0.05),
+        color: Colors.blueGrey.withValues(alpha:0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blueGrey.withOpacity(0.1)),
+        border: Border.all(color: Colors.blueGrey.withValues(alpha:0.1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -156,10 +156,10 @@ class HistoryDetailsSheet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: UnitHelper.getConnectionColor(status).withOpacity(0.1),
+        color: UnitHelper.getConnectionColor(status).withValues(alpha:0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-            color: UnitHelper.getConnectionColor(status).withOpacity(0.3)),
+            color: UnitHelper.getConnectionColor(status).withValues(alpha:0.3)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -264,7 +264,7 @@ class HistoryDetailsSheet extends StatelessWidget {
   Widget _badge(String t, Color c) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-            color: c.withOpacity(0.1),
+            color: c.withValues(alpha:0.1),
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: c, width: 0.8)),
         child: Text(t,

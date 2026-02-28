@@ -42,8 +42,8 @@ class DataHomePainter extends CustomPainter {
     final gridC = getOffset(0, gridY);
     final loadC = getOffset(sideNodesX, bottomNodesY);
 
-    final defaultPaint = Paint()..color = Colors.blueGrey.withOpacity(0.6);
-    final gridPaint = Paint()..color = gridActive ? Colors.green.withOpacity(0.8) : Colors.red.withOpacity(0.8);
+    final defaultPaint = Paint()..color = Colors.blueGrey.withValues(alpha:0.6);
+    final gridPaint = Paint()..color = gridActive ? Colors.green.withValues(alpha:0.8) : Colors.red.withValues(alpha:0.8);
 
     // Маршрути (лінії з крапок)
     _drawStraightRoute(canvas, solarC, invC, defaultPaint, nodeRadius, invRadius, step);
@@ -104,7 +104,7 @@ class DataHomePainter extends CustomPainter {
       if (d < r1 || d > dist - r2) continue;
       Offset pos = Offset.lerp(start, end, d / dist)!;
       double opacity = (1.0 - (i / 20)).clamp(0, 1);
-      canvas.drawCircle(pos, 4.0 * opacity, Paint()..color = Colors.blue.withOpacity(opacity * 0.7));
+      canvas.drawCircle(pos, 4.0 * opacity, Paint()..color = Colors.blue.withValues(alpha: opacity * 0.7));
       if (i == 0) _drawArrowHead(canvas, pos, (end - start).direction + (rev ? math.pi : 0));
     }
   }
@@ -130,7 +130,7 @@ class DataHomePainter extends CustomPainter {
       if (d < rStart || d > total - rEnd) continue;
       Offset pos = getPoint(d);
       double opacity = (1.0 - (i / 20)).clamp(0, 1);
-      canvas.drawCircle(pos, 4.0 * opacity, Paint()..color = Colors.blue.withOpacity(opacity * 0.7));
+      canvas.drawCircle(pos, 4.0 * opacity, Paint()..color = Colors.blue.withValues(alpha: opacity * 0.7));
       if (i == 0) {
         double angle = (getPoint(d + (toInv ? -1 : 1)) - pos).direction;
         _drawArrowHead(canvas, pos, angle);

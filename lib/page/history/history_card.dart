@@ -121,7 +121,7 @@ class HistoryCard extends StatelessWidget {
   Widget _badge(String t, Color c) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
     decoration: BoxDecoration(
-      color: c.withOpacity(0.1),
+      color: c.withValues(alpha:0.1),
       borderRadius: BorderRadius.circular(4),
       border: Border.all(color: c, width: 0.8),
     ),

@@ -23,7 +23,10 @@ class AppHelper {
   static const String apiPathLogsDacha = '/actuator/logfile';
   static const String apiPathUnit = '$apiPathApi/unit';
   static const String apiPathHistory = '$apiPathApi/history';
-  static const String apiPathAnalytics = '$apiPathApi/analytics';
+  static const String apiPathAnalytic = '$apiPathApi/analytic';
+  static const String subPathDay = '/day';
+  static const String subPathMonth = '/month';
+  static const String subPathYear = '/year';
   static const String apiPathAlarm = '$apiPathApi/alarm';
   static const String apiPathProvision = '$apiPathApi/provision';
 

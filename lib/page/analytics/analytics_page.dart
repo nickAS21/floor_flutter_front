@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'dart:async';
+import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../helpers/api_server_helper.dart';
-import '../../helpers/app_helper.dart';
+
 import '../data_home/data_location_type.dart';
+import 'analitic_model.dart';
+import 'analytic_enums.dart';
+import 'anaytic_connect_service.dart';
 
 class AnalyticsPage extends StatefulWidget {
   final LocationType location;
@@ -16,149 +17,256 @@ class AnalyticsPage extends StatefulWidget {
 }
 
 class _AnalyticsPageState extends State<AnalyticsPage> {
-  bool _isLoading = false;
-  String _selectedMetric = "Voltage";
-  List<dynamic> _chartData = [];
+  bool _isLoading = true;
+  ViewMode _viewMode = ViewMode.day;
+  PowerType _selectedPowerType = PowerType.GRID;
+  DateTime _selectedDate = DateTime.now();
+  List<AnalyticModel> _data = [];
+
+  final AnalyticConnectService _analyticService = AnalyticConnectService();
 
   @override
   void initState() {
     super.initState();
-    _fetchData();
+    _loadData();
   }
 
   @override
-  void didUpdateWidget(covariant AnalyticsPage oldWidget) {
+  void didUpdateWidget(AnalyticsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.location != widget.location) {
-      _fetchData();
+      _loadData();
     }
   }
 
-  Future<void> _fetchData() async {
-    if (!mounted) return;
+  Future<void> _loadData() async {
     setState(() => _isLoading = true);
-
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('accessToken') ?? '';
-
-    // ВИКОРИСТОВУЄМО ТІЛЬКИ ЗАТВЕРДЖЕНИЙ ФОРМАТ URL
-    String apiUrl = widget.location == LocationType.dacha
-        ? '${ApiServerHelper.backendUrl}${AppHelper.apiPathAnalytics}${AppHelper.pathDacha}'
-        : '${ApiServerHelper.backendUrl}${AppHelper.apiPathAnalytics}${AppHelper.pathGolego}';
-
     try {
-      final response = await http.get(
-        Uri.parse(apiUrl),
-        headers: {'Authorization': 'Bearer $token'},
-      ).timeout(const Duration(seconds: 60));
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('accessToken') ?? '';
 
-      if (response.statusCode == 200) {
-        setState(() {
-          _chartData = jsonDecode(response.body);
-          _isLoading = false;
-        });
-      } else {
-        throw Exception("Server Error: ${response.statusCode}");
-      }
-    } on TimeoutException catch (_) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        _showSnackBar("Час очікування вичерпано (60 сек)");
-      }
+      final result = await _analyticService.fetchData(
+        mode: _viewMode,
+        date: _selectedDate,
+        location: widget.location,
+        powerType: _selectedPowerType,
+        token: token,
+      );
+
+      setState(() {
+        _data = result;
+        _isLoading = false;
+      });
     } catch (e) {
+      setState(() => _isLoading = false);
       if (mounted) {
-        setState(() => _isLoading = false);
-        _showSnackBar("Помилка завантаження: $e");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text("Error: $e"),
+              backgroundColor: Colors.red.shade900
+          ),
+        );
       }
     }
-  }
-
-  void _showSnackBar(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        toolbarHeight: 54,
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.grey.shade100,
-        elevation: 0,
-        centerTitle: true,
-        titleSpacing: 0,
-        title: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-          child: Row(
-            children: [
-              Expanded(
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedMetric,
-                    isExpanded: true,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: Colors.black87),
-                    items: ["Voltage", "Capacity", "Power", "Temp"].map((m) {
-                      return DropdownMenuItem(value: m, child: Text(m.toUpperCase()));
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) setState(() => _selectedMetric = val);
-                    },
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: Icon(Icons.refresh, color: Colors.blueGrey.shade600, size: 22),
-                onPressed: _fetchData,
-              ),
-            ],
+        title: Text("Analytics: ${widget.location.label}"), // Використовуємо label з твоєї моделі
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month),
+            onPressed: _selectDate,
           ),
-        ),
+        ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+      body: Column(
+        children: [
+          _buildFilters(),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _data.isEmpty
+                ? const Center(child: Text("No data found for this period"))
+                : _buildChartContainer(),
+          ),
+          _buildSummary(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilters() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      color: Colors.white,
+      child: Row(
         children: [
           Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.show_chart,
-                      size: 80, color: Colors.blueGrey),
-                  const SizedBox(height: 20),
-                  const Text(
-                    "Аналітичні графіки",
-                    style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Метрика: $_selectedMetric",
-                    style: TextStyle(
-                        color: Colors.blue.shade700, fontSize: 16),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 40, vertical: 20),
-                    child: Text(
-                      "Тут буде візуалізація за останні 48 годин на основі отриманих даних.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                ],
-              ),
+            child: SegmentedButton<ViewMode>(
+              segments: ViewMode.values
+                  .map((v) => ButtonSegment(value: v, label: Text(v.name.toUpperCase())))
+                  .toList(),
+              selected: {_viewMode},
+              onSelectionChanged: (Set<ViewMode> newSelection) {
+                setState(() => _viewMode = newSelection.first);
+                _loadData();
+              },
             ),
+          ),
+          const SizedBox(width: 8),
+          DropdownButton<PowerType>(
+            value: _selectedPowerType,
+            underline: const SizedBox(),
+            icon: const Icon(Icons.bolt, color: Colors.orange),
+            items: PowerType.values
+                .map((p) => DropdownMenuItem(value: p, child: Text(p.name.toUpperCase())))
+                .toList(),
+            onChanged: (p) {
+              if (p != null) {
+                setState(() => _selectedPowerType = p);
+                _loadData();
+              }
+            },
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildChartContainer() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.05), blurRadius: 10)],
+      ),
+      child: _buildChart(),
+    );
+  }
+
+  Widget _buildChart() {
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        // Динамічний розрахунок максимуму для осі Y
+        maxY: (_data.map((e) => e.powerTotal).reduce((a, b) => a > b ? a : b) * 1.3).clamp(5, 5000),
+        gridData: const FlGridData(show: true, drawVerticalLine: false),
+        titlesData: FlTitlesData(
+          show: true,
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                int index = value.toInt();
+                if (index < 0 || index >= _data.length) return const SizedBox();
+
+                // Перетворюємо timestamp бекенда у дату для підпису осі
+                DateTime dt = DateTime.fromMillisecondsSinceEpoch(_data[index].timestamp);
+                String text = _viewMode == ViewMode.year
+                    ? DateFormat('MMM').format(dt)
+                    : DateFormat('dd').format(dt);
+
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(text, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                );
+              },
+            ),
+          ),
+          leftTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: true, reservedSize: 40)
+          ),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: false),
+        barGroups: _data.asMap().entries.map((entry) {
+          final d = entry.value;
+          return BarChartGroupData(
+            x: entry.key,
+            barRods: [
+              BarChartRodData(
+                toY: d.powerTotal,
+                width: 12,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                rodStackItems: [
+                  // Синій для ночі, Помаранчевий для дня
+                  BarChartRodStackItem(0, d.powerNight, Colors.blue.shade800),
+                  BarChartRodStackItem(d.powerNight, d.powerNight + d.powerDay, Colors.orange.shade400),
+                ],
+              ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSummary() {
+    double total = _data.fold(0, (sum, item) => sum + item.powerTotal);
+    double totalDay = _data.fold(0, (sum, item) => sum + item.powerDay);
+    double totalNight = _data.fold(0, (sum, item) => sum + item.powerNight);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildSummaryItem("Day Zone", totalDay, Colors.orange),
+              _buildSummaryItem("Night Zone", totalNight, Colors.blue.shade900),
+            ],
+          ),
+          const Divider(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("Total Consumption", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text("${total.toStringAsFixed(2)} kWh", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryItem(String label, double value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          ],
+        ),
+        Text("${value.toStringAsFixed(2)} kWh", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+      ],
+    );
+  }
+
+  Future<void> _selectDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() => _selectedDate = picked);
+      _loadData();
+    }
   }
 }
