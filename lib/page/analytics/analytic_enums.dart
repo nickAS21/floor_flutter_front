@@ -6,7 +6,7 @@ enum PowerType {
   final String description;
   const PowerType(this.description);
 
-  String get apiValue => name; // Повертає "GRID", "SOLAR" і т.д.
+  String get apiValue => name.toUpperCase(); // Повертає "GRID", "SOLAR" і т.д.
 }
 
-enum ViewMode { day, month, year }
+enum ViewMode { day, month, year, period }

@@ -4,4 +4,6 @@ enum LocationType {
 
   final String label;
   const LocationType(this.label);
+
+  String get apiValue => name.toUpperCase();
 }

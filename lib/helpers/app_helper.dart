@@ -8,7 +8,7 @@ class AppHelper {
   static const String localBackendHost = 'http://localhost:8084';
   static const String backendHostHome = '192.168.8.102';
   static const String localBackendHostHome = 'http://$backendHostHome:8084';
-  static const String backendHostDacha = '192.168.28.27';
+  static const String backendHostDacha = '192.168.28.24';
   static const String localBackendHostDacha = 'http://$backendHostDacha:8084';
   static const String localBackendChrome = 'http://127.0.0.1:8084';
   static const String localBackendEmulator = 'http://10.0.2.2:8084'; // Emulator
@@ -25,8 +25,15 @@ class AppHelper {
   static const String apiPathHistory = '$apiPathApi/history';
   static const String apiPathAnalytic = '$apiPathApi/analytic';
   static const String subPathDay = '/day';
+  static const String subPathDays = '/days';
   static const String subPathMonth = '/month';
   static const String subPathYear = '/year';
+  static const String subPathImport = '/import';
+  static const String subPathXMLS = '/xmls';
+  static const String apiPathImportXMLS = '$apiPathAnalytic$subPathImport$subPathXMLS';
+  static const String paternYYYYMMDD = 'yyyy-MM-dd';
+  static const String paternMMDD = 'MM.dd';
+
   static const String apiPathAlarm = '$apiPathApi/alarm';
   static const String apiPathProvision = '$apiPathApi/provision';
 

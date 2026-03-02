@@ -15,6 +15,22 @@ class AnalyticModel {
     required this.powerTotal,
   });
 
+  // Додаємо цей метод для коректної роботи парсера
+  AnalyticModel copyWith({
+    double? powerDay,
+    double? powerNight,
+    double? powerTotal,
+  }) {
+    return AnalyticModel(
+      timestamp: this.timestamp,
+      powerType: this.powerType,
+      location: this.location,
+      powerDay: powerDay ?? this.powerDay,
+      powerNight: powerNight ?? this.powerNight,
+      powerTotal: powerTotal ?? this.powerTotal,
+    );
+  }
+
   factory AnalyticModel.fromJson(Map<String, dynamic> json) {
     return AnalyticModel(
       timestamp: json['timestamp'] ?? 0,
@@ -25,4 +41,14 @@ class AnalyticModel {
       powerTotal: (json['powerTotal'] as num).toDouble(),
     );
   }
+
+  // Додаємо toJson для відправки на бек
+  Map<String, dynamic> toJson() => {
+    'timestamp': timestamp,
+    'powerType': powerType,
+    'location': location,
+    'powerDay': powerDay,
+    'powerNight': powerNight,
+    'powerTotal': powerTotal,
+  };
 }
