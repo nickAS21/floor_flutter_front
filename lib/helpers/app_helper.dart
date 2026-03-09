@@ -6,7 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 class AppHelper {
   static const String localBackendHost = 'http://localhost:8084';
-  static const String backendHostHome = '192.168.8.102';
+  static const String backendHostHome = '192.168.25.76';
   static const String localBackendHostHome = 'http://$backendHostHome:8084';
   static const String backendHostDacha = '192.168.28.24';
   static const String localBackendHostDacha = 'http://$backendHostDacha:8084';

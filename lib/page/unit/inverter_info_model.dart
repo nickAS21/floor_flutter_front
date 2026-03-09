@@ -3,11 +3,12 @@ class InverterInfoModel {
   final String manufacturer;
   final String modelName;
   final double ratedPower;
-  final String commissioningDate; // Приходить як відформатована String
-  final String phaseType;        // Приходить як "One Phase" / "Three Phase"
+  final String commissioningDate;
+  final String phaseType;
   final bool isHybrid;
   final String mpptControllerName;
   final int inputVoltage;
+  final String zoneId; // <--- ТУТ ТВОЯ ЗОНА
 
   InverterInfoModel({
     required this.productName,
@@ -19,6 +20,7 @@ class InverterInfoModel {
     required this.isHybrid,
     required this.mpptControllerName,
     required this.inputVoltage,
+    required this.zoneId,
   });
 
   factory InverterInfoModel.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class InverterInfoModel {
       isHybrid: json['isHybrid'] ?? false,
       mpptControllerName: json['mpptControllerName'] ?? '',
       inputVoltage: json['inputVoltage'] ?? 0,
+      zoneId: json['zoneId'] ?? 'Europe/Kyiv', // По дефолту Київ, а не UTC!
     );
   }
 }

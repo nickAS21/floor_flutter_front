@@ -1,54 +1,71 @@
 class AnalyticModel {
   final int timestamp;
-  final String powerType;
   final String location;
-  final double powerDay;
-  final double powerNight;
-  final double powerTotal;
+  final double gridPower;
+  final double gridDailyDayPower;
+  final double gridDailyNightPower;
+  final double gridDailyTotalPower;
+  final double solarPower;
+  final double solarDailyPower;
+  final double homePower;
+  final double homeDailyPower;
+  final double bmsSoc;
+  final double bmsDailyDischarge;
+  final double bmsDailyCharge;
 
   AnalyticModel({
     required this.timestamp,
-    required this.powerType,
     required this.location,
-    required this.powerDay,
-    required this.powerNight,
-    required this.powerTotal,
+    required this.gridPower,
+    required this.gridDailyDayPower,
+    required this.gridDailyNightPower,
+    required this.gridDailyTotalPower,
+    required this.solarPower,
+    required this.solarDailyPower,
+    required this.homePower,
+    required this.homeDailyPower,
+    required this.bmsSoc,
+    required this.bmsDailyDischarge,
+    required this.bmsDailyCharge,
   });
 
-  // Додаємо цей метод для коректної роботи парсера
-  AnalyticModel copyWith({
-    double? powerDay,
-    double? powerNight,
-    double? powerTotal,
-  }) {
-    return AnalyticModel(
-      timestamp: this.timestamp,
-      powerType: this.powerType,
-      location: this.location,
-      powerDay: powerDay ?? this.powerDay,
-      powerNight: powerNight ?? this.powerNight,
-      powerTotal: powerTotal ?? this.powerTotal,
-    );
+  static double _toDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString()) ?? 0.0;
   }
 
   factory AnalyticModel.fromJson(Map<String, dynamic> json) {
     return AnalyticModel(
-      timestamp: json['timestamp'] ?? 0,
-      powerType: json['powerType'] ?? '',
+      timestamp: json['timestamp'] ?? 0, // Чистий UTC від сервера
       location: json['location'] ?? '',
-      powerDay: (json['powerDay'] as num).toDouble(),
-      powerNight: (json['powerNight'] as num).toDouble(),
-      powerTotal: (json['powerTotal'] as num).toDouble(),
+      gridPower: _toDouble(json['gridPower']),
+      gridDailyDayPower: _toDouble(json['gridDailyDayPower']),
+      gridDailyNightPower: _toDouble(json['gridDailyNightPower']),
+      gridDailyTotalPower: _toDouble(json['gridDailyTotalPower']),
+      solarPower: _toDouble(json['solarDailyPower']),
+      solarDailyPower: _toDouble(json['solarPower']),
+      homePower: _toDouble(json['homePower']),
+      homeDailyPower: _toDouble(json['homeDailyPower']),
+      bmsSoc: _toDouble(json['bmsSoc']),
+      bmsDailyDischarge: _toDouble(json['bmsDailyDischarge']),
+      bmsDailyCharge: _toDouble(json['bmsDailyCharge']),
     );
   }
 
-  // Додаємо toJson для відправки на бек
   Map<String, dynamic> toJson() => {
     'timestamp': timestamp,
-    'powerType': powerType,
     'location': location,
-    'powerDay': powerDay,
-    'powerNight': powerNight,
-    'powerTotal': powerTotal,
+    'gridPower': gridPower,
+    'gridDailyDayPower': gridDailyDayPower,
+    'gridDailyNightPower': gridDailyNightPower,
+    'gridDailyTotalPower': gridDailyTotalPower,
+    'solarDailyPower': solarDailyPower,
+    'solarPower': solarPower,
+    'homePower': homePower,
+    'homeDailyPower': homeDailyPower,
+    'bmsSoc': bmsSoc,
+    'bmsDailyDischarge': bmsDailyDischarge,
+    'bmsDailyCharge': bmsDailyCharge,
   };
 }

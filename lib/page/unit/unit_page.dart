@@ -299,6 +299,7 @@ class _UnitPageState extends State<UnitPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              _buildDetailRow("Часовий пояс", "${info.zoneId}", Colors.blueGrey),
               _buildDetailRow("Номер порту", "${inverter.port}", Colors.blueGrey),
               _buildDetailRow("Статус порту", inverter.statusText, inverter.statusColor),
               _buildDetailRow("Виробник", info.manufacturer, null),
