@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -71,126 +74,79 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   Widget _buildBaseChart({
     required List<AnalyticModel> data,
     required double maxY,
+    required double powerMaxY,
     required List<LineChartBarData> lines,
     required bool isLandscape,
     required String yAxisLabel,
   }) {
+    // 1. Оголошуємо змінні на початку, щоб не було Undefined name
     double minX;
     double maxX;
     double interval;
 
     if (data.isEmpty) {
-      minX = 0;
-      maxX = 1;
-      interval = 1;
+      minX = 0; maxX = 1; interval = 1;
     } else {
-      if (_currentMode == ViewMode.period) {
-        // 1. ПЕРІОД: від 00:00 першого дня до 23:59 останнього дня
-        final start = DateTime(_startDate.year, _startDate.month, _startDate.day, 0, 0);
-        final end = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59);
-
-        minX = start.millisecondsSinceEpoch.toDouble();
-        maxX = end.millisecondsSinceEpoch.toDouble();
-
-        // Якщо днів багато, ставимо мітки раз на добу (86.4 млн мс)
-        double dayCount = (maxX - minX) / 86400000;
-        interval = dayCount > 1 ? 86400000 : 3600000 * 4;
-      } else {
-        // 2. ОДИН ДЕНЬ: суворо від 00:00 до 23:59 обраної дати
-        minX = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0).millisecondsSinceEpoch.toDouble();
-        maxX = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59).millisecondsSinceEpoch.toDouble();
-        interval = 3600000 * 4; // Мітки кожні 4 години
-      }
+      // Твоя логіка інтервалів
+      minX = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0).millisecondsSinceEpoch.toDouble();
+      maxX = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59).millisecondsSinceEpoch.toDouble();
+      interval = 3600000 * 4;
     }
 
     return LineChart(
       LineChartData(
-        minX: minX,
-        maxX: maxX,
-        minY: 0,
-        maxY: maxY,
-        // clipData обрізає лінії, що виходять за межі maxY (важливо для піків 9кВт)
+        minX: minX, maxX: maxX, minY: 0, maxY: maxY,
         clipData: const FlClipData.all(),
         lineTouchData: LineTouchData(
-          enabled: true,
           handleBuiltInTouches: true,
           touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (spot) => Colors.white.withValues(alpha: 0.9),
+            getTooltipColor: (_) => Colors.white, // Білий фон
+            // ТУТ ПРАВИЛЬНИЙ ПАРАМЕТР
+            tooltipBorderRadius: BorderRadius.circular(4),
+            tooltipBorder: const BorderSide(color: Colors.black12, width: 1),
             fitInsideHorizontally: true,
             fitInsideVertically: true,
-            // Встановлюємо великий відступ або фіксовану логіку,
-            // щоб тултіп завжди був зверху
-            tooltipMargin: 0,
-            // Цей параметр змушує тултіп ігнорувати висоту конкретної точки
-            // і орієнтуватися на межі контейнера
-            maxContentWidth: 150,
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
                 if (spot.barIndex != 0) return null;
                 final m = data[spot.spotIndex];
                 final date = DateTime.fromMillisecondsSinceEpoch(m.timestamp, isUtc: true).add(inverterOffset);
-
-                String timeLabel = _currentMode == ViewMode.period
-                    ? DateFormat('dd.MM HH:mm').format(date)
-                    : DateFormat('HH:mm').format(date);
-
                 return LineTooltipItem(
-                  '$timeLabel\n',
-                  const TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold),
-                  // Використовуємо textAlign для вирівнювання тексту всередині
+                  "${DateFormat('HH:mm').format(date)}\n",
+                  const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
                   children: [
-                    _span("Solar: ", "${(m.solarPower / 1000.0).toStringAsFixed(2)} kW\n", Colors.blue),
-                    _span("Home: ", "${(m.homePower / 1000.0).toStringAsFixed(2)} kW\n", Colors.red),
-                    _span("SOC: ", "${m.bmsSoc.toStringAsFixed(1)} %\n", Colors.green),
-                    _span("Grid: ", "${(m.gridPower / 1000.0).toStringAsFixed(2)} kW", Colors.orange),
+                    TextSpan(text: "Solar: ${(m.solarPower / 1000.0).toStringAsFixed(2)} kW\n", style: const TextStyle(color: Colors.blue, fontSize: 9)),
+                    TextSpan(text: "Home: ${(m.homePower / 1000.0).toStringAsFixed(2)} kW\n", style: const TextStyle(color: Colors.red, fontSize: 9)),
+                    TextSpan(text: "SOC: ${m.bmsSoc.toInt()}%", style: const TextStyle(color: Colors.green, fontSize: 9)),
                   ],
                 );
               }).toList();
             },
           ),
-          // Налаштування "лінії-покажчика" (vertical line)
-          getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
-            return spotIndexes.map((index) {
-              return TouchedSpotIndicatorData(
-                FlLine(color: Colors.grey.withValues(alpha: 0.5), strokeWidth: 1),
-                FlDotData(show: true), // Точка на самій лінії все одно залишиться
-              );
-            }).toList();
-          },
+          getTouchedSpotIndicator: (barData, spotIndexes) => spotIndexes.map((index) => TouchedSpotIndicatorData(
+            FlLine(color: Colors.black12, strokeWidth: 1),
+            const FlDotData(show: false), // Жодних точок
+          )).toList(),
         ),
         titlesData: FlTitlesData(
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: interval,
-              getTitlesWidget: (value, meta) {
-                final date = DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: true).add(inverterOffset);
-
-                // Якщо період — показуємо "День.Місяць", якщо день — "Година:00"
-                String text = (_currentMode == ViewMode.period && date.hour == 0)
-                    ? "${date.day}.${date.month}"
-                    : "${date.hour}:00";
-
-                return SideTitleWidget(meta: meta, child: Text(text, style: const TextStyle(fontSize: 8, color: Colors.grey)));
-              },
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 35,
-                getTitlesWidget: (v, m) => Text(v.toStringAsFixed(v < 1 ? 2 : 1), style: const TextStyle(fontSize: 8))
-            ),
-          ),
+          // kW ЗЛІВА
+          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 35, getTitlesWidget: (v, m) {
+            if (v > 100) return const SizedBox();
+            return Text((v * powerMaxY / 100).toStringAsFixed(1), style: const TextStyle(fontSize: 8));
+          })),
+          // % СПРАВА
+          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, getTitlesWidget: (v, m) {
+            if (v % 50 == 0 || v == 100) return Text("${v.toInt()}%", style: const TextStyle(fontSize: 8, color: Colors.green));
+            return const SizedBox();
+          })),
+          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, interval: interval, getTitlesWidget: (v, m) {
+            final date = DateTime.fromMillisecondsSinceEpoch(v.toInt(), isUtc: true).add(inverterOffset);
+            return Text("${date.hour}:00", style: const TextStyle(fontSize: 8, color: Colors.grey));
+          })),
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
-        gridData: FlGridData(
-            show: true,
-            verticalInterval: interval,
-            getDrawingVerticalLine: (v) => FlLine(color: Colors.grey.withValues(alpha: 0.1), strokeWidth: 0.5)
-        ),
-        borderData: FlBorderData(show: false),
+        gridData: FlGridData(show: true, verticalInterval: interval, horizontalInterval: 50, getDrawingHorizontalLine: (v) => FlLine(color: Colors.black.withOpacity(0.05), strokeWidth: 1)),
+        borderData: FlBorderData(show: true, border: Border.all(color: Colors.black12)),
         lineBarsData: lines,
       ),
     );
@@ -200,7 +156,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   Widget _buildCombinedCharts(List<AnalyticModel> data, bool isLandscape) {
     if (data.isEmpty) return const Center(child: Text("Дані відсутні"));
 
-    // Шукаємо динамічний максимум для kW
+    // 1. Розрахунок масштабів
     double maxPowerkW = 0.5;
     for (var m in data) {
       if (m.solarPower / 1000.0 > maxPowerkW) maxPowerkW = m.solarPower / 1000.0;
@@ -208,39 +164,38 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       if (m.gridPower / 1000.0 > maxPowerkW) maxPowerkW = m.gridPower / 1000.0;
     }
     double powerMaxY = maxPowerkW * 1.15;
+    double ratio = 100 / powerMaxY;
+
+    // 2. ВИЗНАЧЕННЯ ЗМІННОЇ lines (яка була Undefined)
+    List<LineChartBarData> lines = [
+      _buildLineData(data, (m) => m.bmsSoc, Colors.green, hasArea: true, opacity: 0.1),
+      _buildLineData(data, (m) => (m.solarPower / 1000.0) * ratio, Colors.blue, hasArea: true, opacity: 0.2),
+      _buildLineData(data, (m) => (m.homePower / 1000.0) * ratio, Colors.red),
+    ];
 
     return Column(
       children: [
-        Expanded(
-          flex: 3,
-          child: Container(
-            padding: const EdgeInsets.only(top: 20, left: 10, right: 15),
-            child: _buildBaseChart(
-              data: data,
-              isLandscape: isLandscape,
-              maxY: powerMaxY,
-              yAxisLabel: "kW",
-              lines: [
-                _buildLineData(data, (m) => m.solarPower / 1000.0, Colors.blue, hasArea: true),
-                _buildLineData(data, (m) => m.homePower / 1000.0, Colors.red),
-                _buildLineData(data, (m) => m.gridPower / 1000.0, Colors.orange),
-              ],
-            ),
+        // Заголовки шкал зверху
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("kW", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue)),
+              const Text("%", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+            ],
           ),
         ),
-        const Divider(height: 1, thickness: 1),
         Expanded(
-          flex: 2,
           child: Container(
-            padding: const EdgeInsets.only(top: 10, bottom: 10, left: 10, right: 15),
+            padding: const EdgeInsets.only(top: 0, left: 10, right: 15),
             child: _buildBaseChart(
               data: data,
               isLandscape: isLandscape,
-              maxY: 105,
-              yAxisLabel: "%",
-              lines: [
-                _buildLineData(data, (m) => m.bmsSoc, Colors.green, hasArea: true, opacity: 0.05),
-              ],
+              maxY: 115,
+              powerMaxY: powerMaxY,
+              lines: lines, // Тепер lines визначено вище
+              yAxisLabel: "kW / %",
             ),
           ),
         ),
@@ -294,6 +249,11 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.upload_file, size: 20, color: Colors.black),
+            onPressed: _importExcel, // Викликає ваш існуючий метод
+            tooltip: "Імпорт даних з Excel/XML",
+          ),
           IconButton(icon: const Icon(Icons.calendar_today, size: 20, color: Colors.black), onPressed: _pickDate),
           PopupMenuButton<ViewMode>(
             icon: const Icon(Icons.tune, size: 20, color: Colors.black),
@@ -385,40 +345,185 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   }
 
   Widget _buildBarChart(List<AnalyticModel> rawData) {
-    if (rawData.isEmpty) return const Center(child: Text("Дані відсутні"));
+    double minX = 1;
+    double maxX;
+    double interval = 1;
+
+    if (_currentMode == ViewMode.year) {
+      maxX = 12;
+    } else {
+      maxX = DateTime(_selectedDate.year, _selectedDate.month + 1, 0).day.toDouble();
+    }
+
     Map<int, AnalyticModel> grouped = {};
     for (var m in rawData) {
       final date = DateTime.fromMillisecondsSinceEpoch(m.timestamp, isUtc: true).add(inverterOffset);
       int key = _currentMode == ViewMode.month ? date.day : date.month;
-      if (!grouped.containsKey(key) || m.solarDailyPower > grouped[key]!.solarDailyPower) { grouped[key] = m; }
+      if (!grouped.containsKey(key) || m.solarDailyPower > grouped[key]!.solarDailyPower) {
+        grouped[key] = m;
+      }
     }
-    final sortedKeys = grouped.keys.toList()..sort();
-    return Container(
-      padding: const EdgeInsets.only(top: 25, left: 10, right: 15, bottom: 10),
-      child: BarChart(
-        BarChartData(
-          alignment: BarChartAlignment.spaceAround, maxY: 125,
-          titlesData: FlTitlesData(
-            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, m) {
-              if (_currentMode == ViewMode.year) {
-                const mo = ['', 'С', 'Л', 'Б', 'К', 'Т', 'Ч', 'Л', 'С', 'В', 'Ж', 'Л', 'Г'];
-                return Text(mo[v.toInt() % 13], style: const TextStyle(fontSize: 10));
-              }
-              return (v % 5 == 0 || v == 1) ? Text(v.toInt().toString(), style: const TextStyle(fontSize: 10)) : const SizedBox();
-            })),
-            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30)),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          ),
-          barGroups: sortedKeys.map((k) {
-            final m = grouped[k]!;
-            return BarChartGroupData(x: k, barRods: [
-              BarChartRodData(toY: m.solarDailyPower, color: Colors.blue, width: 8),
-              BarChartRodData(toY: m.homeDailyPower, color: Colors.red, width: 8),
-            ]);
-          }).toList(),
+
+    // --- ПРАВКА №1: РЕАЛЬНИЙ РОЗРАХУНОК МАКСИМУМУ ---
+    double maxVal = 1.0; // Починаємо з 1.0, а не з 5.0
+    for (var m in grouped.values) {
+      if (m.solarDailyPower > maxVal) maxVal = m.solarDailyPower;
+      // Використовуємо homeDailyPower для статистики
+      if (m.homeDailyPower > maxVal) maxVal = m.homeDailyPower;
+    }
+    double chartMaxY = maxVal * 1.2; // 20% запасу, щоб палки не тиснули в стелю
+    // ----------------------------------------------
+
+    return Column( // ПРАВКА №2: Додаємо Column, щоб втулити підпис одиниць
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 10, top: 10),
+          child: Text("kWh", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
         ),
-      ),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.only(top: 15, left: 10, right: 15, bottom: 10),
+            child: BarChart(
+              BarChartData(
+                minY: 0,
+                maxY: chartMaxY, // Використовуємо наш розрахунок
+                alignment: BarChartAlignment.spaceAround,
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (group) => Colors.white,
+                    tooltipBorder: const BorderSide(color: Colors.black12, width: 1),
+                    tooltipBorderRadius: BorderRadius.circular(4),
+                    maxContentWidth: 150,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      // ПРАВКА: Виводимо дані лише для першого стовпчика (rodIndex == 0)
+                      // Якщо це другий або третій стовпчик у групі - ігноруємо (повертаємо null)
+                      if (rodIndex != 0) return null;
+
+                      final m = grouped[group.x.toInt()];
+                      if (m == null) return null;
+
+                      return BarTooltipItem(
+                        "${_currentMode == ViewMode.month ? 'День' : 'Місяць'} ${group.x}\n",
+                        const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11),
+                        children: [
+                          _barSpan("Solar: ", "${m.solarDailyPower.toStringAsFixed(2)} kWh\n", Colors.blue),
+                          _barSpan("Home: ", "${m.homeDailyPower.toStringAsFixed(2)} kWh\n", Colors.red),
+                          _barSpan("Grid Total: ", "${m.gridDailyTotalPower.toStringAsFixed(2)} kWh\n", Colors.deepPurple),
+                          _barSpan("Grid Day: ", "${m.gridDailyDayPower.toStringAsFixed(2)} kWh\n", Colors.orange),
+                          _barSpan("Grid Night: ", "${m.gridDailyNightPower.toStringAsFixed(2)} kWh", Colors.indigo),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 40,
+                      getTitlesWidget: (v, m) => Text(v.toStringAsFixed(1), style: const TextStyle(fontSize: 8)),
+                    ),
+                  ),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 1,
+                      getTitlesWidget: (v, m) {
+                        int val = v.toInt();
+                        if (val < minX || val > maxX) return const SizedBox();
+                        if (_currentMode == ViewMode.year) {
+                          return Text(val.toString(), style: const TextStyle(fontSize: 8));
+                        } else {
+                          if (val == 1 || val == maxX || val % 5 == 0) {
+                            return Text(val.toString(), style: const TextStyle(fontSize: 8));
+                          }
+                        }
+                        return const SizedBox();
+                      },
+                    ),
+                  ),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: chartMaxY > 0 ? chartMaxY / 5 : 1,
+                  getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withValues(alpha: 0.1), strokeWidth: 1),
+                ),
+                borderData: FlBorderData(show: false),
+                barGroups: List.generate(maxX.toInt(), (index) {
+                  int key = index + 1;
+                  final m = grouped[key];
+                  return BarChartGroupData(
+                    x: key,
+                    barRods: [
+                      BarChartRodData(toY: m?.solarDailyPower ?? 0, color: Colors.blue, width: 6, borderRadius: BorderRadius.circular(2)),
+                      BarChartRodData(toY: m?.homeDailyPower ?? 0, color: Colors.red, width: 6, borderRadius: BorderRadius.circular(2)),
+                    ],
+                  );
+                }),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _importExcel() async {
+    // Вибір файлу .xlsx
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx'],
+    );
+
+    if (result != null) {
+      setState(() => _isLoading = true);
+      try {
+        File file = File(result.files.single.path!);
+        var bytes = await file.readAsBytes();
+
+        // 1. Парсимо Excel у список моделей
+        List<AnalyticModel> detailedPoints = _service.processExcelData(
+          bytes: bytes,
+          location: widget.location,);
+
+        if (detailedPoints.isNotEmpty) {
+          // 2. Відправляємо POST запит на сервер (імпорт XML/Data)
+          bool success = await _service.importXmlsData(detailedPoints);
+
+          if (success) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Імпорт завершено успішно"), backgroundColor: Colors.green),
+              );
+            }
+            // Оновлюємо графік після імпорту
+            await _fetchData();
+          }
+        }
+      } catch (e) {
+        debugPrint("Import error: $e");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Помилка імпорту: $e"), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  TextSpan _barSpan(String label, String val, Color col) {
+    return TextSpan(
+      text: label,
+      style: const TextStyle(color: Colors.black54, fontSize: 10, fontWeight: FontWeight.normal),
+      children: [
+        TextSpan(text: val, style: TextStyle(color: col, fontWeight: FontWeight.bold, fontSize: 10)),
+      ],
     );
   }
 }
