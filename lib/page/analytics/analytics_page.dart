@@ -36,6 +36,15 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _fetchData());
   }
 
+  @override
+  void didUpdateWidget(AnalyticsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.location != widget.location) {
+      setState(() => _isLoading = true);
+      _fetchData();
+    }
+  }
+
   Future<void> _fetchData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);

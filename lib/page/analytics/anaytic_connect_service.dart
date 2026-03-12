@@ -70,31 +70,8 @@ class AnalyticConnectService {
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final dynamic decodedData = jsonDecode(response.body);
-
-        // Нова логіка згідно DataAnalyticResponse.java
-        if (decodedData is Map<String, dynamic>) {
-          // Отримуємо список саме з поля dataAnalyticDtos
-          final List<dynamic>? dtoList = decodedData['dataAnalyticDtos'];
-
-          if (dtoList != null) {
-            return dtoList
-                .map((item) {
-              try {
-                return AnalyticModel.fromJson(item as Map<String, dynamic>);
-              } catch (e) {
-                debugPrint("Помилка парсингу моделі: $e");
-                return null;
-              }
-            })
-                .whereType<AnalyticModel>()
-                .toList();
-          }
-        }
-
-        // Якщо структура не відповідає очікуваній
-        debugPrint("Unexpected response format: $decodedData");
-        return [];
+        final List<dynamic> decodedData = jsonDecode(response.body); // Отримуємо голий список
+        return decodedData.map((item) => AnalyticModel.fromJson(item)).toList();
       }
     } catch (e) {
       debugPrint("Fetch error: $e");
