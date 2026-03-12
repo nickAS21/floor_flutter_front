@@ -28,8 +28,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   DateTime _endDate = DateTime.now();
   ViewMode _currentMode = ViewMode.day;
 
-  // Офсет для Києва (зимовий час)
-  Duration get inverterOffset => const Duration(hours: 2);
+  final ScrollController _horizontalScroll = ScrollController();
 
   @override
   void initState() {
@@ -79,18 +78,22 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     required bool isLandscape,
     required String yAxisLabel,
   }) {
-    // 1. Оголошуємо змінні на початку, щоб не було Undefined name
     double minX;
     double maxX;
-    double interval;
+    double interval = 3600000 * 4;
 
     if (data.isEmpty) {
-      minX = 0; maxX = 1; interval = 1;
+      minX = 0; maxX = 1;
     } else {
-      // Твоя логіка інтервалів
-      minX = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0).millisecondsSinceEpoch.toDouble();
-      maxX = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59).millisecondsSinceEpoch.toDouble();
-      interval = 3600000 * 4;
+      // Час беремо як він є — бек вже все порахував
+      if (_currentMode == ViewMode.period) {
+        // Використовуємо .utc(), щоб межі графіка збігалися з UTC-таймстампами бека
+        minX = DateTime.utc(_startDate.year, _startDate.month, _startDate.day, 0, 0).millisecondsSinceEpoch.toDouble();
+        maxX = DateTime.utc(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59).millisecondsSinceEpoch.toDouble();
+      } else {
+        minX = DateTime.utc(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0).millisecondsSinceEpoch.toDouble();
+        maxX = DateTime.utc(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59).millisecondsSinceEpoch.toDouble();
+      }
     }
 
     return LineChart(
@@ -100,8 +103,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         lineTouchData: LineTouchData(
           handleBuiltInTouches: true,
           touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => Colors.white, // Білий фон
-            // ТУТ ПРАВИЛЬНИЙ ПАРАМЕТР
+            getTooltipColor: (_) => Colors.white,
             tooltipBorderRadius: BorderRadius.circular(4),
             tooltipBorder: const BorderSide(color: Colors.black12, width: 1),
             fitInsideHorizontally: true,
@@ -110,14 +112,18 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               return touchedSpots.map((spot) {
                 if (spot.barIndex != 0) return null;
                 final m = data[spot.spotIndex];
-                final date = DateTime.fromMillisecondsSinceEpoch(m.timestamp, isUtc: true).add(inverterOffset);
+                // Чистий локальний час з бека
+                final date = DateTime.fromMillisecondsSinceEpoch(m.timestamp, isUtc: false);
+
                 return LineTooltipItem(
-                  "${DateFormat('HH:mm').format(date)}\n",
+                  "${DateFormat('dd.MM HH:mm').format(date)}\n",
                   const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
                   children: [
                     TextSpan(text: "Solar: ${(m.solarPower / 1000.0).toStringAsFixed(2)} kW\n", style: const TextStyle(color: Colors.blue, fontSize: 9)),
                     TextSpan(text: "Home: ${(m.homePower / 1000.0).toStringAsFixed(2)} kW\n", style: const TextStyle(color: Colors.red, fontSize: 9)),
-                    TextSpan(text: "SOC: ${m.bmsSoc.toInt()}%", style: const TextStyle(color: Colors.green, fontSize: 9)),
+                    TextSpan(text: "Grid Day: ${m.gridDailyDayPower.toStringAsFixed(2)} kWh\n", style: const TextStyle(color: Colors.orange, fontSize: 9)),
+                    TextSpan(text: "Grid Night: ${m.gridDailyNightPower.toStringAsFixed(2)} kWh\n", style: const TextStyle(color: Colors.indigo, fontSize: 9)),
+                    TextSpan(text: "SOC: ${m.bmsSoc.toInt()}%", style: const TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.bold)),
                   ],
                 );
               }).toList();
@@ -125,27 +131,63 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           ),
           getTouchedSpotIndicator: (barData, spotIndexes) => spotIndexes.map((index) => TouchedSpotIndicatorData(
             FlLine(color: Colors.black12, strokeWidth: 1),
-            const FlDotData(show: false), // Жодних точок
+            const FlDotData(show: false),
           )).toList(),
         ),
         titlesData: FlTitlesData(
-          // kW ЗЛІВА
           leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 35, getTitlesWidget: (v, m) {
             if (v > 100) return const SizedBox();
             return Text((v * powerMaxY / 100).toStringAsFixed(1), style: const TextStyle(fontSize: 8));
           })),
-          // % СПРАВА
           rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, getTitlesWidget: (v, m) {
             if (v % 50 == 0 || v == 100) return Text("${v.toInt()}%", style: const TextStyle(fontSize: 8, color: Colors.green));
             return const SizedBox();
           })),
-          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, interval: interval, getTitlesWidget: (v, m) {
-            final date = DateTime.fromMillisecondsSinceEpoch(v.toInt(), isUtc: true).add(inverterOffset);
-            return Text("${date.hour}:00", style: const TextStyle(fontSize: 8, color: Colors.grey));
-          })),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: interval,
+              getTitlesWidget: (v, m) {
+                final date = DateTime.fromMillisecondsSinceEpoch(v.toInt(), isUtc: false);
+                bool isMidnight = date.hour == 0 && date.minute == 0;
+                bool isEdge = (v - m.min).abs() < 1000 || (v - m.max).abs() < 1000;
+
+                // Малюємо рамку тільки один раз, щоб не було накладки на 11.03
+                if (isMidnight || (isEdge && !isMidnight)) {
+                  return SideTitleWidget(
+                    meta: m,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black, width: 1),
+                        borderRadius: BorderRadius.circular(4),
+                        color: Colors.white,
+                      ),
+                      child: Text(DateFormat('dd.MM').format(date),
+                          style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.black)),
+                    ),
+                  );
+                }
+                return SideTitleWidget(meta: m, child: Text("${date.hour}:00", style: const TextStyle(fontSize: 8, color: Colors.grey)));
+              },
+            ),
+          ),
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
-        gridData: FlGridData(show: true, verticalInterval: interval, horizontalInterval: 50, getDrawingHorizontalLine: (v) => FlLine(color: Colors.black.withOpacity(0.05), strokeWidth: 1)),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: true,
+          verticalInterval: interval,
+          horizontalInterval: 50,
+          getDrawingVerticalLine: (value) {
+            DateTime date = DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: false);
+            if (date.hour == 0 && date.minute == 0) {
+              return FlLine(color: Colors.black, strokeWidth: 1.5); // Чітко о 00:00
+            }
+            return FlLine(color: Colors.black.withValues(alpha: 0.05), strokeWidth: 0.5, dashArray: [4, 4]);
+          },
+          getDrawingHorizontalLine: (v) => FlLine(color: Colors.black.withValues(alpha: 0.05), strokeWidth: 1),
+        ),
         borderData: FlBorderData(show: true, border: Border.all(color: Colors.black12)),
         lineBarsData: lines,
       ),
@@ -156,26 +198,20 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   Widget _buildCombinedCharts(List<AnalyticModel> data, bool isLandscape) {
     if (data.isEmpty) return const Center(child: Text("Дані відсутні"));
 
-    // 1. Розрахунок масштабів
     double maxPowerkW = 0.5;
     for (var m in data) {
       if (m.solarPower / 1000.0 > maxPowerkW) maxPowerkW = m.solarPower / 1000.0;
       if (m.homePower / 1000.0 > maxPowerkW) maxPowerkW = m.homePower / 1000.0;
-      if (m.gridPower / 1000.0 > maxPowerkW) maxPowerkW = m.gridPower / 1000.0;
     }
     double powerMaxY = maxPowerkW * 1.15;
     double ratio = 100 / powerMaxY;
 
-    // 2. ВИЗНАЧЕННЯ ЗМІННОЇ lines (яка була Undefined)
-    List<LineChartBarData> lines = [
-      _buildLineData(data, (m) => m.bmsSoc, Colors.green, hasArea: true, opacity: 0.1),
-      _buildLineData(data, (m) => (m.solarPower / 1000.0) * ratio, Colors.blue, hasArea: true, opacity: 0.2),
-      _buildLineData(data, (m) => (m.homePower / 1000.0) * ratio, Colors.red),
-    ];
+    double chartWidth = _currentMode == ViewMode.period
+        ? (_endDate.difference(_startDate).inDays + 1) * 1000.0
+        : (isLandscape ? 1500 : 1000);
 
     return Column(
       children: [
-        // Заголовки шкал зверху
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
           child: Row(
@@ -187,15 +223,31 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           ),
         ),
         Expanded(
-          child: Container(
-            padding: const EdgeInsets.only(top: 0, left: 10, right: 15),
-            child: _buildBaseChart(
-              data: data,
-              isLandscape: isLandscape,
-              maxY: 115,
-              powerMaxY: powerMaxY,
-              lines: lines, // Тепер lines визначено вище
-              yAxisLabel: "kW / %",
+          child: Scrollbar( // ДОДАЄМО ВИДИМИЙ СКРОЛ
+            controller: _horizontalScroll,
+            thumbVisibility: true, // Смужка буде завжди видимою
+            trackVisibility: true, // Доріжка скролу теж видима
+            child: SingleChildScrollView(
+              controller: _horizontalScroll,
+              scrollDirection: Axis.horizontal,
+              child: Container(
+                width: chartWidth, // Наприклад, 2000 пікселів для 2 днів
+                padding: const EdgeInsets.only(left: 10, right: 30, bottom: 15), // Місце для смужки скролу
+                child: _buildBaseChart(
+                  data: data,
+                  isLandscape: isLandscape,
+                  maxY: 115,
+                  powerMaxY: powerMaxY,
+                  yAxisLabel: "kW / %",
+                  lines: [
+                    _buildLineData(data, (m) => m.bmsSoc, Colors.green, hasArea: true, opacity: 0.1), // SOC
+                    _buildLineData(data, (m) => (m.solarPower / 1000.0) * ratio, Colors.blue, hasArea: true, opacity: 0.2), // Solar
+                    _buildLineData(data, (m) => (m.homePower / 1000.0) * ratio, Colors.red), // Home
+                    _buildLineData(data, (m) => (m.gridDailyDayPower / 1000.0) * ratio, Colors.orange), // Grid Day
+                    _buildLineData(data, (m) => (m.gridDailyNightPower / 1000.0) * ratio, Colors.indigo), // Grid Night
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -357,24 +409,23 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
     Map<int, AnalyticModel> grouped = {};
     for (var m in rawData) {
-      final date = DateTime.fromMillisecondsSinceEpoch(m.timestamp, isUtc: true).add(inverterOffset);
+      // Жодних add(inverterOffset), тільки чистий UTC
+      final date = DateTime.fromMillisecondsSinceEpoch(m.timestamp, isUtc: false);
       int key = _currentMode == ViewMode.month ? date.day : date.month;
       if (!grouped.containsKey(key) || m.solarDailyPower > grouped[key]!.solarDailyPower) {
         grouped[key] = m;
       }
     }
 
-    // --- ПРАВКА №1: РЕАЛЬНИЙ РОЗРАХУНОК МАКСИМУМУ ---
-    double maxVal = 1.0; // Починаємо з 1.0, а не з 5.0
+    // Розрахунок максимуму залишаємо як був
+    double maxVal = 1.0;
     for (var m in grouped.values) {
       if (m.solarDailyPower > maxVal) maxVal = m.solarDailyPower;
-      // Використовуємо homeDailyPower для статистики
       if (m.homeDailyPower > maxVal) maxVal = m.homeDailyPower;
     }
-    double chartMaxY = maxVal * 1.2; // 20% запасу, щоб палки не тиснули в стелю
-    // ----------------------------------------------
+    double chartMaxY = maxVal * 1.2;
 
-    return Column( // ПРАВКА №2: Додаємо Column, щоб втулити підпис одиниць
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
@@ -387,7 +438,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
             child: BarChart(
               BarChartData(
                 minY: 0,
-                maxY: chartMaxY, // Використовуємо наш розрахунок
+                maxY: chartMaxY,
                 alignment: BarChartAlignment.spaceAround,
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
@@ -396,10 +447,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                     tooltipBorderRadius: BorderRadius.circular(4),
                     maxContentWidth: 150,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      // ПРАВКА: Виводимо дані лише для першого стовпчика (rodIndex == 0)
-                      // Якщо це другий або третій стовпчик у групі - ігноруємо (повертаємо null)
                       if (rodIndex != 0) return null;
-
                       final m = grouped[group.x.toInt()];
                       if (m == null) return null;
 
@@ -450,6 +498,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   show: true,
                   drawVerticalLine: false,
                   horizontalInterval: chartMaxY > 0 ? chartMaxY / 5 : 1,
+                  // ПРАВКА: Використовуємо alpha
                   getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withValues(alpha: 0.1), strokeWidth: 1),
                 ),
                 borderData: FlBorderData(show: false),
