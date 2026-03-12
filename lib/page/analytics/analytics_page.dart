@@ -9,6 +9,7 @@ import '../data_home/data_location_type.dart';
 import 'analitic_model.dart';
 import 'analytic_enums.dart';
 import 'anaytic_connect_service.dart';
+import 'month_picker.dart';
 
 class AnalyticsPage extends StatefulWidget {
   final LocationType location;
@@ -94,14 +95,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     if (data.isEmpty) {
       minX = 0; maxX = 1;
     } else {
-      // Час беремо як він є — бек вже все порахував
       if (_currentMode == ViewMode.period) {
-        // Використовуємо .utc(), щоб межі графіка збігалися з UTC-таймстампами бека
-        minX = DateTime.utc(_startDate.year, _startDate.month, _startDate.day, 0, 0).millisecondsSinceEpoch.toDouble();
-        maxX = DateTime.utc(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59).millisecondsSinceEpoch.toDouble();
+        // Використовуємо локальний час, щоб 00:00 збіглося з сіткою
+        minX = DateTime(_startDate.year, _startDate.month, _startDate.day, 0, 0).millisecondsSinceEpoch.toDouble();
+        maxX = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59).millisecondsSinceEpoch.toDouble();
       } else {
-        minX = DateTime.utc(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0).millisecondsSinceEpoch.toDouble();
-        maxX = DateTime.utc(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59).millisecondsSinceEpoch.toDouble();
+        minX = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0).millisecondsSinceEpoch.toDouble();
+        maxX = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59).millisecondsSinceEpoch.toDouble();
       }
     }
 
@@ -152,32 +152,46 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
             if (v % 50 == 0 || v == 100) return Text("${v.toInt()}%", style: const TextStyle(fontSize: 8, color: Colors.green));
             return const SizedBox();
           })),
+//
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              interval: interval,
+              // ВАЖЛИВО: Ставимо інтервал 1 годину, щоб перевіряти кожну годину
+              interval: 3600000,
               getTitlesWidget: (v, m) {
                 final date = DateTime.fromMillisecondsSinceEpoch(v.toInt(), isUtc: false);
-                bool isMidnight = date.hour == 0 && date.minute == 0;
-                bool isEdge = (v - m.min).abs() < 1000 || (v - m.max).abs() < 1000;
 
-                // Малюємо рамку тільки один раз, щоб не було накладки на 11.03
-                if (isMidnight || (isEdge && !isMidnight)) {
+                // 1. Обчислюємо різницю між поточною точкою і початком дня (00:00)
+                final startOfDay = DateTime(date.year, date.month, date.day, 0, 0, 0).millisecondsSinceEpoch;
+                final offsetInHours = (v - startOfDay) / 3600000;
+
+                // 2. Показуємо мітку ТІЛЬКИ якщо це рівно 0, 4, 8, 12, 16, 20 годин
+                if (offsetInHours.round() % 4 != 0) {
+                  return const SizedBox();
+                }
+
+                // 3. Якщо це північ (00:00) — малюємо дату в рамці
+                if (date.hour == 0 && date.minute == 0) {
                   return SideTitleWidget(
                     meta: m,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black, width: 1),
+                        border: Border.all(color: Colors.black),
                         borderRadius: BorderRadius.circular(4),
                         color: Colors.white,
                       ),
                       child: Text(DateFormat('dd.MM').format(date),
-                          style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.black)),
+                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
                     ),
                   );
                 }
-                return SideTitleWidget(meta: m, child: Text("${date.hour}:00", style: const TextStyle(fontSize: 8, color: Colors.grey)));
+
+                // 4. Для інших кратних 4-м годин — просто час
+                return SideTitleWidget(
+                    meta: m,
+                    child: Text("${date.hour}:00", style: const TextStyle(fontSize: 8))
+                );
               },
             ),
           ),
@@ -186,16 +200,21 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: true,
-          verticalInterval: interval,
-          horizontalInterval: 50,
-          getDrawingVerticalLine: (value) {
-            DateTime date = DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: false);
-            if (date.hour == 0 && date.minute == 0) {
-              return FlLine(color: Colors.black, strokeWidth: 1.5); // Чітко о 00:00
-            }
-            return FlLine(color: Colors.black.withValues(alpha: 0.05), strokeWidth: 0.5, dashArray: [4, 4]);
+          // Перевіряємо кожну годину
+          verticalInterval: 3600000,
+          checkToShowVerticalLine: (value) {
+            final date = DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: false);
+            return date.hour % 4 == 0; // Лінія кожні 4 години
           },
-          getDrawingHorizontalLine: (v) => FlLine(color: Colors.black.withValues(alpha: 0.05), strokeWidth: 1),
+          getDrawingVerticalLine: (value) {
+            final date = DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: false);
+            if (date.hour == 0) {
+              return FlLine(color: Colors.black, strokeWidth: 1.5); // Жирна північ
+            }
+            return FlLine(color: Colors.black.withOpacity(0.05), strokeWidth: 0.5);
+          },
+          horizontalInterval: 50,
+          getDrawingHorizontalLine: (v) => FlLine(color: Colors.black.withOpacity(0.05), strokeWidth: 1),
         ),
         borderData: FlBorderData(show: true, border: Border.all(color: Colors.black12)),
         lineBarsData: lines,
@@ -384,25 +403,110 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   }
 
   Future<void> _pickPeriod() async {
-    final DateTimeRange? r = await showDateRangePicker(context: context, firstDate: DateTime(2020), lastDate: DateTime(2030), initialDateRange: DateTimeRange(start: _startDate, end: _endDate));
-    if (r != null) { setState(() { _startDate = r.start; _endDate = r.end; _currentMode = ViewMode.period; }); _fetchData(); }
+    final DateTimeRange? r = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+      saveText: 'ОК', // <--- ОСЬ ТУТ МІНЯЄМО ТЕКСТ КНОПКИ
+      helpText: 'Оберіть період', // Можна також змінити заголовок зверху
+    );
+
+    if (r != null) {
+      setState(() {
+        _startDate = r.start;
+        _endDate = r.end;
+        _currentMode = ViewMode.period;
+      });
+      _fetchData();
+    }
   }
 
   Future<void> _pickMonth() async {
-    final DateTime? picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2020), lastDate: DateTime(2030), initialDatePickerMode: DatePickerMode.year);
-    if (picked != null) { setState(() { _selectedDate = DateTime(picked.year, picked.month, 1); _currentMode = ViewMode.month; }); _fetchData(); }
+    DateTime tempDate = _selectedDate; // Локальна змінна для діалогу
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder( // Це дозволяє діалогу "оживати" при кліках
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text("Оберіть місяць"),
+              content: SizedBox(
+                width: 300,
+                height: 250,
+                child: MonthPicker(
+                  selectedDate: tempDate,
+                  onChanged: (dt) {
+                    // Оновлюємо стан ВСЕРЕДИНІ діалогу
+                    setDialogState(() => tempDate = dt);
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text("Відміна")),
+                TextButton(
+                  onPressed: () {
+                    // При натисканні ОК оновлюємо головний екран
+                    setState(() {
+                      _selectedDate = DateTime(tempDate.year, tempDate.month, 1);
+                      _currentMode = ViewMode.month;
+                    });
+                    Navigator.pop(context);
+                    _fetchData();
+                  },
+                  child: const Text("ОК"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _pickYear() async {
-    int tempYear = _selectedDate.year;
+    DateTime tempDate = _selectedDate;
+
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Оберіть рік"),
-        content: SizedBox(width: 300, height: 300, child: YearPicker(firstDate: DateTime(2020), lastDate: DateTime(2030), selectedDate: _selectedDate, onChanged: (dt) { tempYear = dt.year; Navigator.pop(context); })),
-      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text("Оберіть рік"),
+              content: SizedBox(
+                width: 300,
+                height: 250,
+                child: YearPicker(
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2030),
+                  selectedDate: tempDate,
+                  onChanged: (dt) {
+                    // Оновлюємо колір виділеного року в діалозі
+                    setDialogState(() => tempDate = dt);
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text("Відміна")),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedDate = DateTime(tempDate.year, 1, 1);
+                      _currentMode = ViewMode.year;
+                    });
+                    Navigator.pop(context);
+                    _fetchData();
+                  },
+                  child: const Text("ОК"),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
-    setState(() { _selectedDate = DateTime(tempYear, 1, 1); _currentMode = ViewMode.year; }); _fetchData();
   }
 
   Widget _buildBarChart(List<AnalyticModel> rawData) {
