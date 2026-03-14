@@ -29,6 +29,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   DateTime _endDate = DateTime.now();
   ViewMode _currentMode = ViewMode.day;
   int _touchedGroupIndex = -1;
+  double _zoomScale = 1.0;
 
   final ScrollController _horizontalScroll = ScrollController();
 
@@ -91,25 +92,23 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   }) {
     double minX;
     double maxX;
-    double interval = 3600000 * 4;
-    if (data.isEmpty) {
-      minX = 0; maxX = 1;
-    } else {
-      // 1. Отримуємо першу точку даних як базу
-      final firstDate = DateTime.fromMillisecondsSinceEpoch(data.first.timestamp, isUtc: true);
-      final lastDate = DateTime.fromMillisecondsSinceEpoch(data.last.timestamp, isUtc: true);
+    // 1. Отримуємо першу точку даних як базу
+    var firstDate = DateTime.fromMillisecondsSinceEpoch(data.first.timestamp, isUtc: true);
+    var lastDate = DateTime.fromMillisecondsSinceEpoch(data.last.timestamp, isUtc: true);
 
-      // 2. Встановлюємо minX чітко на 00:00:00
-      minX = DateTime.utc(firstDate.year, firstDate.month, firstDate.day, 0, 0, 0).millisecondsSinceEpoch.toDouble();
-
-      // 3. ФІНАЛЬНЕ РІШЕННЯ: maxX — це ЗАВЖДИ minX + кількість днів, помножена на 24 години
-      // Якщо це режим "день", то просто + 24 години. Це не дасть Android додати зайвий день.
-      int daysCount = _currentMode == ViewMode.period
-          ? _endDate.difference(_startDate).inDays + 1
-          : 1;
-
-      maxX = minX + (daysCount * 24 * 3600 * 1000);
+    // 2. Встановлюємо minX чітко на 00:00:00
+    if (_currentMode == ViewMode.period) {
+      firstDate = _startDate;
+      lastDate = _endDate;
     }
+    minX = DateTime
+        .utc(firstDate.year, firstDate.month, firstDate.day)
+        .millisecondsSinceEpoch
+        .toDouble();
+    maxX = DateTime
+        .utc(lastDate.year, lastDate.month, lastDate.day + 1)
+        .millisecondsSinceEpoch
+        .toDouble();
 
     return LineChart(
       LineChartData(
@@ -205,10 +204,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
             if (date.hour == 0) {
               return FlLine(color: Colors.black, strokeWidth: 1.5); // Жирна північ
             }
-            return FlLine(color: Colors.black.withOpacity(0.05), strokeWidth: 0.5);
+            return FlLine(color: Colors.black.withValues(alpha: 0.05), strokeWidth: 0.5);
           },
           horizontalInterval: 50,
-          getDrawingHorizontalLine: (v) => FlLine(color: Colors.black.withOpacity(0.05), strokeWidth: 1),
+          getDrawingHorizontalLine: (v) => FlLine(color: Colors.black.withValues(alpha: 0.05), strokeWidth: 1),
         ),
         borderData: FlBorderData(show: true, border: Border.all(color: Colors.black12)),
         lineBarsData: lines,
@@ -221,6 +220,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     if (data.isEmpty) return const Center(child: Text("Дані відсутні"));
 
     double maxPowerkW = 0.5;
+    double screenWidth = MediaQuery.of(context).size.width;
     for (var m in data) {
       if (m.solarPower / 1000.0 > maxPowerkW) maxPowerkW = m.solarPower / 1000.0;
       if (m.homePower / 1000.0 > maxPowerkW) maxPowerkW = m.homePower / 1000.0;
@@ -229,8 +229,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     double ratio = 100 / powerMaxY;
 
     double chartWidth = _currentMode == ViewMode.period
-        ? (_endDate.difference(_startDate).inDays + 1) * 1000.0
-        : (isLandscape ? 1500 : 1000);
+        ? (_endDate.difference(_startDate).inDays + 1) * screenWidth
+        : (isLandscape ? screenWidth * 1.5 : screenWidth);
 
 // 1. Отримуємо дані для вибраної точки
     final selectedData = (_touchedGroupIndex != -1 && _touchedGroupIndex < data.length)
@@ -256,21 +256,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 children: [
                   // Дата та час точки
                   Text(
-                    DateFormat('dd.MM HH:mm').format(DateTime.fromMillisecondsSinceEpoch(selectedData.timestamp, isUtc: true)),
+                    "Time:" + DateFormat('dd.MM HH:mm').format(DateTime.fromMillisecondsSinceEpoch(selectedData.timestamp, isUtc: true)),
                     style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                   ),
-                  _topStat("Sol:", selectedData.solarPower / 1000.0, Colors.green),
-                  _topStat("Hom:", selectedData.homePower / 1000.0, Colors.red),
-                  _topStat("SOC:", "${selectedData.bmsSoc.toInt()}%", Colors.brown), // Твій колір SOC
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const SizedBox(width: 60), // Відступ під дату
-                  _topStat("Day/Night:", "${selectedData.gridDailyDayPower.toStringAsFixed(1)}/${selectedData.gridDailyNightPower.toStringAsFixed(1)}", Colors.orange),
-                  _topStat("BMS D/C:", "${selectedData.bmsDailyDischarge.toStringAsFixed(1)}/${selectedData.bmsDailyCharge.toStringAsFixed(1)}", Colors.brown),
+                  _topStat("Solar:", selectedData.solarPower / 1000.0, Colors.green),
+                  _topStat("Home:", selectedData.homePower / 1000.0, Colors.red),
+                  _topStat("SOC:", "${selectedData.bmsSoc.toInt()}%", Colors.blue), // Твій колір SOC
+                  _topStat("Grid:", selectedData.gridPower / 1000.0,  Colors.orange),
                 ],
               ),
             ],
@@ -306,11 +298,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   powerMaxY: powerMaxY,
                   yAxisLabel: "kW / %",
                   lines: [
-                    _buildLineData(data, (m) => m.bmsSoc, Colors.brown, hasArea: true, opacity: 0.1),
-                    _buildLineData(data, (m) => (m.solarPower / 1000.0) * ratio, Colors.green, hasArea: true, opacity: 0.2),
-                    _buildLineData(data, (m) => (m.homePower / 1000.0) * ratio, Colors.red),
-                    _buildLineData(data, (m) => (m.gridDailyDayPower / 1000.0) * ratio, Colors.orange),
-                    _buildLineData(data, (m) => (m.gridDailyNightPower / 1000.0) * ratio, Colors.indigo),
+                    _buildLineData(data, (m) => m.bmsSoc, Colors.blue, hasArea: true, opacity: 0.1),
+                    _buildLineData(data, (m) => (m.solarPower / 1000.0) * ratio, Colors.green, hasArea: true, opacity: 0.1),
+                    _buildLineData(data, (m) => (m.homePower / 1000.0) * ratio, Colors.red, hasArea: true, opacity: 0.1),
+                    _buildLineData(data, (m) => (m.gridPower / 1000.0) * ratio, Colors.orange, hasArea: true, opacity: 0.1),
                   ],
                 ),
               ),
@@ -433,7 +424,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   }
 
   Widget _statItem(String l, String v, Color c) => Column(children: [Text(l, style: TextStyle(color: c, fontSize: 9)), Text(v, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))]);
-  TextSpan _span(String label, String val, Color col) => TextSpan(text: label, style: const TextStyle(color: Colors.black54, fontSize: 9), children: [TextSpan(text: val, style: TextStyle(color: col, fontWeight: FontWeight.bold))]);
 
   void _pickDate() async {
     final d = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
@@ -550,7 +540,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   Widget _buildBarChart(List<AnalyticModel> rawData) {
     double minX = 1;
     double maxX;
-    double interval = 1;
+    // double interval = 1;
 
     if (_currentMode == ViewMode.year) {
       maxX = 12;
@@ -611,11 +601,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                     style: const TextStyle(
                         fontSize: 10, fontWeight: FontWeight.bold),
                   ),
-                  _topStat(
-                      "Solar:", selectedData.solarDailyPower, Colors.green),
+                  _topStat("Solar:", selectedData.solarDailyPower, Colors.green),
                   _topStat("Home:", selectedData.homeDailyPower, Colors.red),
-                  _topStat("Grid:", selectedData.gridDailyTotalPower,
-                      Colors.deepPurple),
+                  _topStat("Bms Discharge:", selectedData.bmsDailyDischarge, Colors.red),
+                  _topStat("Bms Charge:", selectedData.bmsDailyCharge, Colors.blue),
                 ],
               ),
               const SizedBox(height: 4),
@@ -623,14 +612,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const SizedBox(width: 35), // вирівнювання під дату
-                  _topStat("Day/Night:",
-                      "${selectedData.gridDailyDayPower.toStringAsFixed(
-                          1)}/${selectedData.gridDailyNightPower
-                          .toStringAsFixed(1)}", Colors.orange),
-                  _topStat("BMS D/C:",
-                      "${selectedData.bmsDailyDischarge.toStringAsFixed(
-                          1)}/${selectedData.bmsDailyCharge.toStringAsFixed(
-                          1)}", Colors.brown),
+                  _topStat("Grid Day:", selectedData.gridDailyDayPower,  Colors.orange),
+                  _topStat("Grid Night:", selectedData.gridDailyNightPower, Colors.blue),
+                  _topStat("Grid Total:", selectedData.gridDailyTotalPower, Colors.deepPurple),
                 ],
               ),
             ],
@@ -855,6 +839,31 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       }
     }
   }
+
+  Widget _zoomableChart({required Widget chart, required double baseWidth}) {
+    return GestureDetector(
+      onScaleUpdate: (ScaleUpdateDetails details) {
+        setState(() {
+          // details.scale — це те, як ти розсуваєш пальці
+          _zoomScale = (_zoomScale * details.scale).clamp(1.0, 5.0);
+        });
+      },
+      child: Scrollbar(
+        controller: _horizontalScroll,
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          controller: _horizontalScroll,
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: baseWidth * _zoomScale, // Тут і працює магія зуму
+            child: chart,
+          ),
+        ),
+      ),
+    );
+  }
+
+  TextSpan _span(String label, String val, Color col) => TextSpan(text: label, style: const TextStyle(color: Colors.black54, fontSize: 9), children: [TextSpan(text: val, style: TextStyle(color: col, fontWeight: FontWeight.bold))]);
 
   TextSpan _barSpan(String label, String val, Color col) {
     return TextSpan(

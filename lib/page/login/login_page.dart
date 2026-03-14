@@ -180,67 +180,83 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButton<ApiServerType>(
-                    value: ApiServerHelper.currentEnvironment,
-                    onChanged: (ApiServerType? newValue) {
-                      setState(() {
-                        ApiServerHelper.currentEnvironment = newValue!;
-                        if (newValue != ApiServerType.customApi) {
-                          _customApiController.clear();
-                        }
-                      });
-                    },
-                    items: ApiServerType.values.map<DropdownMenuItem<ApiServerType>>((ApiServerType env) {
-                      return DropdownMenuItem<ApiServerType>(
-                        value: env,
-                        child: Text(env.name),
-                      );
-                    }).toList(),
-                  ),
-                  if (ApiServerHelper.currentEnvironment == ApiServerType.customApi)
-                    TextField(
-                      controller: _customApiController,
-                      decoration: InputDecoration(
-                        labelText: AppLocalizations.of(context)!.enterCustomAPI,
-                        hintText: "http://example.com/api/auth/login",
-                      ),
-                      onChanged: (value) {
-                        ApiServerHelper.customBackend = value;
+// Обгортаємо в SingleChildScrollView, щоб уникнути Overflow при появі клавіатури
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+                child: Column(
+                  // mainAxisSize: MainAxisSize.min залишаємо, якщо потрібно центрування в Container
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButton<ApiServerType>(
+                      isExpanded: true, // Додано, щоб Dropdown займав всю ширину
+                      value: ApiServerHelper.currentEnvironment,
+                      onChanged: (ApiServerType? newValue) {
+                        setState(() {
+                          ApiServerHelper.currentEnvironment = newValue!;
+                          if (newValue != ApiServerType.customApi) {
+                            _customApiController.clear();
+                          }
+                        });
                       },
+                      items: ApiServerType.values.map<DropdownMenuItem<ApiServerType>>((ApiServerType env) {
+                        return DropdownMenuItem<ApiServerType>(
+                          value: env,
+                          child: Text(env.name),
+                        );
+                      }).toList(),
                     ),
-                  TextField(
-                    controller: _usernameController,
-                    decoration: InputDecoration(labelText: AppLocalizations.of(context)!.username),
-                  ),
-                  TextField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: AppLocalizations.of(context)!.password,
-                      suffixIcon: IconButton(
-                        icon: Icon(_obscureText
-                            ? Icons.visibility
-                            : Icons.visibility_off),
-                        onPressed: () {
-                          setState(() {
-                            _obscureText = !_obscureText;
-                          });
+                    if (ApiServerHelper.currentEnvironment == ApiServerType.customApi)
+                      TextField(
+                        controller: _customApiController,
+                        decoration: InputDecoration(
+                          labelText: AppLocalizations.of(context)!.enterCustomAPI,
+                          hintText: "http://example.com/api/auth/login",
+                        ),
+                        onChanged: (value) {
+                          ApiServerHelper.customBackend = value;
                         },
                       ),
+                    TextField(
+                      controller: _usernameController,
+                      decoration: InputDecoration(labelText: AppLocalizations.of(context)!.username),
+                      textInputAction: TextInputAction.next, // Кнопка "Далі" на клавіатурі
                     ),
-                    obscureText: _obscureText,
-                  ),
-                  SizedBox(height: 10),
-                  if (_errorMessage != null)
-                    Text(
-                      _errorMessage!,
-                      style: TextStyle(color: Colors.red),
+                    TextField(
+                      controller: _passwordController,
+                      decoration: InputDecoration(
+                        labelText: AppLocalizations.of(context)!.password,
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off),
+                          onPressed: () {
+                            setState(() {
+                              _obscureText = !_obscureText;
+                            });
+                          },
+                        ),
+                      ),
+                      obscureText: _obscureText,
+                      textInputAction: TextInputAction.done, // Кнопка "Готово"
+                      onSubmitted: (_) => _login(), // Логін по натисканню Enter
                     ),
-                  SizedBox(height: 10),
-                  ElevatedButton(onPressed: _login, child: Text(AppLocalizations.of(context)!.signIn))
-                ],
+                    const SizedBox(height: 16),
+                    if (_errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    SizedBox(
+                      width: double.infinity, // Кнопка на всю ширину
+                      child: ElevatedButton(
+                        onPressed: _login,
+                        child: Text(AppLocalizations.of(context)!.signIn),
+                      ),
+                    )
+                  ],
+                ),
               ),
             ),
           ),
