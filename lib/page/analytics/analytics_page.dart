@@ -809,9 +809,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         var bytes = await file.readAsBytes();
 
         // 1. Парсимо Excel у список моделей
-        List<AnalyticModel> detailedPoints = _service.processExcelData(
+        List<AnalyticModel> detailedPoints = await _service.processExcelData(
           bytes: bytes,
-          location: widget.location,);
+          location: widget.location,
+        );
 
         if (detailedPoints.isNotEmpty) {
           // 2. Відправляємо POST запит на сервер (імпорт XML/Data)
@@ -838,40 +839,5 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         if (mounted) setState(() => _isLoading = false);
       }
     }
-  }
-
-  Widget _zoomableChart({required Widget chart, required double baseWidth}) {
-    return GestureDetector(
-      onScaleUpdate: (ScaleUpdateDetails details) {
-        setState(() {
-          // details.scale — це те, як ти розсуваєш пальці
-          _zoomScale = (_zoomScale * details.scale).clamp(1.0, 5.0);
-        });
-      },
-      child: Scrollbar(
-        controller: _horizontalScroll,
-        thumbVisibility: true,
-        child: SingleChildScrollView(
-          controller: _horizontalScroll,
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: baseWidth * _zoomScale, // Тут і працює магія зуму
-            child: chart,
-          ),
-        ),
-      ),
-    );
-  }
-
-  TextSpan _span(String label, String val, Color col) => TextSpan(text: label, style: const TextStyle(color: Colors.black54, fontSize: 9), children: [TextSpan(text: val, style: TextStyle(color: col, fontWeight: FontWeight.bold))]);
-
-  TextSpan _barSpan(String label, String val, Color col) {
-    return TextSpan(
-      text: label,
-      style: const TextStyle(color: Colors.black54, fontSize: 10, fontWeight: FontWeight.normal),
-      children: [
-        TextSpan(text: val, style: TextStyle(color: col, fontWeight: FontWeight.bold, fontSize: 10)),
-      ],
-    );
   }
 }
