@@ -29,7 +29,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   DateTime _endDate = DateTime.now();
   ViewMode _currentMode = ViewMode.day;
   int _touchedGroupIndex = -1;
-  double _zoomScale = 1.0;
 
   final ScrollController _horizontalScroll = ScrollController();
 
@@ -134,7 +133,17 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               // Малюємо таку саму сіру риску, як у стовпчиках
               return TouchedSpotIndicatorData(
                 FlLine(color: Colors.grey.withValues(alpha: 0.4), strokeWidth: 2),
-                const FlDotData(show: false),
+                FlDotData(
+                  show: true,
+                  getDotPainter: (spot, percent, barData, index) {
+                    return FlDotCirclePainter(
+                      radius: 3.0,               // Радіус кола
+                      color: Colors.white,       // Колір середини (зроби білим або прозорим)
+                      strokeColor: barData.color ?? Colors.black,        // Колір лінії по краю (твій колір графіка)
+                      strokeWidth: 1.5,          // Товщина цієї лінії
+                    );
+                  },
+                ),
               );
             }).toList();
           },
