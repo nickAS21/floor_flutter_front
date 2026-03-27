@@ -186,6 +186,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           child: CustomPaint(
                             painter: DataHomePainter(
                               progress: _animController!.value,
+                              timestamp: _dataHome!.timestamp,
                               solarPower: _dataHome!.solarPower,
                               batteryPower: batW,
                               gridActive: _dataHome!.gridStatusRealTimeOnLine,

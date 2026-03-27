@@ -1,9 +1,13 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
+
+import 'package:intl/intl.dart';
 
 class DataHomePainter extends CustomPainter {
   static const double _powerThreshold = 5.0;
   final double progress;
+  final int timestamp;
   final double solarPower, batteryPower, loadPower, gridPower;
   final bool gridActive;
   final bool gridSwitch;
@@ -12,6 +16,7 @@ class DataHomePainter extends CustomPainter {
 
   DataHomePainter({
     required this.progress,
+    required this.timestamp,
     required this.solarPower,
     required this.batteryPower,
     required this.loadPower,
@@ -44,6 +49,33 @@ class DataHomePainter extends CustomPainter {
 
     final defaultPaint = Paint()..color = Colors.blueGrey.withValues(alpha:0.6);
     final gridPaint = Paint()..color = gridActive ? Colors.green.withValues(alpha:0.8) : Colors.red.withValues(alpha:0.8);
+
+    if (timestamp > 0) {
+      // Конвертуємо мілісекунди в об'єкт DateTime
+      final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp, isUtc: true);
+
+      // Форматуємо: "26/03 16:37"
+      final String formattedTime = "Time: ${DateFormat('dd/MM HH:mm').format(dateTime)}";
+
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: formattedTime,
+          style: TextStyle(
+            color: Colors.blueGrey.withValues(alpha: 0.8), // Трохи приглушений колір
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      )..layout();
+
+      // Малюємо текст під іконкою інвертора
+      // dy + 35 — це відступ вниз, щоб текст не перекривав іконку
+      textPainter.paint(
+        canvas,
+        Offset(invC.dx - textPainter.width / 2, invC.dy + 35),
+      );
+    }
 
     // Маршрути (лінії з крапок)
     _drawStraightRoute(canvas, solarC, invC, defaultPaint, nodeRadius, invRadius, step);
