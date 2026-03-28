@@ -12,6 +12,12 @@ class AnalyticModel {
   final double bmsSoc;
   final double bmsDailyDischarge;
   final double bmsDailyCharge;
+  final double temperatureOut;
+  final double humidityOut;
+  final double luminanceOut;
+  final double temperatureIn;
+  final double humidityIn;
+  final double luminanceIn;
 
   AnalyticModel({
     required this.timestamp,
@@ -27,6 +33,12 @@ class AnalyticModel {
     required this.bmsSoc,
     required this.bmsDailyDischarge,
     required this.bmsDailyCharge,
+    required this.temperatureOut,
+    required this.humidityOut,
+    required this.luminanceOut,
+    required this.temperatureIn,
+    required this.humidityIn,
+    required this.luminanceIn,
   });
 
   static double _toDouble(dynamic value) {
@@ -50,6 +62,12 @@ class AnalyticModel {
       bmsSoc: _toDouble(json['bmsSoc']),
       bmsDailyDischarge: _toDouble(json['bmsDailyDischarge']),
       bmsDailyCharge: _toDouble(json['bmsDailyCharge']),
+      temperatureOut: _toDouble(json['temperatureOut']),
+      humidityOut: _toDouble(json['humidityOut']),
+      luminanceOut: _toDouble(json['luminanceOut']),
+      temperatureIn: _toDouble(json['temperatureIn']),
+      humidityIn: _toDouble(json['humidityIn']),
+      luminanceIn: _toDouble(json['luminanceIn']),
     );
   }
 
@@ -67,5 +85,11 @@ class AnalyticModel {
     'bmsSoc': bmsSoc,
     'bmsDailyDischarge': bmsDailyDischarge,
     'bmsDailyCharge': bmsDailyCharge,
+    'temperatureOut': temperatureOut,
+    'humidityOut': humidityOut,
+    'luminanceOut': luminanceOut,
+    'temperatureIn': temperatureIn,
+    'humidityIn': humidityIn,
+    'luminanceIn': luminanceIn,
   };
 }

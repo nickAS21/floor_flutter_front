@@ -1,15 +1,14 @@
 import 'package:floor_front/page/usr_wifi/connection_server/usr_wifi_info_lists_page.dart';
 import 'package:flutter/material.dart';
+import 'analytics/analytics_page.dart';
 import 'data_home/data_location_type.dart';
 import 'data_home/data_home_page.dart';
 import 'logs/logs_page.dart';
 import 'settings/settings_page.dart';
 import 'unit/unit_page.dart';
 import 'history/history_page.dart';
-import 'analytics/analytics_page.dart';
 import 'alarm/alarm_page.dart';
 import 'login/login_page.dart';
-import 'usr_wifi/info/usr_wifi_info_list_page.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});

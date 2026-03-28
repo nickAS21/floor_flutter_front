@@ -34,7 +34,7 @@ class AppHelper {
   static const String paternYYYYMMDD = 'yyyy-MM-dd';
   static const String paternMMDD = 'MM.dd';
 
-  static const String apiPathAlarm = '$apiPathApi/alarm';
+  static const String apiPathAlarm = '$apiPathApi/alarms';
   static const String apiPathProvision = '$apiPathApi/provision';
 
   static const String apiPathTuya = '$apiPathApi/tuya';

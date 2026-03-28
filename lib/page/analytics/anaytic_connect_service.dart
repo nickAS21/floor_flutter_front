@@ -337,6 +337,12 @@ class AnalyticConnectService {
           bmsDailyCharge: parser._toDouble(row[indices[SolarmanExcelColumns.bmsDailyCharge]!]),
           gridDailyDayPower: 0,
           gridDailyNightPower: 0,
+          temperatureOut: 0,
+          humidityOut: 0,
+          luminanceOut: 0,
+          temperatureIn: 0,
+          humidityIn: 0,
+          luminanceIn: 0,
         ));
       } catch (e) {
         continue;
