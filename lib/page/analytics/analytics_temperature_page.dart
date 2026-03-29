@@ -8,7 +8,8 @@ import 'anaytic_connect_service.dart';
 
 class AnalyticsTemperaturePage extends StatefulWidget {
   final LocationType location;
-  const AnalyticsTemperaturePage({super.key, required this.location});
+  final bool isTemperature;
+  const AnalyticsTemperaturePage({super.key, required this.location, required this.isTemperature});
 
   @override
   State<AnalyticsTemperaturePage> createState() => _AnalyticsTemperaturePageState();
@@ -56,17 +57,13 @@ class _AnalyticsTemperaturePageState extends State<AnalyticsTemperaturePage> {
     }
   }
 
-  LineChartBarData _buildLineData(List<AnalyticModel> data, double Function(AnalyticModel) getValue, Color color, int barIndex) {
-    final bool isTouched = _touchedBarIndex == barIndex;
+  LineChartBarData _buildLineData(List<AnalyticModel> data, double Function(AnalyticModel) getValue, Color color) {
 
     return LineChartBarData(
       spots: data.map((m) => FlSpot(m.timestamp.toDouble(), getValue(m))).toList(),
       isCurved: true,
-      curveSmoothness: 0.15, // Мала плавність, щоб не було "хвиль" там, де дані різко стрибають
-      color: isTouched ? color : color.withValues(alpha: 0.7), // Неактивні лінії трохи блідіші
-
-      // ОСЬ ТУТ ТОНКІ ЛІНІЇ:
-      barWidth: isTouched ? 1.5 : 1.2, // У Power десь 1.2-1.5
+      color: color,
+      barWidth: 2,
 
       // ВИМИКАЄМО ТОЧКИ:
       dotData: const FlDotData(show: false),
@@ -121,7 +118,7 @@ class _AnalyticsTemperaturePageState extends State<AnalyticsTemperaturePage> {
     if (_allData.isEmpty) return const SizedBox(height: 60);
     final index = (_touchedGroupIndex == -1 || _touchedGroupIndex >= _allData.length) ? _allData.length - 1 : _touchedGroupIndex;
     final d = _allData[index];
-    final timeStr = DateFormat('dd.MM HH:mm').format(DateTime.fromMillisecondsSinceEpoch(d.timestamp, isUtc: true));
+    final timeStr = DateFormat('HH:mm').format(DateTime.fromMillisecondsSinceEpoch(d.timestamp, isUtc: true));
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
@@ -132,19 +129,12 @@ class _AnalyticsTemperaturePageState extends State<AnalyticsTemperaturePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text("Time:$timeStr", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-              _statText("Out T:", d.temperatureOut, "°", Colors.blueAccent),      // Насичений синій
-              _statText("H:", d.humidityOut, "%", Colors.teal),                 // Хвиля
-              _statText("L:", d.luminanceOut, "%", Colors.orangeAccent),        // Помаранчевий
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const SizedBox(width: 35),
-              _statText("In T:", d.temperatureIn, "°", Colors.deepPurpleAccent), // Фіолетовий (замість світло-синього)
-              _statText("H:", d.humidityIn, "%", Colors.limeAccent[700]!),       // Салатовий (замість зеленого)
-              _statText("L:", d.luminanceIn, "%", Colors.pinkAccent),            // Рожевий/Маджента (замість жовтого)
+              _statText("Out T:", d.temperatureOut, "°", Colors.blue),
+              _statText("H:", d.humidityOut, "%", Colors.deepPurple),
+              _statText("L:", d.luminanceOut, "%", Colors.red),
+              _statText("In T:", d.temperatureIn, "°", Colors.green),
+              _statText("H:", d.humidityIn, "%", Colors.brown),
+              _statText("L:", d.luminanceIn, "%", Colors.orange),
             ],
           ),
         ],
@@ -166,22 +156,50 @@ class _AnalyticsTemperaturePageState extends State<AnalyticsTemperaturePage> {
     double minX = DateTime.utc(firstDate.year, firstDate.month, firstDate.day).millisecondsSinceEpoch.toDouble();
     double maxX = DateTime.utc(firstDate.year, firstDate.month, firstDate.day + 1).millisecondsSinceEpoch.toDouble();
 
-    // --- ЛОГІКА ЯК У POWER (Динамічний масштаб для температури) ---
-    double maxTemp = 0.5; // Твій "запобіжник" близький до нуля
-    for (var m in _allData) {
-      if (m.temperatureOut > maxTemp) maxTemp = m.temperatureOut;
-      if (m.temperatureIn > maxTemp) maxTemp = m.temperatureIn;
+    // Налаштування осей залежно від типу графіка
+    double chartMinY;
+    double chartMaxY;
+    List<LineChartBarData> lines = [];
+
+    if (widget.isTemperature) {
+      // --- ЛОГІКА ДЛЯ ТЕМПЕРАТУРИ ---
+      double minTemp = 100.0;
+      double maxTemp = -100.0;
+
+      for (var m in _allData) {
+        if (m.temperatureOut < minTemp) minTemp = m.temperatureOut;
+        if (m.temperatureIn < minTemp) minTemp = m.temperatureIn;
+        if (m.temperatureOut > maxTemp) maxTemp = m.temperatureOut;
+        if (m.temperatureIn > maxTemp) maxTemp = m.temperatureIn;
+      }
+
+      // Округлення до кратних 5 градусам із запасом
+      chartMinY = (minTemp / 5).floor() * 5.0 - 5.0;
+      chartMaxY = (maxTemp / 5).ceil() * 5.0 + 5.0;
+
+      lines = [
+        _buildLineData(_allData, (m) => m.temperatureOut, Colors.blue),
+        _buildLineData(_allData, (m) => m.temperatureIn, Colors.green),
+      ];
+    } else {
+      // --- ЛОГІКА ДЛЯ L & H (Вологість та Яскравість) ---
+      chartMinY = 0;
+      chartMaxY = 105; // 100% + невеликий запас зверху
+
+      lines = [
+        _buildLineData(_allData, (m) => m.humidityOut, Colors.deepPurple),
+        _buildLineData(_allData, (m) => m.humidityIn, Colors.brown),
+        _buildLineData(_allData, (m) => m.luminanceOut, Colors.red),
+        _buildLineData(_allData, (m) => m.luminanceIn, Colors.orange),
+      ];
     }
-    double tempMaxY = maxTemp * 1.15; // Запас 15% зверху
-    double ratio = 100 / tempMaxY;    // Коефіцієнт підтягування до шкали 100
-    // --------------------------------------------------------------
 
     return LineChart(
       LineChartData(
         minX: minX,
         maxX: maxX,
-        minY: 0,
-        maxY: 105, // База 100 + невеликий запас для %
+        minY: chartMinY,
+        maxY: chartMaxY,
         clipData: const FlClipData.all(),
         lineTouchData: LineTouchData(
           handleBuiltInTouches: true,
@@ -222,7 +240,8 @@ class _AnalyticsTemperaturePageState extends State<AnalyticsTemperaturePage> {
             final date = DateTime.fromMillisecondsSinceEpoch(v.toInt(), isUtc: true);
             return date.hour == 0 ? FlLine(color: Colors.black, strokeWidth: 1.5) : FlLine(color: Colors.black.withValues(alpha: 0.05), strokeWidth: 0.5);
           },
-          horizontalInterval: 20,
+          // Горизонтальна сітка кожні 5 градусів або 20 відсотків
+          horizontalInterval: widget.isTemperature ? 5 : 20,
           getDrawingHorizontalLine: (v) => FlLine(color: Colors.black.withValues(alpha: 0.05), strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
@@ -230,22 +249,15 @@ class _AnalyticsTemperaturePageState extends State<AnalyticsTemperaturePage> {
               sideTitles: SideTitles(
                   showTitles: true,
                   reservedSize: 35,
-                  interval: 20,
+                  interval: widget.isTemperature ? 5 : 20,
                   getTitlesWidget: (v, m) {
-                    if (v > 100) return const SizedBox();
-                    // Зворотний перерахунок у градуси (як у Power для кВт)
-                    return Text("${(v * tempMaxY / 100).toStringAsFixed(1)}°", style: const TextStyle(fontSize: 8));
+                    if (!widget.isTemperature && v > 100) return const SizedBox();
+                    String unit = widget.isTemperature ? "°" : "%";
+                    return Text("${v.toInt()}$unit", style: const TextStyle(fontSize: 8));
                   }
               )
           ),
-          rightTitles: AxisTitles(
-              sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 35,
-                  interval: 20,
-                  getTitlesWidget: (v, m) => Text("${v.toInt()}%", style: const TextStyle(fontSize: 8, color: Colors.teal))
-              )
-          ),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -258,7 +270,7 @@ class _AnalyticsTemperaturePageState extends State<AnalyticsTemperaturePage> {
                   return SideTitleWidget(
                     meta: m,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                       decoration: BoxDecoration(border: Border.all(color: Colors.black), borderRadius: BorderRadius.circular(4), color: Colors.white),
                       child: Text(DateFormat('dd.MM').format(date), style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold)),
                     ),
@@ -271,19 +283,7 @@ class _AnalyticsTemperaturePageState extends State<AnalyticsTemperaturePage> {
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: true, border: Border.all(color: Colors.black12)),
-        lineBarsData: [
-          // ТЕМПЕРАТУРА: множимо на ratio (Out - Синій, In - Фіолетовий)
-          _buildLineData(_allData, (m) => m.temperatureOut * ratio, Colors.blueAccent, 0),
-          _buildLineData(_allData, (m) => m.temperatureIn * ratio, Colors.deepPurpleAccent, 1),
-
-          // ВІДСОТКИ: малюємо 1 до 1 (Out - Teal, In - Салатовий)
-          _buildLineData(_allData, (m) => m.humidityOut, Colors.teal, 2),
-          _buildLineData(_allData, (m) => m.humidityIn, Colors.limeAccent[700]!, 3),
-
-          // ЯСКРАВІСТЬ: (Out - Помаранчевий, In - Рожевий)
-          _buildLineData(_allData, (m) => m.luminanceOut, Colors.orangeAccent, 4),
-          _buildLineData(_allData, (m) => m.luminanceIn, Colors.pinkAccent, 5),
-        ],
+        lineBarsData: lines,
       ),
     );
   }

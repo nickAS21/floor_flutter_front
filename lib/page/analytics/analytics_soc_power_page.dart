@@ -269,7 +269,7 @@ class _AnalyticsSocPowerPageState extends State<AnalyticsSocPowerPage> {
                   ),
                   _topStat("Solar:", selectedData.solarPower / 1000.0, Colors.green),
                   _topStat("Home:", selectedData.homePower / 1000.0, Colors.red),
-                  _topStat("SOC:", "${selectedData.bmsSoc.toInt()}%", Colors.blue), // Твій колір SOC
+                  _topStat("SOC:", "${selectedData.bmsSoc.toInt()}%", Colors.blue),
                   _topStat("Grid:", selectedData.gridPower / 1000.0,  Colors.orange),
                 ],
               ),

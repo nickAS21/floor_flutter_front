@@ -17,7 +17,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -37,14 +37,16 @@ class _AnalyticsPageState extends State<AnalyticsPage> with SingleTickerProvider
           tabs: const [
             Tab(text: "Power & SOC"),
             Tab(text: "Temperature"),
+            Tab(text: "L & H"),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
+        children: <Widget>[
           AnalyticsSocPowerPage(location: widget.location),
-          AnalyticsTemperaturePage(location: widget.location),
+          AnalyticsTemperaturePage(location: widget.location, isTemperature: true),
+          AnalyticsTemperaturePage(location: widget.location, isTemperature: false),
         ],
       ),
     );
