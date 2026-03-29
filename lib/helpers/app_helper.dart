@@ -24,6 +24,7 @@ class AppHelper {
   static const String apiPathUnit = '$apiPathApi/unit';
   static const String apiPathHistory = '$apiPathApi/history';
   static const String apiPathAnalytic = '$apiPathApi/analytic';
+  static const String subPathFile = '/file';
   static const String subPathDay = '/day';
   static const String subPathDays = '/days';
   static const String subPathMonth = '/month';
@@ -31,6 +32,7 @@ class AppHelper {
   static const String subPathImport = '/import';
   static const String subPathXMLS = '/xmls';
   static const String apiPathImportXMLS = '$apiPathAnalytic$subPathImport$subPathXMLS';
+  static const String apiPathImportFileXMLS = '$apiPathAnalytic$subPathImport$subPathFile$subPathXMLS';
   static const String paternYYYYMMDD = 'yyyy-MM-dd';
   static const String paternMMDD = 'MM.dd';
 

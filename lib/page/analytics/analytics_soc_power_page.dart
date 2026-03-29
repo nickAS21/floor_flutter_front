@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-
 import '../data_home/data_location_type.dart';
 import 'analitic_model.dart';
 import 'analytic_enums.dart';
@@ -369,6 +368,7 @@ class _AnalyticsSocPowerPageState extends State<AnalyticsSocPowerPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.upload_file, size: 20, color: Colors.black),
+            // onPressed: _importExcelToServer, // Викликає ваш існуючий метод
             onPressed: _importExcel, // Викликає ваш існуючий метод
             tooltip: "Імпорт даних з Excel/XML",
           ),
@@ -842,6 +842,45 @@ class _AnalyticsSocPowerPageState extends State<AnalyticsSocPowerPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Помилка імпорту: $e"), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _importExcelToServer() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx'],
+    );
+
+    if (result != null) {
+      setState(() => _isLoading = true);
+      try {
+        // Отримуємо шлях до вибраного файлу
+        String filePath = result.files.single.path!;
+
+        // Викликаємо новий метод сервісу для Multipart відправки
+        bool success = await _service.uploadExcelFile(
+          filePath: filePath,
+          location: widget.location,
+        );
+
+        if (success) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Файл успішно передано на сервер"), backgroundColor: Colors.green),
+            );
+          }
+          await _fetchData();
+        }
+      } catch (e) {
+        debugPrint("Upload error: $e");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Помилка передачі: $e"), backgroundColor: Colors.red),
           );
         }
       } finally {

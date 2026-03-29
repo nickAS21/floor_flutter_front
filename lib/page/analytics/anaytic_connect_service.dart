@@ -304,51 +304,121 @@ class AnalyticConnectService {
     final List<int> bytes = params['bytes'];
     final String locationName = params['locationName'];
 
-    var excel = Excel.decodeBytes(bytes);
-    var sheet = excel.tables[excel.tables.keys.first]!;
+    final excel = Excel.decodeBytes(bytes);
+    final sheet = excel.tables[excel.tables.keys.first]!;
 
-    // Тут ми ініціалізуємо сервіс ТІЛЬКИ для доступу до методів парсингу
     final parser = AnalyticConnectService();
-    final headerRow = sheet.rows.first;
-    final indices = parser.validateAndGetIndices(headerRow);
+    final indices = parser.validateAndGetIndices(sheet.rows.first);
 
-    List<AnalyticModel> detailedPoints = [];
+    final rows = sheet.rows;
+    final result = <AnalyticModel>[];
 
-    for (var i = 1; i < sheet.rows.length; i++) {
-      var row = sheet.rows[i];
-      if (row.isEmpty) continue;
-      var timeCell = row[indices[SolarmanExcelColumns.timeStamp]!];
-      if (timeCell == null || timeCell.value == null || timeCell.value.toString().isEmpty) {
-        break; // Зупиняє весь цикл, не йде до кінця аркуша
+    final int idxTime = indices[SolarmanExcelColumns.timeStamp]!;
+    final int idxGrid = indices[SolarmanExcelColumns.gridPower]!;
+    final int idxGridTotal = indices[SolarmanExcelColumns.gridDailyTotalPower]!;
+    final int idxSolar = indices[SolarmanExcelColumns.solarPower]!;
+    final int idxSolarDaily = indices[SolarmanExcelColumns.solarDailyPower]!;
+    final int idxHome = indices[SolarmanExcelColumns.homePower]!;
+    final int idxHomeDaily = indices[SolarmanExcelColumns.homeDailyPower]!;
+    final int idxSoc = indices[SolarmanExcelColumns.bmsSoc]!;
+    final int idxDischarge = indices[SolarmanExcelColumns.bmsDailyDischarge]!;
+    final int idxCharge = indices[SolarmanExcelColumns.bmsDailyCharge]!;
+
+    // ✅ правильний fast double для CellValue
+    double fastDouble(Data? cell) {
+      final v = cell?.value;
+
+      if (v == null) return 0;
+
+      if (v is IntCellValue) {
+        return v.value.toDouble();
       }
 
-      try {
-        detailedPoints.add(AnalyticModel(
-          timestamp: parser._parseTimestamp(row[indices[SolarmanExcelColumns.timeStamp]!]),
-          location: locationName,
-          gridPower: parser._toDouble(row[indices[SolarmanExcelColumns.gridPower]!]),
-          gridDailyTotalPower: parser._toDouble(row[indices[SolarmanExcelColumns.gridDailyTotalPower]!]),
-          solarPower: parser._toDouble(row[indices[SolarmanExcelColumns.solarPower]!]),
-          solarDailyPower: parser._toDouble(row[indices[SolarmanExcelColumns.solarDailyPower]!]),
-          homePower: parser._toDouble(row[indices[SolarmanExcelColumns.homePower]!]),
-          homeDailyPower: parser._toDouble(row[indices[SolarmanExcelColumns.homeDailyPower]!]),
-          bmsSoc: parser._toDouble(row[indices[SolarmanExcelColumns.bmsSoc]!]),
-          bmsDailyDischarge: parser._toDouble(row[indices[SolarmanExcelColumns.bmsDailyDischarge]!]),
-          bmsDailyCharge: parser._toDouble(row[indices[SolarmanExcelColumns.bmsDailyCharge]!]),
-          gridDailyDayPower: 0,
-          gridDailyNightPower: 0,
-          temperatureOut: 0,
-          humidityOut: 0,
-          luminanceOut: 0,
-          temperatureIn: 0,
-          humidityIn: 0,
-          luminanceIn: 0,
-        ));
-      } catch (e) {
-        continue;
+      if (v is DoubleCellValue) {
+        return v.value;
       }
+
+      if (v is TextCellValue) {
+        return double.tryParse(v.value.text ?? '') ?? 0;
+      }
+
+      return 0;
     }
-    return detailedPoints;
+
+    for (int i = 1; i < rows.length; i++) {
+      final row = rows[i];
+
+      if (row.length <= idxCharge) continue;
+
+      final timeCell = row[idxTime];
+      if (timeCell?.value == null) continue;
+
+      final timestamp = parser._parseTimestamp(timeCell);
+
+      result.add(AnalyticModel(
+        timestamp: timestamp,
+        location: locationName,
+        gridPower: fastDouble(row[idxGrid]),
+        gridDailyTotalPower: fastDouble(row[idxGridTotal]),
+        solarPower: fastDouble(row[idxSolar]),
+        solarDailyPower: fastDouble(row[idxSolarDaily]),
+        homePower: fastDouble(row[idxHome]),
+        homeDailyPower: fastDouble(row[idxHomeDaily]),
+        bmsSoc: fastDouble(row[idxSoc]),
+        bmsDailyDischarge: fastDouble(row[idxDischarge]),
+        bmsDailyCharge: fastDouble(row[idxCharge]),
+
+        gridDailyDayPower: 0,
+        gridDailyNightPower: 0,
+        temperatureOut: 0,
+        humidityOut: 0,
+        luminanceOut: 0,
+        temperatureIn: 0,
+        humidityIn: 0,
+        luminanceIn: 0,
+      ));
+    }
+
+    return result;
+  }
+
+  Future<bool> uploadExcelFile({required String filePath, required LocationType location}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('accessToken') ?? '';
+
+      // Формуємо URL до нового ендпоінта на Spring Boot
+      var uri = Uri.parse('${ApiServerHelper.backendUrl}${AppHelper.apiPathImportFileXMLS}');
+
+      var request = http.MultipartRequest('POST', uri);
+
+      // Заголовки
+      request.headers['Authorization'] = 'Bearer $token';
+
+      // Поля форми (метадані)
+      request.fields['location'] = location.name; // Наприклад, "dacha"
+
+      // Додаємо сам файл
+      request.files.add(await http.MultipartFile.fromPath(
+        'file',
+        filePath,
+        // Можна додати filename, якщо сервер його очікує
+      ));
+
+      // Надсилаємо та чекаємо відповіді
+      var streamedResponse = await request.send().timeout(const Duration(minutes: 5));
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        debugPrint("Server rejected file: ${response.statusCode} - ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      debugPrint("Multipart error: $e");
+      return false;
+    }
   }
 
 }
