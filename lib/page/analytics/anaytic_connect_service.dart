@@ -12,21 +12,6 @@ import '../../helpers/app_helper.dart';
 import '../data_home/data_location_type.dart';
 import 'analitic_model.dart';
 
-// class ExcelColumns {
-//   static const String time = "Updated Time";
-//   static const String gridPower = "Total Grid Power(W)";
-//   // static const String gridDailyDayPower;
-//   // static const String gridDailyNightPower;
-//   static const String gridDailyTotalPower = "Daily Energy Buy(kWh)"; // Daily Energy
-//   static const String solarPower = "Total Solar Power(W)";
-//   static const String solarDailyPower = "Daily Production (Active)(kWh)"; // Solar
-//   static const String homePower = "Total Inverter Output Power(W)";
-//   static const String homeDailyPower = "Total Inverter Output Power(W)";
-//   static const String bmsSoc = "SoC(%)"; // int
-//   static const String bmsDailyDischarge = "Total Discharging Energy(kWh)";
-//   static const String bmsDailyCharge = "Total Charging Energy(kWh)";
-// }
-
 class AnalyticConnectService {
 
   Future<List<AnalyticModel>> getAnalyticDay({
@@ -90,7 +75,7 @@ class AnalyticConnectService {
     return [];
   }
 
-  Future<bool> importXmlsData(List<AnalyticModel> data) async {
+  Future<ImportResult> importXmlsData(List<AnalyticModel> data) async {
     final String fullUrl = '${ApiServerHelper.backendUrl}${AppHelper.apiPathImportXMLS}';
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -103,80 +88,19 @@ class AnalyticConnectService {
           'Content-Type': 'application/json',
         },
         body: jsonEncode(data.map((e) => e.toJson()).toList()),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 60));
 
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        return ImportResult(true, "Дані успішно імпортовано");
+      } else if (response.statusCode == 413) {
+        return ImportResult(false, "Помилка 413: Файл занадто великий для сервера. Зменшіть обсяг даних.");
+      } else {
+        return ImportResult(false, "Сервер повернув помилку: ${response.statusCode}");
+      }
     } catch (e) {
-      debugPrint("Import error: $e");
-      return false;
+      return ImportResult(false, "Помилка з'єднання: $e");
     }
   }
-
-
-  // final int timeStampIdx = _getColumnIndex(sheet.rows[0], ExcelColumns.timeStamp);
-  // final int gridPowerIdx = _getColumnIndex(sheet.rows[0], ExcelColumns.gridPower);
-  // final int gridDailyTotalPowerIdx = _getColumnIndex(sheet.rows[0], ExcelColumns.gridDailyTotalPower);
-  // final int solarPowerIdx = _getColumnIndex(sheet.rows[0], ExcelColumns.solarPower);
-  // final int solarDailyPowerIdx = _getColumnIndex(sheet.rows[0], ExcelColumns.solarDailyPower);
-  // final int homePowerIdx = _getColumnIndex(sheet.rows[0], ExcelColumns.homePower);
-  // final int homeDailyPowerIdx = _getColumnIndex(sheet.rows[0], ExcelColumns.homeDailyPower);
-  // final int bmsSocIdx = _getColumnIndex(sheet.rows[0], ExcelColumns.bmsSoc);
-  // final int bmsDailyDischargeIdx = _getColumnIndex(sheet.rows[0], ExcelColumns.bmsDailyDischarge);
-  // final int bmsDailyChargeIdx = _getColumnIndex(sheet.rows[0], ExcelColumns.bmsDailyCharge);
-  // // static const String gridDailyDayPower;
-  // // static const String gridDailyNightPower;
-
-  // if (timeStampIdx == -1 || gridDailyTotalPowerIdx == -1) continue;
-  // if (row.length <= timeStampIdx
-  //     || row.length <= gridPowerIdx || row.length <= gridDailyTotalPowerIdx|| row.length <= solarPowerIdx
-  //     || row.length <= solarDailyPowerIdx || row.length <= gridDailyTotalPowerIdx|| row.length <= gridDailyTotalPowerIdx
-  //     || row.length <= gridDailyTotalPowerIdx || row.length <= gridDailyTotalPowerIdx|| row.length <= gridDailyTotalPowerIdx
-  // ) continue;
-  // DateTime? time;
-  // var val = row[timeStampIdx]?.value;
-  // if (val is DateTimeCellValue) {
-  //   time = DateTime(val.year, val.month, val.day, val.hour, val.minute);
-  // } else if (val != null) {
-  //   time = DateTime.tryParse(val.toString().replaceAll('/', '-'));
-  // }
-  //
-  // if (time == null) continue;
-  //
-  // double energy = 0.0;
-  // var eVal = row[gridDailyTotalPowerIdx]?.value;
-  // if (eVal is DoubleCellValue) {
-  //   energy = eVal.value;
-  // } else if (eVal is IntCellValue) {
-  //   energy = eVal.value.toDouble();
-  // }
-  //
-  // detailedPoints.add(AnalyticModel(
-  //   timestamp: time.millisecondsSinceEpoch,
-  //   location: location.name,
-  //   gridPower: 0.0,
-  //   gridDailyDayPower: 0.0,
-  //   gridDailyNightPower: 0.0,
-  //   gridDailyTotalPower: energy,
-  //   solarPower: 0.0,
-  //   solarDailyPower: 0.0,
-  //   homePower: 0.0,
-  //   homeDailyPower: 0.0,
-  //   bmsSoc: 0.0,
-  //   bmsDailyDischarge: 0.0,
-  //   bmsDailyCharge: 0.0,
-  // ));
-
-  // Future<void> processExcelData(List<int> bytes, LocationType location) async {
-  //   // compute запускає функцію decodeExcelIsolate в окремому потоці
-  //   // Передаємо байти та назву локації
-  //   List<AnalyticModel> points = await compute(decodeExcelIsolate, {
-  //     'bytes': bytes,
-  //     'locationName': location.name,
-  //   });
-  //
-  //   // Тепер points готові, і UI ні разу не лаганув
-  //   await sendPointsToBackend(points);
-  // }
 
   Future<List<AnalyticModel>> processExcelData({
     required Uint8List bytes,
@@ -195,65 +119,6 @@ class AnalyticConnectService {
     }
   }
 
-  // List<AnalyticModel> processExcelData({
-  //   required Uint8List bytes,
-  //   required LocationType location,
-  // }) {
-  //   List<AnalyticModel> detailedPoints = [];
-  //   try {
-  //     var excel = Excel.decodeBytes(bytes);
-  //
-  //     for (var table in excel.tables.keys) {
-  //       var sheet = excel.tables[table];
-  //       if (sheet == null || sheet.rows.length < 2) continue;
-  //
-  //       // 1. Валідуємо заголовок і отримуємо мапу індексів
-  //       Map<SolarmanExcelColumns, int> indices;
-  //       try {
-  //         indices = validateAndGetIndices(sheet.rows[0]);
-  //       } catch (e) {
-  //         debugPrint("Помилка валідації Excel: $e");
-  //         continue; // Пропускаємо лист, якщо він не відповідає структурі
-  //       }
-  //
-  //       for (var i = 1; i < sheet.rows.length; i++) {
-  //         var row = sheet.rows[i];
-  //         if (row.isEmpty) continue;
-  //
-  //         try {
-  //           // Використовуємо твій робочий спосіб звернення
-  //           detailedPoints.add(AnalyticModel(
-  //             timestamp: _parseTimestamp(row[indices[SolarmanExcelColumns.timeStamp]!]),
-  //             location: location.name,
-  //             gridPower: _toDouble(row[indices[SolarmanExcelColumns.gridPower]!]),
-  //             gridDailyTotalPower: _toDouble(row[indices[SolarmanExcelColumns.gridDailyTotalPower]!]),
-  //             solarPower: _toDouble(row[indices[SolarmanExcelColumns.solarPower]!]),
-  //             solarDailyPower: _toDouble(row[indices[SolarmanExcelColumns.solarDailyPower]!]),
-  //             homePower: _toDouble(row[indices[SolarmanExcelColumns.homePower]!]),
-  //             homeDailyPower: _toDouble(row[indices[SolarmanExcelColumns.homeDailyPower]!]),
-  //             bmsSoc: _toDouble(row[indices[SolarmanExcelColumns.bmsSoc]!]),
-  //             bmsDailyDischarge: _toDouble(row[indices[SolarmanExcelColumns.bmsDailyDischarge]!]),
-  //             bmsDailyCharge: _toDouble(row[indices[SolarmanExcelColumns.bmsDailyCharge]!]),
-  //             gridDailyDayPower: 0,
-  //             gridDailyNightPower: 0,
-  //           ));
-  //         } catch (e) {
-  //           debugPrint("Помилка парсингу рядка $i: $e");
-  //         }
-  //       }
-  //     }
-  //   } catch (e1) {
-  //     debugPrint("Помилка парсингу файла: $e1");
-  //   }
-  //   return detailedPoints;
-  // }
-
-// Допоміжні методи для безпечного парсингу:
-
-  double _toDouble(Data? cell) {
-    if (cell?.value == null) return 0.0;
-    return double.tryParse(cell!.value.toString()) ?? 0.0;
-  }
 
   int _parseTimestamp(Data? cell) {
     if (cell?.value == null) return DateTime.now().millisecondsSinceEpoch;
@@ -421,4 +286,10 @@ class AnalyticConnectService {
     }
   }
 
+}
+
+class ImportResult {
+  final bool isSuccess;
+  final String message;
+  ImportResult(this.isSuccess, this.message);
 }

@@ -805,7 +805,6 @@ class _AnalyticsSocPowerPageState extends State<AnalyticsSocPowerPage> {
   }
 
   Future<void> _importExcel() async {
-    // Вибір файлу .xlsx
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx'],
@@ -823,26 +822,39 @@ class _AnalyticsSocPowerPageState extends State<AnalyticsSocPowerPage> {
           location: widget.location,
         );
 
-        if (detailedPoints.isNotEmpty) {
-          // 2. Відправляємо POST запит на сервер (імпорт XML/Data)
-          bool success = await _service.importXmlsData(detailedPoints);
+        if (detailedPoints.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Файл порожній або невірний формат")),
+            );
+          }
+          return;
+        }
 
-          if (success) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Імпорт завершено успішно"), backgroundColor: Colors.green),
-              );
-            }
-            // Оновлюємо графік після імпорту
-            await _fetchData();
+        // 2. Відправляємо запит.
+        // Тепер success — це об'єкт ImportResult (або перевіряємо через результат сервісу)
+        final importResponse = await _service.importXmlsData(detailedPoints);
+
+        if (mounted) {
+          if (importResponse.isSuccess) {
+            // Успіх
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                  content: Text(importResponse.message),
+                  backgroundColor: Colors.green
+              ),
+            );
+            await _fetchData(); // Оновлюємо графік
+          } else {
+            // ПОМИЛКА (тут вилетить твоє повідомлення про 413)
+            _showErrorDialog(importResponse.message);
           }
         }
+
       } catch (e) {
         debugPrint("Import error: $e");
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Помилка імпорту: $e"), backgroundColor: Colors.red),
-          );
+          _showErrorDialog("Критична помилка: $e");
         }
       } finally {
         if (mounted) setState(() => _isLoading = false);
@@ -850,42 +862,20 @@ class _AnalyticsSocPowerPageState extends State<AnalyticsSocPowerPage> {
     }
   }
 
-  Future<void> _importExcelToServer() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx'],
+// Допоміжний метод для гарного діалогу
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Помилка імпорту"),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Зрозуміло"),
+          ),
+        ],
+      ),
     );
-
-    if (result != null) {
-      setState(() => _isLoading = true);
-      try {
-        // Отримуємо шлях до вибраного файлу
-        String filePath = result.files.single.path!;
-
-        // Викликаємо новий метод сервісу для Multipart відправки
-        bool success = await _service.uploadExcelFile(
-          filePath: filePath,
-          location: widget.location,
-        );
-
-        if (success) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Файл успішно передано на сервер"), backgroundColor: Colors.green),
-            );
-          }
-          await _fetchData();
-        }
-      } catch (e) {
-        debugPrint("Upload error: $e");
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Помилка передачі: $e"), backgroundColor: Colors.red),
-          );
-        }
-      } finally {
-        if (mounted) setState(() => _isLoading = false);
-      }
-    }
   }
 }
