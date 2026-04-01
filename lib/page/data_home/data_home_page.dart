@@ -9,6 +9,7 @@ import 'package:floor_front/page/data_home/data_location_type.dart';
 import '../../helpers/api_server_helper.dart';
 import '../../helpers/app_helper.dart';
 import '../../l10n/app_localizations.dart';
+import '../refreshable_state.dart';
 import 'data_home_model.dart';
 import 'package:floor_front/page/settings/settings_model.dart';
 
@@ -20,9 +21,9 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+class _HomePageState extends RefreshableState<HomePage> with SingleTickerProviderStateMixin {
   DataHome? _dataHome;
-  bool _loading = true;
+  bool _isLoading = true;
   Timer? _refreshTimer;
   AnimationController? _animController;
   bool _hasShownAlarmSnippet = false;
@@ -32,6 +33,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   static const double gridY = 0.85;
   static const double bottomNodesY = 0.5;
   static const double sideNodesX = 0.82;
+
+  @override
+  void refresh() {
+    debugPrint("Manual refresh triggered for HomePage");
+    setState(() => _isLoading = true);
+    _fetchData();
+  }
 
   @override
   void initState() {
@@ -53,7 +61,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       });
 
       setState(() {
-        _loading = true;
+        _isLoading = true;
         _dataHome = null;
         _hasShownAlarmSnippet = false;
       });
@@ -93,7 +101,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           } else {
             _dataHome = DataHome.fromJson(decoded);
           }
-          _loading = false;
 
           if (_dataHome!.batterySoc < BatteryStatus.alarm.value) {
             if (!_hasShownAlarmSnippet) {
@@ -130,12 +137,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         });
       }
-    } catch (e) { debugPrint("Error: $e"); }
+    } catch (e) {
+      debugPrint("Error: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading || _dataHome == null) return const Center(child: CircularProgressIndicator());
+    if (_isLoading || _dataHome == null) return const Center(child: CircularProgressIndicator());
 
     final double batW = _dataHome!.batteryVol * _dataHome!.batteryCurrent;
     final bool isBatteryAlarm = _dataHome!.batterySoc < BatteryStatus.alarm.value;

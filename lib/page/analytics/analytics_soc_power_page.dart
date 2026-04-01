@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../data_home/data_location_type.dart';
+import '../refreshable_state.dart';
 import 'analitic_model.dart';
 import 'analytic_enums.dart';
 import 'anaytic_connect_service.dart';
@@ -18,10 +19,10 @@ class AnalyticsSocPowerPage extends StatefulWidget {
   State<AnalyticsSocPowerPage> createState() => _AnalyticsSocPowerPageState();
 }
 
-class _AnalyticsSocPowerPageState extends State<AnalyticsSocPowerPage> {
+class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage> {
   final AnalyticConnectService _service = AnalyticConnectService();
   List<AnalyticModel> _allData = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
 
   DateTime _selectedDate = DateTime.now();
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
@@ -30,6 +31,12 @@ class _AnalyticsSocPowerPageState extends State<AnalyticsSocPowerPage> {
   int _touchedGroupIndex = -1;
 
   final ScrollController _horizontalScroll = ScrollController();
+
+  @override
+  void refresh() {
+    setState(() => _isLoading = true);
+    _fetchData();
+  }
 
   @override
   void initState() {
@@ -389,7 +396,6 @@ class _AnalyticsSocPowerPageState extends State<AnalyticsSocPowerPage> {
               const PopupMenuItem(value: ViewMode.period, child: Text("Період")),
             ],
           ),
-          IconButton(icon: const Icon(Icons.refresh, size: 20, color: Colors.black), onPressed: _fetchData),
         ],
       ),
       body: SafeArea(

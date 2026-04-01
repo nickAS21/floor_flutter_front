@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../helpers/api_server_helper.dart';
 import '../../helpers/app_helper.dart';
 import '../data_home/data_location_type.dart';
+import '../refreshable_state.dart';
 
 class LogsPage extends StatefulWidget {
   final LocationType location;
@@ -13,14 +14,21 @@ class LogsPage extends StatefulWidget {
   State<LogsPage> createState() => _LogsPageState();
 }
 
-class _LogsPageState extends State<LogsPage> {
+class _LogsPageState extends RefreshableState<LogsPage> {
   String _appLogs = "Завантаження...";
   bool _isLoading = true;
 
   @override
+  void refresh() {
+    debugPrint("Manual refresh triggered for LogsPage");
+    setState(() => _isLoading = true);
+    _fetchData();
+  }
+
+  @override
   void initState() {
     super.initState();
-    _fetchLogs();
+    _fetchData();
   }
 
   @override
@@ -34,14 +42,19 @@ class _LogsPageState extends State<LogsPage> {
       _isLoading = true;
       _appLogs = "Оновлення...";
     });
-    _fetchLogs();
+    _fetchData();
   }
 
   String _getApiUrl() {
     return '${ApiServerHelper.backendUrl}${AppHelper.apiPathLogs}${AppHelper.pathApp}';
   }
 
-  Future<void> _fetchLogs() async {
+  Future<void> _fetchData() async {
+    if (!mounted) return;
+
+    // 1. Вмикаємо завантаження одразу
+    setState(() => _isLoading = true);
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('accessToken') ?? '';
@@ -49,21 +62,31 @@ class _LogsPageState extends State<LogsPage> {
       final response = await http.get(
         Uri.parse(_getApiUrl()),
         headers: {"Authorization": "Bearer $token"},
-      );
+      ).timeout(const Duration(seconds: 30)); // Додаємо таймаут для надійності
 
       if (response.statusCode == 200) {
-        setState(() {
-          _appLogs = response.body;
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _appLogs = response.body;
+          });
+        }
       } else {
-        throw Exception("Server status: ${response.statusCode}");
+        // Викидаємо помилку, щоб вона потрапила в catch
+        throw Exception("Статус сервера: ${response.statusCode}");
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _appLogs = "Помилка: $e";
-      });
+      debugPrint("Logs fetch error: $e");
+      if (mounted) {
+        setState(() {
+          _appLogs = "Помилка завантаження: $e";
+        });
+      }
+    } finally {
+      // 2. ГАРАНТОВАНЕ ВИМКНЕННЯ ЛОАДЕРА
+      // Виконується завжди: і при успіху, і при помилці
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

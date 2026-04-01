@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../helpers/api_server_helper.dart';
 import '../../helpers/app_helper.dart';
 import '../data_home/data_location_type.dart';
+import '../refreshable_state.dart';
 
 class SettingsPage extends StatefulWidget {
   final LocationType location;
@@ -15,7 +16,7 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends RefreshableState<SettingsPage> {
   bool _isLoading = true;
 
   String _versionBackend = "";
@@ -33,6 +34,15 @@ class _SettingsPageState extends State<SettingsPage> {
   int? _originalSeasonsId;
   String _originalBatteryValue = "";
   String _originalLogsAppLimitValue = "";
+
+
+  @override
+  void refresh() {
+    debugPrint("Manual refresh triggered for SettingsPage");
+    setState(() => _isLoading = true);
+    _fetchData();
+  }
+
 
   @override
   void initState() {
@@ -155,7 +165,11 @@ class _SettingsPageState extends State<SettingsPage> {
         });
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      debugPrint("Error: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

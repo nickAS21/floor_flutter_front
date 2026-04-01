@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../helpers/api_server_helper.dart';
 import '../../helpers/app_helper.dart';
 import '../data_home/data_location_type.dart';
+import '../refreshable_state.dart';
 import 'history_model.dart';
 import 'history_card.dart';
 import 'history_details_sheet.dart';
@@ -18,10 +19,17 @@ class HistoryPage extends StatefulWidget {
   State<HistoryPage> createState() => _HistoryPageState();
 }
 
-class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStateMixin {
+class _HistoryPageState extends RefreshableState<HistoryPage> with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   List<HistoryModel> _allRecords = [];
   late TabController _tabController;
+  @override
+  void refresh() {
+    debugPrint("Manual refresh triggered for HistoryPage (Tab: ${_tabController.index == 0 ? 'СЬОГОДНІ' : 'ВЧОРА'})");
+    // Вмикаємо лоадер миттєво для відгуку UI
+    setState(() => _isLoading = true);
+    _fetchData();
+  }
 
   @override
   void initState() {

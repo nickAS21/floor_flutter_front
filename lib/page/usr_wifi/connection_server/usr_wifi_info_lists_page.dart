@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../refreshable_state.dart';
 import '../info/data_usr_wifi_info.dart';
 import '../info/usr_wifi_info_list_page.dart';
 import '../info/usr_wifi_info_storage.dart';
@@ -18,13 +19,13 @@ class UsrWiFiInfoListsPage extends StatefulWidget {
   State<UsrWiFiInfoListsPage> createState() => _UsrWiFiInfoListsPageState();
 }
 
-class _UsrWiFiInfoListsPageState extends State<UsrWiFiInfoListsPage> with SingleTickerProviderStateMixin {
+class _UsrWiFiInfoListsPageState extends RefreshableState<UsrWiFiInfoListsPage> with SingleTickerProviderStateMixin {
   final _storage = UsrWiFiInfoStorage();
   late TabController _tabController;
 
   // 1. Архітектурна Мапа Сесій
   final Map<LocationType, UsrWiFiInfoLocationServerSession> _serverDataMapInfo = {};
-  bool _isLoading = false;
+  bool _isLoading = true;
   int _localSyncCounter = 0;
 
   // 2. Метод-геттер: "лінива" ініціалізація
@@ -34,13 +35,31 @@ class _UsrWiFiInfoListsPageState extends State<UsrWiFiInfoListsPage> with Single
           () => UsrWiFiInfoLocationServerSession(data: []),
     );
   }
+  @override
+  void refresh() {
+    // Перевіряємо, який таб активний: 0 - Locale, 1 - Server
+    if (_tabController.index == 1) {
+      debugPrint("Manual refresh: оновлюємо SERVER дані для UsrWiFiInfo");
+
+      // Скидаємо прапор ініціалізації, щоб примусово завантажити з сервера
+      final session = getServerSession(widget.selectedLocation);
+      session.isInitialized = false;
+
+      _fetchData(isAuto: false);
+    } else {
+      debugPrint("Manual refresh: оновлюємо LOCALE дані (UI)");
+      setState(() {
+        _localSyncCounter++; // Це змусить UsrWiFiInfoListLocale оновитися
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     // Автоматичний запуск при першому вході
-    _fetchFromServer(isAuto: true);
+    _fetchData(isAuto: true);
   }
 
   @override
@@ -48,30 +67,39 @@ class _UsrWiFiInfoListsPageState extends State<UsrWiFiInfoListsPage> with Single
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedLocation != widget.selectedLocation) {
       // При зміні локації намагаємось ініціалізувати нову сесію
-      _fetchFromServer(isAuto: true);
+      _fetchData(isAuto: true);
     }
   }
 
-  // 3. Розумний GET: автоматично тільки якщо сесія не ініційована
-  Future<void> _fetchFromServer({bool isAuto = false}) async {
+// 3. Розумний GET: автоматично тільки якщо сесія не ініційована
+  Future<void> _fetchData({bool isAuto = false}) async {
     if (!mounted) return;
 
     final session = getServerSession(widget.selectedLocation);
 
-    // СТРАТЕГІЯ: Якщо сесія вже була (навіть якщо список порожній через "ігри"),
-    // авто-запит блокується. Працює лише ручний GET (isAuto: false).
+    // Перевірка на авто-запит залишається
     if (isAuto && session.isInitialized) return;
 
     setState(() => _isLoading = true);
 
-    final result = await UsrWiFiInfoConnection.fetchFromServer(widget.selectedLocation);
+    try {
+      // Виконуємо запит до сервера
+      final result = await UsrWiFiInfoConnection.fetchFromServer(widget.selectedLocation);
 
-    if (mounted) {
-      setState(() {
-        session.data = result;
-        session.isInitialized = true; // Сесію зафіксовано
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          session.data = result;
+          session.isInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint("UsrWiFiInfo fetch error: $e");
+      // Тут можна додати SnackBar з помилкою
+    } finally {
+      // ГАРАНТОВАНО вимикаємо лоадер, навіть якщо сервер "відпав"
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -179,7 +207,7 @@ class _UsrWiFiInfoListsPageState extends State<UsrWiFiInfoListsPage> with Single
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildMiniBtn("GET", Icons.cloud_download, Colors.blue, () => _fetchFromServer(isAuto: false)),
+              _buildMiniBtn("GET", Icons.cloud_download, Colors.blue, () => _fetchData(isAuto: false)),
               _buildMiniBtn("POST", Icons.cloud_upload, Colors.green, session.data.isEmpty ? null : _handleUpload),
               _buildMiniBtn("From Local", Icons.sync, Colors.purple, _handleSyncLocalToServerState),
             ],

@@ -69,12 +69,12 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
           "Linux Configuration",
           style: TextStyle(fontSize: 16), // Можна зменшити шрифт для гармонії
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => runSetupSequence(null), // Передаємо null явно
-          ),
-        ],
+        // actions: [
+        //   IconButton(
+        //     icon: const Icon(Icons.refresh),
+        //     onPressed: () => runSetupSequence(null), // Передаємо null явно
+        //   ),
+        // ],
       ),
       body: widgets.buildCommonForm(
         networkSelector: _buildNetworkSelector(),

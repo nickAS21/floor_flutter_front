@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../data_home/data_location_type.dart';
+import '../refreshable_state.dart';
 import 'analitic_model.dart';
 import 'anaytic_connect_service.dart';
 
@@ -15,15 +16,21 @@ class AnalyticsTemperaturePage extends StatefulWidget {
   State<AnalyticsTemperaturePage> createState() => _AnalyticsTemperaturePageState();
 }
 
-class _AnalyticsTemperaturePageState extends State<AnalyticsTemperaturePage> {
+class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperaturePage> {
   final AnalyticConnectService _service = AnalyticConnectService();
   List<AnalyticModel> _allData = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
 
   int _touchedBarIndex = -1;
   int _touchedGroupIndex = -1;
   double tempRatio = 2.0;
+
+  @override
+  void refresh() {
+    setState(() => _isLoading = true);
+    _fetchData();
+  }
 
   @override
   void initState() {
@@ -89,7 +96,6 @@ class _AnalyticsTemperaturePageState extends State<AnalyticsTemperaturePage> {
         ),
         actions: [
           IconButton(icon: const Icon(Icons.calendar_today, size: 20), onPressed: _pickDate),
-          IconButton(icon: const Icon(Icons.refresh, size: 20), onPressed: _fetchData),
         ],
       ),
       body: _isLoading
@@ -116,25 +122,47 @@ class _AnalyticsTemperaturePageState extends State<AnalyticsTemperaturePage> {
 
   Widget _buildHeader() {
     if (_allData.isEmpty) return const SizedBox(height: 60);
-    final index = (_touchedGroupIndex == -1 || _touchedGroupIndex >= _allData.length) ? _allData.length - 1 : _touchedGroupIndex;
-    final d = _allData[index];
-    final timeStr = DateFormat('HH:mm').format(DateTime.fromMillisecondsSinceEpoch(d.timestamp, isUtc: true));
+    final index = (_touchedGroupIndex == -1 || _touchedGroupIndex >= _allData.length)
+        ? _allData.length - 1
+        : _touchedGroupIndex;
+    final last = _allData[index];
+    final timeStr = DateFormat('HH:mm').format(
+        DateTime.fromMillisecondsSinceEpoch(last.timestamp, isUtc: true));
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
       color: Colors.grey.withValues(alpha: 0.05),
-      child: Column(
+      child: Table(
+        // Визначаємо ширину колонок: перша для часу, інші рівномірні
+        columnWidths: const {
+          0: FlexColumnWidth(1.2), // Для "Time"
+          1: FlexColumnWidth(2),   // Temp
+          2: FlexColumnWidth(2),   // Hum
+          3: FlexColumnWidth(2),   // Lum
+        },
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // ПЕРШИЙ РЯДОК (Внутрішні показники + Час)
+          TableRow(
             children: [
-              Text("Time:$timeStr", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-              _statText("Out T:", d.temperatureOut, "°", Colors.blue),
-              _statText("H:", d.humidityOut, "%", Colors.deepPurple),
-              _statText("L:", d.luminanceOut, "%", Colors.red),
-              _statText("In T:", d.temperatureIn, "°", Colors.green),
-              _statText("H:", d.humidityIn, "%", Colors.brown),
-              _statText("L:", d.luminanceIn, "%", Colors.orange),
+              TableCell(
+                verticalAlignment: TableCellVerticalAlignment.middle,
+                child: Text("Time:\n$timeStr",
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+              ),
+              _statItem("In Temp", "${last.temperatureIn.toStringAsFixed(1)}°", Colors.green),
+              _statItem("In Hum", "${last.humidityIn.toStringAsFixed(1)}%", Colors.brown),
+              _statItem("In Lum", "${last.luminanceIn.toStringAsFixed(1)}%", Colors.orange),
+            ],
+          ),
+          // Відступ між рядками
+          const TableRow(children: [SizedBox(height: 8), SizedBox(), SizedBox(), SizedBox()]),
+          // ДРУГИЙ РЯДОК (Зовнішні показники)
+          TableRow(
+            children: [
+              const SizedBox(), // Порожньо під часом
+              _statItem("Out Temp", "${last.temperatureOut.toStringAsFixed(1)}°", Colors.blue),
+              _statItem("Out Hum", "${last.humidityOut.toStringAsFixed(1)}%", Colors.deepPurple),
+              _statItem("Out Lum", "${last.luminanceOut.toStringAsFixed(1)}%", Colors.red),
             ],
           ),
         ],
@@ -142,12 +170,7 @@ class _AnalyticsTemperaturePageState extends State<AnalyticsTemperaturePage> {
     );
   }
 
-  Widget _statText(String label, double val, String unit, Color col) {
-    return RichText(text: TextSpan(style: const TextStyle(fontSize: 10, color: Colors.black), children: [
-      TextSpan(text: label, style: const TextStyle(fontWeight: FontWeight.w300)),
-      TextSpan(text: " ${val.toStringAsFixed(1)}$unit", style: TextStyle(fontWeight: FontWeight.bold, color: col)),
-    ]));
-  }
+  Widget _statItem(String l, String v, Color c) => Column(children: [Text(l, style: TextStyle(color: c, fontSize: 9)), Text(v, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))]);
 
   Widget _buildMainChart() {
     if (_allData.isEmpty) return const Center(child: Text("Немає даних"));

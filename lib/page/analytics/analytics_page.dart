@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data_home/data_location_type.dart';
+import '../refreshable_state.dart';
 import 'analytics_soc_power_page.dart';
 import 'analytics_temperature_page.dart';
 
@@ -11,8 +12,22 @@ class AnalyticsPage extends StatefulWidget {
   State<AnalyticsPage> createState() => _AnalyticsPageState();
 }
 
-class _AnalyticsPageState extends State<AnalyticsPage> with SingleTickerProviderStateMixin {
+class _AnalyticsPageState extends RefreshableState<AnalyticsPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final List<String> _tabNames = ["Power & SOC", "Temperature", "L & H"];
+
+  final List<GlobalKey<RefreshableState>> _innerKeys = [
+    GlobalKey<RefreshableState>(),
+    GlobalKey<RefreshableState>(),
+    GlobalKey<RefreshableState>(),
+  ];
+
+  @override
+  void refresh() {
+    String currentTabName = _tabNames[_tabController.index];
+    debugPrint("AnalyticsPage: прокидаю refresh до таба: $currentTabName");
+    _innerKeys[_tabController.index].currentState?.refresh();
+  }
 
   @override
   void initState() {
@@ -34,20 +49,15 @@ class _AnalyticsPageState extends State<AnalyticsPage> with SingleTickerProvider
         toolbarHeight: 48,
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: "Power & SOC"),
-            Tab(text: "Temperature"),
-            Tab(text: "L & H"),
-          ],
+          tabs: _tabNames.map((name) => Tab(text: name)).toList(),
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: <Widget>[
-          AnalyticsSocPowerPage(location: widget.location),
-          AnalyticsTemperaturePage(location: widget.location, isTemperature: true),
-          AnalyticsTemperaturePage(location: widget.location, isTemperature: false),
-        ],
+          AnalyticsSocPowerPage(key: _innerKeys[0], location: widget.location),
+          AnalyticsTemperaturePage(key: _innerKeys[1], location: widget.location, isTemperature: true),
+          AnalyticsTemperaturePage(key: _innerKeys[2], location: widget.location, isTemperature: false),        ],
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'package:floor_front/page/refreshable_state.dart';
 import 'package:floor_front/page/usr_wifi/connection_server/usr_wifi_info_lists_page.dart';
 import 'package:flutter/material.dart';
 import 'analytics/analytics_page.dart';
@@ -29,17 +30,34 @@ class _MenuPageState extends State<MenuPage> {
     _buildPages();
   }
 
+  final List<GlobalKey<RefreshableState>> _pageKeys = [
+    GlobalKey<RefreshableState>(),
+    GlobalKey<RefreshableState>(),
+    GlobalKey<RefreshableState>(),
+    GlobalKey<RefreshableState>(),
+    GlobalKey<RefreshableState>(),
+    GlobalKey<RefreshableState>(),
+    GlobalKey<RefreshableState>(),
+    GlobalKey<RefreshableState>(),
+  ];
+
   void _buildPages() {
     _pages = [
-      HomePage(location: _selectedLocation),
-      SettingsPage(location: _selectedLocation),
-      UnitPage(location: _selectedLocation),
-      UsrWiFiInfoListsPage(selectedLocation: _selectedLocation),
-      HistoryPage(location: _selectedLocation),
-      AnalyticsPage(location: _selectedLocation),
-      AlarmPage(location: _selectedLocation),
-      LogsPage(location: _selectedLocation),
+      HomePage(key: _pageKeys[0], location: _selectedLocation),
+      SettingsPage(key: _pageKeys[1], location: _selectedLocation),
+      UnitPage(key: _pageKeys[2], location: _selectedLocation),
+      UsrWiFiInfoListsPage(key: _pageKeys[3], selectedLocation: _selectedLocation),
+      HistoryPage(key: _pageKeys[4], location: _selectedLocation),
+      AnalyticsPage(key: _pageKeys[5], location: _selectedLocation),
+      AlarmPage(key: _pageKeys[6], location: _selectedLocation),
+      LogsPage(key: _pageKeys[7], location: _selectedLocation),
     ];
+  }
+
+  // Головний метод оновлення
+  void _handleRefresh() {
+    // Звертаємось до поточної сторінки за ключем і викликаємо її refresh()
+    _pageKeys[_selectedIndex].currentState?.refresh();
   }
 
   void _onItemTapped(int index) {
@@ -70,6 +88,14 @@ class _MenuPageState extends State<MenuPage> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
+        // Додаємо кнопку оновлення праворуч
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.blue),
+            onPressed: _handleRefresh, // Викликає ваш метод з GlobalKey
+          ),
+          const SizedBox(width: 8),
+        ],
         // ВАШ СТИЛЬ ВИБОРУ ЛОКАЦІЇ
         title: DropdownButton<LocationType>(
           value: _selectedLocation,

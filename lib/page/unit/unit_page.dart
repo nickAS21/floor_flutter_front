@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../helpers/api_server_helper.dart';
 import '../../helpers/app_helper.dart';
 import '../data_home/data_location_type.dart';
+import '../refreshable_state.dart';
 import 'battery_info_model.dart';
 import 'device_model.dart';
 import 'unit_model.dart';
@@ -20,16 +21,24 @@ class UnitPage extends StatefulWidget {
   State<UnitPage> createState() => _UnitPageState();
 }
 
-class _UnitPageState extends State<UnitPage> {
+class _UnitPageState extends RefreshableState<UnitPage> {
   UnitModel? _unitModel;
   bool _isLoading = true;
   Timer? _refreshTimer;
 
+
+  @override
+  void refresh() {
+    debugPrint("Manual refresh triggered for UnitPage");
+    setState(() => _isLoading = true);
+    _fetchData();
+  }
+
   @override
   void initState() {
     super.initState();
-    _fetchUnitData();
-    _refreshTimer = AppHelper.startRefreshTimer(_fetchUnitData);
+    _fetchData();
+    _refreshTimer = AppHelper.startRefreshTimer(_fetchData);
   }
 
   @override
@@ -51,7 +60,7 @@ class _UnitPageState extends State<UnitPage> {
       _isLoading = true;
       _unitModel = null;
     });
-    _fetchUnitData();
+    _fetchData();
   }
 
   // --- Helpers ---
@@ -120,7 +129,7 @@ class _UnitPageState extends State<UnitPage> {
 
   // --- Data Fetching ---
 
-  Future<void> _fetchUnitData() async {
+  Future<void> _fetchData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('accessToken') ?? '';
@@ -143,12 +152,14 @@ class _UnitPageState extends State<UnitPage> {
       } else {
         throw Exception("Server status: ${response.statusCode}");
       }
-    } catch (e) {
+    } catch (e){
+      debugPrint("Error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Помилка завантаження Unit: $e")),
+      );
+    } finally {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Помилка завантаження Unit: $e")),
-        );
       }
     }
   }
@@ -163,7 +174,7 @@ class _UnitPageState extends State<UnitPage> {
           : _unitModel == null
           ? const Center(child: Text("Дані відсутні"))
           : RefreshIndicator(
-        onRefresh: _fetchUnitData,
+        onRefresh: _fetchData,
         child: _buildUnitList(),
       ),
     );

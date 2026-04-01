@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../helpers/api_server_helper.dart';
 import '../../helpers/app_helper.dart';
 import '../data_home/data_location_type.dart';
+import '../refreshable_state.dart';
 
 class AlarmPage extends StatefulWidget {
   final LocationType location;
@@ -15,9 +16,16 @@ class AlarmPage extends StatefulWidget {
   State<AlarmPage> createState() => _AlarmPageState();
 }
 
-class _AlarmPageState extends State<AlarmPage> {
+class _AlarmPageState extends RefreshableState<AlarmPage> {
   bool _isLoading = true;
   List<dynamic> _alarms = [];
+
+  @override
+  void refresh() {
+    debugPrint("Manual refresh triggered for AlarmPage");
+    setState(() => _isLoading = true);
+    _fetchData();
+  }
 
   @override
   void initState() {
@@ -35,39 +43,46 @@ class _AlarmPageState extends State<AlarmPage> {
 
   Future<void> _fetchData() async {
     if (!mounted) return;
+
+    // 1. Вмикаємо лоадер на самому початку
     setState(() => _isLoading = true);
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('accessToken') ?? '';
-
-    // ВИКОРИСТОВУЄМО ТІЛЬКИ ЗАТВЕРДЖЕНИЙ ФОРМАТ URL
-    String apiUrl = widget.location == LocationType.dacha
-        ? '${ApiServerHelper.backendUrl}${AppHelper.apiPathAlarm}${AppHelper.pathDacha}'
-        : '${ApiServerHelper.backendUrl}${AppHelper.apiPathAlarm}${AppHelper.pathGolego}';
-
     try {
+      // 2. Асинхронні операції з префами та токеном
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('accessToken') ?? '';
+
+      final String apiUrl = widget.location == LocationType.dacha
+          ? '${ApiServerHelper.backendUrl}${AppHelper.apiPathAlarm}${AppHelper.pathDacha}'
+          : '${ApiServerHelper.backendUrl}${AppHelper.apiPathAlarm}${AppHelper.pathGolego}';
+
+      // 3. Мережевий запит з таймаутом
       final response = await http.get(
         Uri.parse(apiUrl),
         headers: {'Authorization': 'Bearer $token'},
       ).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
-        setState(() {
-          _alarms = jsonDecode(response.body);
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _alarms = jsonDecode(response.body);
+          });
+        }
       } else {
-        throw Exception("Server Error: ${response.statusCode}");
+        // Викидаємо помилку, щоб її обробив блок catch
+        throw Exception("Сервер повернув помилку: ${response.statusCode}");
       }
-    } on TimeoutException catch (_) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        _showSnackBar("Час очікування вичерпано (60 сек)");
-      }
+
+    } on TimeoutException {
+      _showSnackBar("Час очікування вичерпано (60 сек)");
     } catch (e) {
+      debugPrint("Alarm fetch error: $e");
+      _showSnackBar("Помилка завантаження: $e");
+    } finally {
+      // 4. ГАРАНТОВАНЕ ВИМКНЕННЯ ЛОАДЕРА
+      // Що б не сталося: успіх, таймаут чи помилка — ми приберемо коліщатко
       if (mounted) {
         setState(() => _isLoading = false);
-        _showSnackBar("Помилка завантаження: $e");
       }
     }
   }
@@ -102,10 +117,6 @@ class _AlarmPageState extends State<AlarmPage> {
                   ),
                 ),
               ),
-            ),
-            IconButton(
-              icon: Icon(Icons.refresh, color: Colors.blueGrey.shade600, size: 22),
-              onPressed: _fetchData,
             ),
           ],
         ),
