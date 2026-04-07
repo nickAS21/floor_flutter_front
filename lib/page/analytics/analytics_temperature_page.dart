@@ -35,6 +35,7 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
   @override
   void initState() {
     super.initState();
+    super.initState();
     _fetchData();
   }
 
@@ -83,42 +84,38 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
     );
   }
 
+  // analytics_temperature_page.dart
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0), // Невеликий відступ замість AppBar
+      child: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(widget.location.label, style: const TextStyle(fontSize: 16)),
-            Text(DateFormat('dd.MM.yyyy').format(_selectedDate), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            _buildHeader(), // Твій хедер тепер буде одразу під табами
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 20, 20, 10),
+              child: SizedBox(
+                height: isLandscape ? 300 : MediaQuery.of(context).size.height * 0.6,
+                child: _buildMainChart(),
+              ),
+            ),
           ],
         ),
-        actions: [
-          IconButton(icon: const Icon(Icons.calendar_today, size: 20), onPressed: _pickDate),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-        children: [
-          _buildHeader(),
-          const Divider(height: 1),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 20, 20, 10),
-              child: _buildMainChart(),
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  void _pickDate() async {
-    final d = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2023), lastDate: DateTime.now());
-    if (d != null) { setState(() { _selectedDate = d; }); _fetchData(); }
-  }
+  // void _pickDate() async {
+  //   final d = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2023), lastDate: DateTime.now());
+  //   if (d != null) { setState(() { _selectedDate = d; }); _fetchData(); }
+  // }
 
   Widget _buildHeader() {
     if (_allData.isEmpty) return const SizedBox(height: 60);

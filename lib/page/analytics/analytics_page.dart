@@ -41,12 +41,12 @@ class _AnalyticsPageState extends RefreshableState<AnalyticsPage> with SingleTic
     super.dispose();
   }
 
+// analytics_page.dart
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // TabBar виносимо в AppBar основного контейнера
       appBar: AppBar(
-        toolbarHeight: 48,
+        toolbarHeight: 0, // Приховуємо верхню частину (заголовок), залишаємо тільки таби
         bottom: TabBar(
           controller: _tabController,
           tabs: _tabNames.map((name) => Tab(text: name)).toList(),
@@ -57,7 +57,8 @@ class _AnalyticsPageState extends RefreshableState<AnalyticsPage> with SingleTic
         children: <Widget>[
           AnalyticsSocPowerPage(key: _innerKeys[0], location: widget.location),
           AnalyticsTemperaturePage(key: _innerKeys[1], location: widget.location, isTemperature: true),
-          AnalyticsTemperaturePage(key: _innerKeys[2], location: widget.location, isTemperature: false),        ],
+          AnalyticsTemperaturePage(key: _innerKeys[2], location: widget.location, isTemperature: false),
+        ],
       ),
     );
   }

@@ -247,65 +247,69 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
         ? (_endDate.difference(_startDate).inDays + 1) * screenWidth
         : (isLandscape ? screenWidth * 1.5 : screenWidth);
 
-// 1. Отримуємо дані для вибраної точки
     final selectedData = (_touchedGroupIndex != -1 && _touchedGroupIndex < data.length)
         ? data[_touchedGroupIndex]
         : null;
 
     return Column(
       children: [
-        // ВЕРХНЯ ПАНЕЛЬ (точно як у гістограмах)
+        // ВЕРХНЯ ПАНЕЛЬ
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          // Зменшуємо вертикальні відступи до мінімуму в ландшафті
+          padding: EdgeInsets.symmetric(horizontal: 10, vertical: isLandscape ? 2 : 6),
           decoration: BoxDecoration(
             color: Colors.grey.withValues(alpha: 0.05),
             border: const Border(bottom: BorderSide(color: Colors.black12)),
           ),
           child: selectedData == null
               ? const Text("Оберіть точку на графіку", style: TextStyle(fontSize: 10, color: Colors.grey))
-              : Column(
+              : SingleChildScrollView( // Додаємо скрол, якщо текст не влазить
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Time: ${DateFormat('dd.MM HH:mm').format(DateTime.fromMillisecondsSinceEpoch(selectedData.timestamp, isUtc: true))}",
+                      style: TextStyle(fontSize: isLandscape ? 9 : 10, fontWeight: FontWeight.bold),
+                    ),
+                    _topStat("Sol:", selectedData.solarPower / 1000.0, Colors.blue),
+                    _topStat("Hm:", selectedData.homePower / 1000.0, Colors.red),
+                    _topStat("SOC:", "${selectedData.bmsSoc.toInt()}%", Colors.green),
+                    // Ховаємо Grid в ландшафті, якщо він є в нижніх статах, щоб економити місце
+                    if (!isLandscape) _topStat("Grid:", selectedData.gridPower / 1000.0, Colors.orange),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Рядок з підписами одиниць виміру (kW / %)
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 15, vertical: isLandscape ? 1 : 5), // Мінімальний vertical відступ
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Дата та час точки
-                  Text(
-                    "Time:" + DateFormat('dd.MM HH:mm').format(DateTime.fromMillisecondsSinceEpoch(selectedData.timestamp, isUtc: true)),
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
-                  _topStat("Solar:", selectedData.solarPower / 1000.0, Colors.blue),
-                  _topStat("Home:", selectedData.homePower / 1000.0, Colors.red),
-                  _topStat("SOC:", "${selectedData.bmsSoc.toInt()}%", Colors.green),
-                  _topStat("Grid:", selectedData.gridPower / 1000.0,  Colors.orange),
-                ],
-              ),
+              Text("kW", style: TextStyle(fontSize: isLandscape ? 8 : 10, fontWeight: FontWeight.bold, color: Colors.blue)),
+              Text("%", style: TextStyle(fontSize: isLandscape ? 8 : 10, fontWeight: FontWeight.bold, color: Colors.brown)),
             ],
           ),
         ),
 
-        // Твій існуючий код далі
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("kW", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue)),
-              const Text("%", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.brown)),
-            ],
-          ),
-        ),
+        // ГРАФІК
         Expanded(
           child: Scrollbar(
             controller: _horizontalScroll,
             thumbVisibility: true,
-            trackVisibility: true,
             child: SingleChildScrollView(
               controller: _horizontalScroll,
               scrollDirection: Axis.horizontal,
               child: Container(
                 width: chartWidth,
-                padding: const EdgeInsets.only(left: 10, right: 30, bottom: 15),
+                padding: EdgeInsets.only(left: 10, right: 30, bottom: isLandscape ? 5 : 15),
                 child: _buildBaseChart(
                   data: data,
                   isLandscape: isLandscape,
@@ -351,65 +355,87 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
   @override
   Widget build(BuildContext context) {
     final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 65,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.location.label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
-            Text(
-              _currentMode == ViewMode.day
-                  ? DateFormat('dd.MM.yyyy').format(_selectedDate)
-                  : _currentMode == ViewMode.month
-                  ? DateFormat('MMMM yyyy', 'uk').format(_selectedDate)
-                  : _currentMode == ViewMode.year
-                  ? "Рік: ${_selectedDate.year}"
-                  : "${DateFormat('dd.MM').format(_startDate)} - ${DateFormat('dd.MM.yyyy').format(_endDate)}",
-              style: TextStyle(fontSize: 14, color: Colors.grey[800], fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.upload_file, size: 20, color: Colors.black),
-            // onPressed: _importExcelToServer, // Викликає ваш існуючий метод
-            onPressed: _importExcel, // Викликає ваш існуючий метод
-            tooltip: "Імпорт даних з Excel/XML",
-          ),
-          IconButton(icon: const Icon(Icons.calendar_today, size: 20, color: Colors.black), onPressed: _pickDate),
-          PopupMenuButton<ViewMode>(
-            icon: const Icon(Icons.tune, size: 20, color: Colors.black),
-            onSelected: (val) async {
-              switch (val) {
-                case ViewMode.period: await _pickPeriod(); break;
-                case ViewMode.month: await _pickMonth(); break;
-                case ViewMode.year: await _pickYear(); break;
-                default: break;
-              }
-            },
-            itemBuilder: (ctx) => [
-              const PopupMenuItem(value: ViewMode.month, child: Text("Місяць")),
-              const PopupMenuItem(value: ViewMode.year, child: Text("Рік")),
-              const PopupMenuItem(value: ViewMode.period, child: Text("Період")),
+      // ВИДАЛЯЄМО AppBar ТУТ, бо він є в основному файлі AnalyticsPage
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView( // Додаємо вертикальний скрол для ландшафту
+          child: Column(
+            children: [
+              // ЦЕ ЗАМІНА ТВОГО APPBAR - всі кнопки і тексти тепер тут
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  children: [
+                    // Текстовий блок (Локація + Дата)
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.location.label,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)),
+                          Text(
+                            _currentMode == ViewMode.day
+                                ? DateFormat('dd.MM.yyyy').format(_selectedDate)
+                                : _currentMode == ViewMode.month
+                                ? DateFormat('MMMM yyyy', 'uk').format(_selectedDate)
+                                : _currentMode == ViewMode.year
+                                ? "Рік: ${_selectedDate.year}"
+                                : "${DateFormat('dd.MM').format(_startDate)} - ${DateFormat('dd.MM.yyyy').format(_endDate)}",
+                            style: TextStyle(fontSize: 12, color: Colors.grey[800], fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Кнопки керування
+                    IconButton(
+                      icon: const Icon(Icons.upload_file, size: 20, color: Colors.black),
+                      onPressed: _importExcel,
+                      tooltip: "Імпорт даних",
+                    ),
+                    IconButton(
+                        icon: const Icon(Icons.calendar_today, size: 20, color: Colors.black),
+                        onPressed: _pickDate
+                    ),
+                    PopupMenuButton<ViewMode>(
+                      icon: const Icon(Icons.tune, size: 20, color: Colors.black),
+                      onSelected: (val) async {
+                        switch (val) {
+                          case ViewMode.period: await _pickPeriod(); break;
+                          case ViewMode.month: await _pickMonth(); break;
+                          case ViewMode.year: await _pickYear(); break;
+                          default: break;
+                        }
+                      },
+                      itemBuilder: (ctx) => [
+                        const PopupMenuItem(value: ViewMode.month, child: Text("Місяць")),
+                        const PopupMenuItem(value: ViewMode.year, child: Text("Рік")),
+                        const PopupMenuItem(value: ViewMode.period, child: Text("Період")),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+
+              // Контент графіка
+              // У ландшафті даємо фіксовану висоту, щоб працював скрол
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: isLandscape ? 350 : MediaQuery.of(context).size.height * 0.7,
+                ),
+                child: (_currentMode == ViewMode.month || _currentMode == ViewMode.year)
+                    ? _buildBarChart(_allData)
+                    : _buildCombinedCharts(_allData, isLandscape),
+              ),
+
+              // Статистика внизу
+              if (!isLandscape && _allData.isNotEmpty) _buildStats(_allData.last),
             ],
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : (_currentMode == ViewMode.month || _currentMode == ViewMode.year)
-                  ? _buildBarChart(_allData)
-                  : _buildCombinedCharts(_allData, isLandscape),
-            ),
-            if (!isLandscape && _allData.isNotEmpty) _buildStats(_allData.last),
-          ],
         ),
       ),
     );
