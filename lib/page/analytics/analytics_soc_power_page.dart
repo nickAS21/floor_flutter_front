@@ -243,9 +243,9 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
     double powerMaxY = maxPowerkW * 1.15;
     double ratio = 100 / powerMaxY;
 
-    double chartWidth = _currentMode == ViewMode.period
+    double chartWidth = (_currentMode == ViewMode.period
         ? (_endDate.difference(_startDate).inDays + 1) * screenWidth
-        : (isLandscape ? screenWidth * 1.5 : screenWidth);
+        : (isLandscape ? screenWidth * 1.5 : screenWidth)) * chartScale;
 
     final selectedData = (_touchedGroupIndex != -1 && _touchedGroupIndex < data.length)
         ? data[_touchedGroupIndex]
@@ -356,87 +356,86 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
   Widget build(BuildContext context) {
     final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
-    return Scaffold(
-      // ВИДАЛЯЄМО AppBar ТУТ, бо він є в основному файлі AnalyticsPage
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView( // Додаємо вертикальний скрол для ландшафту
-          child: Column(
+    Widget mainContent = Column(
+      children: [
+        // ПАНЕЛЬ КЕРУВАННЯ
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
             children: [
-              // ЦЕ ЗАМІНА ТВОГО APPBAR - всі кнопки і тексти тепер тут
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Row(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Текстовий блок (Локація + Дата)
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(widget.location.label,
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)),
-                          Text(
-                            _currentMode == ViewMode.day
-                                ? DateFormat('dd.MM.yyyy').format(_selectedDate)
-                                : _currentMode == ViewMode.month
-                                ? DateFormat('MMMM yyyy', 'uk').format(_selectedDate)
-                                : _currentMode == ViewMode.year
-                                ? "Рік: ${_selectedDate.year}"
-                                : "${DateFormat('dd.MM').format(_startDate)} - ${DateFormat('dd.MM.yyyy').format(_endDate)}",
-                            style: TextStyle(fontSize: 12, color: Colors.grey[800], fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Кнопки керування
-                    IconButton(
-                      icon: const Icon(Icons.upload_file, size: 20, color: Colors.black),
-                      onPressed: _importExcel,
-                      tooltip: "Імпорт даних",
-                    ),
-                    IconButton(
-                        icon: const Icon(Icons.calendar_today, size: 20, color: Colors.black),
-                        onPressed: _pickDate
-                    ),
-                    PopupMenuButton<ViewMode>(
-                      icon: const Icon(Icons.tune, size: 20, color: Colors.black),
-                      onSelected: (val) async {
-                        switch (val) {
-                          case ViewMode.period: await _pickPeriod(); break;
-                          case ViewMode.month: await _pickMonth(); break;
-                          case ViewMode.year: await _pickYear(); break;
-                          default: break;
-                        }
-                      },
-                      itemBuilder: (ctx) => [
-                        const PopupMenuItem(value: ViewMode.month, child: Text("Місяць")),
-                        const PopupMenuItem(value: ViewMode.year, child: Text("Рік")),
-                        const PopupMenuItem(value: ViewMode.period, child: Text("Період")),
-                      ],
+                    Text(widget.location.label,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)),
+                    Text(
+                      _currentMode == ViewMode.day
+                          ? DateFormat('dd.MM.yyyy').format(_selectedDate)
+                          : _currentMode == ViewMode.month
+                          ? DateFormat('MMMM yyyy', 'uk').format(_selectedDate)
+                          : _currentMode == ViewMode.year
+                          ? "Рік: ${_selectedDate.year}"
+                          : "${DateFormat('dd.MM').format(_startDate)} - ${DateFormat('dd.MM.yyyy').format(_endDate)}",
+                      style: TextStyle(fontSize: 12, color: Colors.grey[800], fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 1),
+              IconButton(icon: const Icon(Icons.upload_file, size: 20, color: Colors.black), onPressed: _importExcel),
+              IconButton(icon: const Icon(Icons.calendar_today, size: 20, color: Colors.black), onPressed: _pickDate),
 
-              // Контент графіка
-              // У ландшафті даємо фіксовану висоту, щоб працював скрол
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: isLandscape ? 350 : MediaQuery.of(context).size.height * 0.7,
-                ),
-                child: (_currentMode == ViewMode.month || _currentMode == ViewMode.year)
-                    ? _buildBarChart(_allData)
-                    : _buildCombinedCharts(_allData, isLandscape),
+              // ТІЛЬКИ ОДИН СЕЛЕКТОР МАСШТАБУ
+              buildScaleSelector(),
+
+              PopupMenuButton<ViewMode>(
+                icon: const Icon(Icons.tune, size: 20, color: Colors.black),
+                onSelected: (val) async {
+                  switch (val) {
+                    case ViewMode.period: await _pickPeriod(); break;
+                    case ViewMode.month: await _pickMonth(); break;
+                    case ViewMode.year: await _pickYear(); break;
+                    default: break;
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  const PopupMenuItem(value: ViewMode.month, child: Text("Місяць")),
+                  const PopupMenuItem(value: ViewMode.year, child: Text("Рік")),
+                  const PopupMenuItem(value: ViewMode.period, child: Text("Період")),
+                ],
               ),
-
-              // Статистика внизу
-              if (!isLandscape && _allData.isNotEmpty) _buildStats(_allData.last),
             ],
           ),
         ),
+        const Divider(height: 1),
+
+        // КОНТЕНТ ГРАФІКА
+        isLandscape
+            ? ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 350),
+          child: (_currentMode == ViewMode.month || _currentMode == ViewMode.year)
+              ? _buildBarChart(_allData)
+              : _buildCombinedCharts(_allData, isLandscape),
+        )
+            : Expanded(
+          child: (_currentMode == ViewMode.month || _currentMode == ViewMode.year)
+              ? _buildBarChart(_allData)
+              : _buildCombinedCharts(_allData, isLandscape),
+        ),
+
+        // СТАТИСТИКА ВНИЗУ
+        if (!isLandscape && _allData.isNotEmpty) _buildStats(_allData.last),
+      ],
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : isLandscape
+            ? SingleChildScrollView(child: mainContent)
+            : mainContent,
       ),
     );
   }
@@ -581,28 +580,27 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
   Widget _buildBarChart(List<AnalyticModel> rawData) {
     double minX = 1;
     double maxX;
-    // double interval = 1;
 
     if (_currentMode == ViewMode.year) {
       maxX = 12;
     } else {
-      maxX = DateTime(_selectedDate.year, _selectedDate.month + 1, 0).day
-          .toDouble();
+      maxX = DateTime(_selectedDate.year, _selectedDate.month + 1, 0).day.toDouble();
     }
+
+    // 1. РОЗРАХУНОК ШИРИНИ ТА МАСШТАБУВАННЯ
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Графік розтягується залежно від вибраного масштабу
+    double chartWidth = screenWidth * chartScale;
 
     Map<int, AnalyticModel> grouped = {};
     for (var m in rawData) {
-      // Жодних add(inverterOffset), тільки чистий UTC
-      final date = DateTime.fromMillisecondsSinceEpoch(
-          m.timestamp, isUtc: true);
+      final date = DateTime.fromMillisecondsSinceEpoch(m.timestamp, isUtc: true);
       int key = _currentMode == ViewMode.month ? date.day : date.month;
-      if (!grouped.containsKey(key) ||
-          m.solarDailyPower > grouped[key]!.solarDailyPower) {
+      if (!grouped.containsKey(key) || m.solarDailyPower > grouped[key]!.solarDailyPower) {
         grouped[key] = m;
       }
     }
 
-    // Розрахунок максимуму залишаємо як був
     double maxVal = 1.0;
     for (var m in grouped.values) {
       if (m.solarDailyPower > maxVal) maxVal = m.solarDailyPower;
@@ -610,15 +608,12 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
     }
     double chartMaxY = maxVal * 1.2;
 
-    // Знаходимо дані для підсвіченого індексу
-    // 1. Знаходимо дані для підсвіченого індексу (як у тебе)
-    final selectedData = _touchedGroupIndex != -1 ? grouped[_touchedGroupIndex +
-        1] : null;
+    final selectedData = _touchedGroupIndex != -1 ? grouped[_touchedGroupIndex + 1] : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ВЕРХНЯ ПАНЕЛЬ (Замість плаваючого тултіпа)
+        // ВЕРХНЯ ПАНЕЛЬ (без змін)
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -628,21 +623,17 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
             border: const Border(bottom: BorderSide(color: Colors.black12)),
           ),
           child: selectedData == null
-              ? const Text("Оберіть день на графіку",
-              style: TextStyle(fontSize: 10, color: Colors.grey))
-              : Column( // Два рядки для компактності
+              ? const Text("Оберіть день на графіку", style: TextStyle(fontSize: 10, color: Colors.grey))
+              : Column(
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    "${_currentMode == ViewMode.month
-                        ? 'День'
-                        : 'Місяць'} ${_touchedGroupIndex + 1}",
-                    style: const TextStyle(
-                        fontSize: 10, fontWeight: FontWeight.bold),
+                    "${_currentMode == ViewMode.month ? 'День' : 'Місяць'} ${_touchedGroupIndex + 1}",
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                   ),
-                  _topStat("Solar:", selectedData.solarDailyPower, Colors.green),
+                  _topStat("Solar:", selectedData.solarDailyPower, Colors.blue),
                   _topStat("Home:", selectedData.homeDailyPower, Colors.red),
                   _topStat("Bms Discharge:", selectedData.bmsDailyDischarge, Colors.red),
                   _topStat("Bms Charge:", selectedData.bmsDailyCharge, Colors.blue),
@@ -652,8 +643,8 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const SizedBox(width: 35), // вирівнювання під дату
-                  _topStat("Grid Day:", selectedData.gridDailyDayPower,  Colors.orange),
+                  const SizedBox(width: 35),
+                  _topStat("Grid Day:", selectedData.gridDailyDayPower, Colors.orange),
                   _topStat("Grid Night:", selectedData.gridDailyNightPower, Colors.blue),
                   _topStat("Grid Total:", selectedData.gridDailyTotalPower, Colors.deepPurple),
                 ],
@@ -664,150 +655,110 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
 
         const Padding(
           padding: EdgeInsets.only(left: 10),
-          child: Text("kWh", style: TextStyle(
-              fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+          child: Text("kWh", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
         ),
+
+        // 2. ДОДАВАННЯ СКРОЛУ ТА ПРИВ'ЯЗКА ДО chartScale
         Expanded(
-          child: Container(
-            padding: const EdgeInsets.only(
-                top: 15, left: 10, right: 15, bottom: 10),
-            child: BarChart(
-              BarChartData(
-                minY: 0,
-                maxY: chartMaxY,
-                alignment: BarChartAlignment.center,
-                // 2. Встановлюємо відстань МІЖ днями/місяцями.
-                // Якщо стовпчики напливають — збільш це число (наприклад, до 15 або 20)
-                groupsSpace: _currentMode == ViewMode.year ? 12 : 8,
+          child: Scrollbar(
+            controller: _horizontalScroll, // Використовуємо той самий контролер, що і для ліній
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: _horizontalScroll,
+              scrollDirection: Axis.horizontal,
+              child: Container(
+                width: chartWidth, // ПРИЗНАЧАЄМО РОЗРАХОВАНУ ШИРИНУ
+                padding: const EdgeInsets.only(top: 15, left: 10, right: 15, bottom: 10),
+                child: BarChart(
+                  BarChartData(
+                    minY: 0,
+                    maxY: chartMaxY,
+                    alignment: BarChartAlignment.center,
+                    // Динамічно коригуємо простір між групами залежно від масштабу
+                    groupsSpace: (_currentMode == ViewMode.year ? 12.0 : 8.0) * chartScale,
 
-                barTouchData: BarTouchData(
-                  touchCallback: (FlTouchEvent event, barTouchResponse) {
-                    setState(() {
-                      if (!event.isInterestedForInteractions ||
-                          barTouchResponse == null ||
-                          barTouchResponse.spot == null) {
-                        _touchedGroupIndex = -1;
-                        return;
-                      }
-                      _touchedGroupIndex = barTouchResponse.spot!.touchedBarGroupIndex;
-                    });
-                  },
-                  // ПОВНІСТЮ ВИМИКАЄМО ТЕКСТ НА ГРАФІКУ
-                  touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (_) => Colors.transparent, // Робимо фон невидимим
-                    getTooltipItem: (group, groupIndex, rod, rodIndex) => null, // ПОВЕРТАЄМО NULL, ЩОБ ЦИФРИ НЕ ПЛАВАЛИ
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 40,
-                      getTitlesWidget: (v, m) => Text(
-                          v.toStringAsFixed(1), // ЖОРСТКЕ ОКРУГЛЕННЯ ОСІ
-                          style: const TextStyle(fontSize: 8)
-                      ),
-                    ),
-                  ),
-                  rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: 1,
-                      getTitlesWidget: (v, m) {
-                        int val = v.toInt();
-                        if (val < minX || val > maxX) return const SizedBox();
-                        if (_currentMode == ViewMode.year) {
-                          return Text(val.toString(),
-                              style: const TextStyle(fontSize: 8));
-                        } else {
-                          if (val == 1 || val == maxX || val % 5 == 0) {
-                            return Text(val.toString(),
-                                style: const TextStyle(fontSize: 8));
+                    barTouchData: BarTouchData(
+                      touchCallback: (FlTouchEvent event, barTouchResponse) {
+                        setState(() {
+                          if (!event.isInterestedForInteractions || barTouchResponse == null || barTouchResponse.spot == null) {
+                            _touchedGroupIndex = -1;
+                            return;
                           }
-                        }
-                        return const SizedBox();
+                          _touchedGroupIndex = barTouchResponse.spot!.touchedBarGroupIndex;
+                        });
                       },
+                      touchTooltipData: BarTouchTooltipData(
+                        getTooltipColor: (_) => Colors.transparent,
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) => null,
+                      ),
                     ),
+                    titlesData: FlTitlesData(
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 40,
+                          getTitlesWidget: (v, m) => Text(v.toStringAsFixed(1), style: const TextStyle(fontSize: 8)),
+                        ),
+                      ),
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          interval: 1,
+                          getTitlesWidget: (v, m) {
+                            int val = v.toInt();
+                            if (val < minX || val > maxX) return const SizedBox();
+
+                            // Якщо масштаб великий (> 150%), показуємо кожен день, інакше — через кожні 5 днів
+                            if (chartScale > 1.5 || _currentMode == ViewMode.year || val == 1 || val == maxX || val % 5 == 0) {
+                              return SideTitleWidget(
+                                meta: m,
+                                child: Text(val.toString(), style: const TextStyle(fontSize: 8)),
+                              );
+                            }
+                            return const SizedBox();
+                          },
+                        ),
+                      ),
+                    ),
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: false,
+                      horizontalInterval: chartMaxY > 0 ? chartMaxY / 5 : 1,
+                      getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withValues(alpha: 0.1), strokeWidth: 1),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    barGroups: List.generate(maxX.toInt(), (index) {
+                      int key = index + 1;
+                      // Ширина стовпчиків трохи збільшується при сильному зумі для зручності
+                      final double withCol = 2.0 * (chartScale > 2.0 ? 1.5 : 1.0);
+                      final double minH = chartMaxY * 0.005;
+                      final m = grouped[key];
+                      bool isTouched = _touchedGroupIndex == index;
+
+                      return BarChartGroupData(
+                        x: key,
+                        barsSpace: 1,
+                        barRods: [
+                          BarChartRodData(
+                            toY: chartMaxY,
+                            color: Colors.grey.withValues(alpha: isTouched ? 0.40 : 0.05),
+                            width: withCol / 4,
+                            borderRadius: BorderRadius.zero,
+                          ),
+                          BarChartRodData(toY: (m?.solarDailyPower ?? 0) <= 0 ? minH : m!.solarDailyPower, color: Colors.blue, width: withCol, borderRadius: BorderRadius.circular(2)),
+                          BarChartRodData(toY: (m?.homeDailyPower ?? 0) <= 0 ? minH : m!.homeDailyPower, color: Colors.red, width: withCol, borderRadius: BorderRadius.circular(2)),
+                          BarChartRodData(toY: (m?.gridDailyTotalPower ?? 0) <= 0 ? minH : m!.gridDailyTotalPower, color: Colors.deepPurple, width: withCol, borderRadius: BorderRadius.circular(2)),
+                          BarChartRodData(toY: (m?.gridDailyDayPower ?? 0) <= 0 ? minH : m!.gridDailyDayPower, color: Colors.orange, width: withCol, borderRadius: BorderRadius.circular(2)),
+                          BarChartRodData(toY: (m?.gridDailyNightPower ?? 0) <= 0 ? minH : m!.gridDailyNightPower, color: Colors.indigo, width: withCol, borderRadius: BorderRadius.circular(2)),
+                          BarChartRodData(toY: (m?.bmsDailyDischarge ?? 0) <= 0 ? minH : m!.bmsDailyDischarge, color: Colors.brown, width: withCol, borderRadius: BorderRadius.circular(2)),
+                          BarChartRodData(toY: (m?.bmsDailyCharge ?? 0) <= 0 ? minH : m!.bmsDailyCharge, color: Colors.lightBlue, width: withCol, borderRadius: BorderRadius.circular(2)),
+                        ],
+                      );
+                    }),
                   ),
                 ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: chartMaxY > 0 ? chartMaxY / 5 : 1,
-                  getDrawingHorizontalLine: (v) =>
-                      FlLine(color: Colors.grey.withValues(alpha: 0.1),
-                          strokeWidth: 1),
-                ),
-                borderData: FlBorderData(show: false),
-                barGroups: List.generate(maxX.toInt(), (index) {
-                  int key = index + 1;
-                  final double withCol = 2;
-                  final double minH = chartMaxY * 0.005;
-                  final m = grouped[key];
-                  bool isTouched = _touchedGroupIndex == index;
-
-                  return BarChartGroupData(
-                    x: key,
-                    barsSpace: 1, // <--- Зменшуємо проміжок між палками до 1 пікселя
-                    barRods: [
-                      BarChartRodData(
-                        toY: chartMaxY,
-                        // Підсвічуємо вдвічі яскравіше при натисканні (як ти хотів)
-                        color: Colors.grey.withValues(alpha: isTouched
-                            ? 0.40
-                            : 0.05),
-                        width: withCol / 4,
-                        borderRadius: BorderRadius.zero,
-                      ),
-                      BarChartRodData(toY: (m?.solarDailyPower ?? 0) <= 0
-                          ? minH
-                          : m!.solarDailyPower,
-                          color: Colors.green,
-                          width: withCol,
-                          borderRadius: BorderRadius.circular(2)),
-                      BarChartRodData(toY: (m?.homeDailyPower ?? 0) <= 0
-                          ? minH
-                          : m!.homeDailyPower,
-                          color: Colors.red,
-                          width: withCol,
-                          borderRadius: BorderRadius.circular(2)),
-                      BarChartRodData(toY: (m?.gridDailyTotalPower ?? 0) <= 0
-                          ? minH
-                          : m!.gridDailyTotalPower,
-                          color: Colors.deepPurple,
-                          width: withCol,
-                          borderRadius: BorderRadius.circular(2)),
-                      BarChartRodData(toY: (m?.gridDailyDayPower ?? 0) <= 0
-                          ? minH
-                          : m!.gridDailyDayPower,
-                          color: Colors.orange,
-                          width: withCol,
-                          borderRadius: BorderRadius.circular(2)),
-                      BarChartRodData(toY: (m?.gridDailyNightPower ?? 0) <= 0
-                          ? minH
-                          : m!.gridDailyNightPower,
-                          color: Colors.indigo,
-                          width: withCol,
-                          borderRadius: BorderRadius.circular(2)),
-                      BarChartRodData(toY: (m?.bmsDailyDischarge ?? 0) <= 0
-                          ? minH
-                          : m!.bmsDailyDischarge,
-                          color: Colors.brown,
-                          width: withCol,
-                          borderRadius: BorderRadius.circular(2)),
-                      BarChartRodData(toY: (m?.bmsDailyCharge ?? 0) <= 0
-                          ? minH
-                          : m!.bmsDailyCharge,
-                          color: Colors.lightBlue,
-                          width: withCol,
-                          borderRadius: BorderRadius.circular(2)),
-                    ],
-                  );
-                }),
               ),
             ),
           ),
