@@ -578,42 +578,90 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
   }
 
   Widget _buildBarChart(List<AnalyticModel> rawData) {
+    // 1. ДЕБАГ-ЛОГИ ВХІДНИХ ДАНИХ
+    // debugPrint("--- BAR CHART DEBUG START ---");
+    // debugPrint("Всього точок від бека: ${rawData.length}");
+    // if (rawData.isNotEmpty) {
+    //   debugPrint("Перша точка: ${DateTime.fromMillisecondsSinceEpoch(rawData.first.timestamp, isUtc: true)}");
+    //   debugPrint("Остання точка: ${DateTime.fromMillisecondsSinceEpoch(rawData.last.timestamp, isUtc: true)}");
+    // }
+
     double minX = 1;
     double maxX;
-
     if (_currentMode == ViewMode.year) {
       maxX = 12;
     } else {
       maxX = DateTime(_selectedDate.year, _selectedDate.month + 1, 0).day.toDouble();
     }
 
-    // 1. РОЗРАХУНОК ШИРИНИ ТА МАСШТАБУВАННЯ
     final screenWidth = MediaQuery.of(context).size.width;
-    // Графік розтягується залежно від вибраного масштабу
     double chartWidth = screenWidth * chartScale;
 
+    // 2. ГРУПУВАННЯ З ЛОГУВАННЯМ
     Map<int, AnalyticModel> grouped = {};
     for (var m in rawData) {
       final date = DateTime.fromMillisecondsSinceEpoch(m.timestamp, isUtc: true);
       int key = _currentMode == ViewMode.month ? date.day : date.month;
-      if (!grouped.containsKey(key) || m.solarDailyPower > grouped[key]!.solarDailyPower) {
+
+      // Лог для кожної точки (можна закоментувати, якщо точок забагато)
+      // debugPrint("Парсинг: точка ${date.toIso8601String()} -> ключ $key");
+
+      if (!grouped.containsKey(key)) {
         grouped[key] = m;
+      } else {
+        // Вибираємо запис з найбільшою генерацією як репрезентативний для стовпчика
+        if (m.solarDailyPower > grouped[key]!.solarDailyPower) {
+          grouped[key] = m;
+        }
       }
     }
 
+    debugPrint("Згруповано ключів (стовпчиків): ${grouped.keys.toList()}");
+    debugPrint("--- BAR CHART DEBUG END ---");
+
+    // РОЗРАХУНОК МАКСИМУМУ
     double maxVal = 1.0;
     for (var m in grouped.values) {
-      if (m.solarDailyPower > maxVal) maxVal = m.solarDailyPower;
-      if (m.homeDailyPower > maxVal) maxVal = m.homeDailyPower;
+      List<double> values = [
+        m.solarDailyPower, m.homeDailyPower, m.gridDailyTotalPower,
+        m.gridDailyDayPower, m.gridDailyNightPower,
+        m.bmsDailyDischarge, m.bmsDailyCharge
+      ];
+      for (var v in values) {
+        if (v > maxVal) maxVal = v;
+      }
     }
-    double chartMaxY = maxVal * 1.2;
+    double chartMaxY = maxVal * 1.15;
 
-    final selectedData = _touchedGroupIndex != -1 ? grouped[_touchedGroupIndex + 1] : null;
+    int displayIndex = _touchedGroupIndex;
+    if (displayIndex == -1 && grouped.isNotEmpty) {
+      displayIndex = grouped.keys.reduce((a, b) => a > b ? a : b) - 1;
+    }
+    final selectedData = grouped[displayIndex + 1];
+
+    // РОЗУМНЕ ФОРМАТУВАННЯ ЧИСЕЛ
+    Widget _smartStat(String label, double val, Color col) {
+      bool isLarge = val.abs() > 999;
+      double displayVal = isLarge ? val / 1000 : val;
+      String unitSuffix = isLarge ? "k" : "";
+
+      return RichText(
+        text: TextSpan(
+          style: const TextStyle(fontSize: 9, color: Colors.black),
+          children: [
+            TextSpan(text: "$label ", style: const TextStyle(fontWeight: FontWeight.w300)),
+            TextSpan(
+                text: "${displayVal.toStringAsFixed(displayVal.abs() > 100 ? 1 : 2)}$unitSuffix",
+                style: TextStyle(fontWeight: FontWeight.bold, color: col)
+            ),
+          ],
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ВЕРХНЯ ПАНЕЛЬ (без змін)
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -623,33 +671,41 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
             border: const Border(bottom: BorderSide(color: Colors.black12)),
           ),
           child: selectedData == null
-              ? const Text("Оберіть день на графіку", style: TextStyle(fontSize: 10, color: Colors.grey))
-              : Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "${_currentMode == ViewMode.month ? 'День' : 'Місяць'} ${_touchedGroupIndex + 1}",
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
-                  _topStat("Solar:", selectedData.solarDailyPower, Colors.blue),
-                  _topStat("Home:", selectedData.homeDailyPower, Colors.red),
-                  _topStat("Bms Discharge:", selectedData.bmsDailyDischarge, Colors.red),
-                  _topStat("Bms Charge:", selectedData.bmsDailyCharge, Colors.blue),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const SizedBox(width: 35),
-                  _topStat("Grid Day:", selectedData.gridDailyDayPower, Colors.orange),
-                  _topStat("Grid Night:", selectedData.gridDailyNightPower, Colors.blue),
-                  _topStat("Grid Total:", selectedData.gridDailyTotalPower, Colors.deepPurple),
-                ],
-              ),
-            ],
+              ? const Text("Дані відсутні", style: TextStyle(fontSize: 10, color: Colors.grey))
+              : SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      "${_currentMode == ViewMode.month ? 'Д:' : 'М:'} ${displayIndex + 1}",
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 12),
+                    _smartStat("Sol:", selectedData.solarDailyPower, Colors.blue),
+                    const SizedBox(width: 8),
+                    _smartStat("Hm:", selectedData.homeDailyPower, Colors.red),
+                    const SizedBox(width: 8),
+                    _smartStat("Bms-D:", selectedData.bmsDailyDischarge, Colors.red),
+                    const SizedBox(width: 8),
+                    _smartStat("Bms-C:", selectedData.bmsDailyCharge, Colors.blue),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const SizedBox(width: 32),
+                    _smartStat("G-Day:", selectedData.gridDailyDayPower, Colors.orange),
+                    const SizedBox(width: 8),
+                    _smartStat("G-Night:", selectedData.gridDailyNightPower, Colors.blue),
+                    const SizedBox(width: 8),
+                    _smartStat("G-Total:", selectedData.gridDailyTotalPower, Colors.deepPurple),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
 
@@ -658,32 +714,28 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
           child: Text("kWh", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
         ),
 
-        // 2. ДОДАВАННЯ СКРОЛУ ТА ПРИВ'ЯЗКА ДО chartScale
         Expanded(
           child: Scrollbar(
-            controller: _horizontalScroll, // Використовуємо той самий контролер, що і для ліній
+            controller: _horizontalScroll,
             thumbVisibility: true,
             child: SingleChildScrollView(
               controller: _horizontalScroll,
               scrollDirection: Axis.horizontal,
               child: Container(
-                width: chartWidth, // ПРИЗНАЧАЄМО РОЗРАХОВАНУ ШИРИНУ
+                width: chartWidth,
                 padding: const EdgeInsets.only(top: 15, left: 10, right: 15, bottom: 10),
                 child: BarChart(
                   BarChartData(
                     minY: 0,
                     maxY: chartMaxY,
                     alignment: BarChartAlignment.center,
-                    // Динамічно коригуємо простір між групами залежно від масштабу
                     groupsSpace: (_currentMode == ViewMode.year ? 12.0 : 8.0) * chartScale,
-
                     barTouchData: BarTouchData(
                       touchCallback: (FlTouchEvent event, barTouchResponse) {
+                        if (!event.isInterestedForInteractions || barTouchResponse == null || barTouchResponse.spot == null) {
+                          return;
+                        }
                         setState(() {
-                          if (!event.isInterestedForInteractions || barTouchResponse == null || barTouchResponse.spot == null) {
-                            _touchedGroupIndex = -1;
-                            return;
-                          }
                           _touchedGroupIndex = barTouchResponse.spot!.touchedBarGroupIndex;
                         });
                       },
@@ -709,8 +761,6 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
                           getTitlesWidget: (v, m) {
                             int val = v.toInt();
                             if (val < minX || val > maxX) return const SizedBox();
-
-                            // Якщо масштаб великий (> 150%), показуємо кожен день, інакше — через кожні 5 днів
                             if (chartScale > 1.5 || _currentMode == ViewMode.year || val == 1 || val == maxX || val % 5 == 0) {
                               return SideTitleWidget(
                                 meta: m,
@@ -731,11 +781,10 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
                     borderData: FlBorderData(show: false),
                     barGroups: List.generate(maxX.toInt(), (index) {
                       int key = index + 1;
-                      // Ширина стовпчиків трохи збільшується при сильному зумі для зручності
                       final double withCol = 2.0 * (chartScale > 2.0 ? 1.5 : 1.0);
                       final double minH = chartMaxY * 0.005;
                       final m = grouped[key];
-                      bool isTouched = _touchedGroupIndex == index;
+                      bool isActive = (displayIndex == index);
 
                       return BarChartGroupData(
                         x: key,
@@ -743,8 +792,8 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
                         barRods: [
                           BarChartRodData(
                             toY: chartMaxY,
-                            color: Colors.grey.withValues(alpha: isTouched ? 0.40 : 0.05),
-                            width: withCol / 4,
+                            color: Colors.grey.withValues(alpha: isActive ? 0.35 : 0.05),
+                            width: withCol / 2,
                             borderRadius: BorderRadius.zero,
                           ),
                           BarChartRodData(toY: (m?.solarDailyPower ?? 0) <= 0 ? minH : m!.solarDailyPower, color: Colors.blue, width: withCol, borderRadius: BorderRadius.circular(2)),
