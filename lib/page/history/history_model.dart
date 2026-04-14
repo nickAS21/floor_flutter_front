@@ -43,7 +43,8 @@ class HistoryModel {
 
   String get timeOnly {
     if (timestamp == 0) return "--:--";
-    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    // Створюємо об'єкт DateTime строго в UTC
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp, isUtc: true);
     return "${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
   }
 }

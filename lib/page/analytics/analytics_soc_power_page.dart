@@ -321,9 +321,9 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
       spots: data.map((m) {
         double xValue;
         if (_currentMode == ViewMode.month) {
-          xValue = DateTime.fromMillisecondsSinceEpoch(m.timestamp).day.toDouble();
+          xValue = DateTime.fromMillisecondsSinceEpoch(m.timestamp, isUtc: true).day.toDouble();
         } else if (_currentMode == ViewMode.year) {
-          xValue = DateTime.fromMillisecondsSinceEpoch(m.timestamp).month.toDouble();
+          xValue = DateTime.fromMillisecondsSinceEpoch(m.timestamp, isUtc: true).month.toDouble();
         } else {
           xValue = m.timestamp.toDouble();
         }
