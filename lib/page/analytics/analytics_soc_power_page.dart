@@ -253,10 +253,9 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
 
     return Column(
       children: [
-        // ВЕРХНЯ ПАНЕЛЬ
+// ВЕРХНЯ ПАНЕЛЬ
         Container(
           width: double.infinity,
-          // Зменшуємо вертикальні відступи до мінімуму в ландшафті
           padding: EdgeInsets.symmetric(horizontal: 10, vertical: isLandscape ? 2 : 6),
           decoration: BoxDecoration(
             color: Colors.grey.withValues(alpha: 0.05),
@@ -264,38 +263,24 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
           ),
           child: selectedData == null
               ? const Text("Оберіть точку на графіку", style: TextStyle(fontSize: 10, color: Colors.grey))
-              : SingleChildScrollView( // Додаємо скрол, якщо текст не влазить
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+              : SingleChildScrollView(
+            scrollDirection: Axis.horizontal, // Дозволяємо горизонтальний скрол
+            child: Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Time: ${DateFormat('dd.MM HH:mm').format(DateTime.fromMillisecondsSinceEpoch(selectedData.timestamp, isUtc: true))}",
-                      style: TextStyle(fontSize: isLandscape ? 9 : 10, fontWeight: FontWeight.bold),
-                    ),
-                    _topStat("Sol:", selectedData.solarPower / 1000.0, Colors.blue),
-                    _topStat("Hm:", selectedData.homePower / 1000.0, Colors.red),
-                    _topStat("SOC:", "${selectedData.bmsSoc.toInt()}%", Colors.green),
-                    // Ховаємо Grid в ландшафті, якщо він є в нижніх статах, щоб економити місце
-                    if (!isLandscape) _topStat("Grid:", selectedData.gridPower / 1000.0, Colors.orange),
-                  ],
+                Text(
+                  "Time: ${DateFormat('HH:mm').format(DateTime.fromMillisecondsSinceEpoch(selectedData.timestamp, isUtc: true))}",
+                  style: TextStyle(fontSize: isLandscape ? 9 : 10, fontWeight: FontWeight.bold),
                 ),
+                const SizedBox(width: 12), // Фіксований відступ замість spaceBetween
+                statRow("Sol", selectedData.solarPower / 1000.0, Colors.blue, " kW/h"),
+                const SizedBox(width: 10),
+                statRow("Load", selectedData.homePower / 1000.0, Colors.red, " kW/h"),
+                const SizedBox(width: 10),
+                statRow("SOC", selectedData.bmsSoc, Colors.green, "%"),
+                const SizedBox(width: 10),
+                statRow("Grid", selectedData.gridPower / 1000.0, Colors.orange, " kW/h"),
               ],
             ),
-          ),
-        ),
-
-        // Рядок з підписами одиниць виміру (kW / %)
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 15, vertical: isLandscape ? 1 : 5), // Мінімальний vertical відступ
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text("kW", style: TextStyle(fontSize: isLandscape ? 8 : 10, fontWeight: FontWeight.bold, color: Colors.blue)),
-              Text("%", style: TextStyle(fontSize: isLandscape ? 8 : 10, fontWeight: FontWeight.bold, color: Colors.brown)),
-            ],
           ),
         ),
 
@@ -816,23 +801,28 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
     );
   }
 
-  // Допоміжний метод для верхньої панелі
-  Widget _topStat(String label, dynamic val, Color col) {
+  Widget statRow(String label, dynamic val, Color col, [String unit = ""]) {
     String display;
     if (val is num) {
-      display = val.toStringAsFixed(2); // ОКРУГЛЮЄМО ВСІ ЧИСЛА ДО 2 ЗНАКІВ
+      // Температура (малі числа) - 1 знак, Потужність (великі) - 2 знаки
+      display = val.abs() < 20 ? val.toStringAsFixed(1) : val.toStringAsFixed(2);
     } else {
       display = val.toString();
     }
 
-    return RichText(
-      text: TextSpan(
-        style: const TextStyle(fontSize: 9, color: Colors.black),
-        children: [
-          TextSpan(text: "$label ", style: const TextStyle(fontWeight: FontWeight.w300)),
-          TextSpan(text: display, style: TextStyle(fontWeight: FontWeight.bold, color: col)),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Назва поля (чорна, тонка)
+        Text("$label: ", style: const TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.w400)),
+
+        // Сама цифра (кольорова, жирна)
+        Text(display, style: TextStyle(color: col, fontSize: 10, fontWeight: FontWeight.bold)),
+
+        // Одиниця виміру (нейтральна, як і назва поля)
+        if (unit.isNotEmpty)
+          Text(unit, style: const TextStyle(color: Colors.black54, fontSize: 9, fontWeight: FontWeight.w400)),
+      ],
     );
   }
 

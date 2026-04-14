@@ -157,13 +157,27 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
 
     final timeStr = DateFormat('HH:mm').format(DateTime.fromMillisecondsSinceEpoch(last.timestamp, isUtc: true));
 
-    // Компактний віджет для одного показника (In або Out)
-    Widget statRow(String label, double val, Color col, String unit) {
+    Widget statRow(String label, dynamic val, Color col, [String unit = ""]) {
+      String display;
+      if (val is num) {
+        // Температура (малі числа) - 1 знак, Потужність (великі) - 2 знаки
+        display = val.abs() < 20 ? val.toStringAsFixed(1) : val.toStringAsFixed(2);
+      } else {
+        display = val.toString();
+      }
+
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text("$label: ", style: TextStyle(color: col, fontSize: 9, fontWeight: FontWeight.w500)),
-          Text("${val.toStringAsFixed(1)}$unit", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+          // Назва поля (чорна, тонка)
+          Text("$label: ", style: const TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.w400)),
+
+          // Сама цифра (кольорова, жирна)
+          Text(display, style: TextStyle(color: col, fontSize: 10, fontWeight: FontWeight.bold)),
+
+          // Одиниця виміру (нейтральна, як і назва поля)
+          if (unit.isNotEmpty)
+            Text(unit, style: const TextStyle(color: Colors.black54, fontSize: 9, fontWeight: FontWeight.w400)),
         ],
       );
     }
@@ -177,46 +191,30 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
       ),
       child: Row(
         children: [
-          // ЛІВА ЧАСТИНА: Time у 3 рядки
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("Time:", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
-              Text(timeStr, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-            ],
-          ),
+          // Час (Time)
+          Text("Time: $timeStr", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
           const SizedBox(width: 15),
 
-          // ПРАВА ЧАСТИНА: Колонки (In над Out)
+          // Дані в один рядок зі скролом
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      statRow("In T", last.temperatureIn, Colors.green, "°"),
-                      statRow("Out T", last.temperatureOut, Colors.blue, "°"),
-                    ],
-                  ),
-                  const SizedBox(width: 15),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      statRow("In H", last.humidityIn, Colors.brown, "%"),
-                      statRow("Out H", last.humidityOut, Colors.deepPurple, "%"),
-                    ],
-                  ),
-                  const SizedBox(width: 15),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      statRow("In L", last.luminanceIn, Colors.orange, "%"),
-                      statRow("Out L", last.luminanceOut, Colors.red, "%"),
-                    ],
-                  ),
+                  if (widget.isTemperature) ...[
+                    statRow("In T", last.temperatureIn.toStringAsFixed(1), Colors.green, "°"),
+                    const SizedBox(width: 12),
+                    statRow("Out T", last.temperatureOut.toStringAsFixed(1),
+                        last.temperatureOut < 0 ? Colors.red : Colors.blue, "°"),
+                  ] else ...[
+                    statRow("In H", last.humidityIn.toInt(), Colors.brown, "%"),
+                    const SizedBox(width: 12),
+                    statRow("Out H", last.humidityOut.toInt(), Colors.deepPurple, "%"),
+                    const SizedBox(width: 12),
+                    statRow("In L", last.luminanceIn.toInt(), Colors.orange, "%"),
+                    const SizedBox(width: 12),
+                    statRow("Out L", last.luminanceOut.toInt(), Colors.red, "%"),
+                  ],
                 ],
               ),
             ),
@@ -246,18 +244,66 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
     if (widget.isTemperature) {
       double minTemp = 100.0;
       double maxTemp = -100.0;
+
+      // Знаходимо реальні межі саме значень Out T для градієнта
+      double outMin = 100.0;
+      double outMax = -100.0;
+
       for (var m in _allData) {
         if (m.temperatureOut < minTemp) minTemp = m.temperatureOut;
         if (m.temperatureIn < minTemp) minTemp = m.temperatureIn;
         if (m.temperatureOut > maxTemp) maxTemp = m.temperatureOut;
         if (m.temperatureIn > maxTemp) maxTemp = m.temperatureIn;
+
+        // Окремо для Out лінії
+        if (m.temperatureOut < outMin) outMin = m.temperatureOut;
+        if (m.temperatureOut > outMax) outMax = m.temperatureOut;
       }
+
       chartMinY = (minTemp / 5).floor() * 5.0 - 5.0;
       chartMaxY = (maxTemp / 5).ceil() * 5.0 + 5.0;
 
+      // КРИТИЧНЕ ВИПРАВЛЕННЯ:
+      // Градієнт LinearGradient у LineChartBarData малюється від outMin до outMax лінії.
+      // Нам потрібно знайти, де 0.0 всередині діапазону [outMin, outMax]
+      double outRange = outMax - outMin;
+      double zeroPos;
+
+      if (outMax <= 0) {
+        zeroPos = 1.0; // Вся лінія нижче нуля (червона)
+      } else if (outMin >= 0) {
+        zeroPos = 0.0; // Вся лінія вище нуля (синя)
+      } else {
+        // Рахуємо відсоток, де знаходиться нуль
+        zeroPos = (0.0 - outMin) / outRange;
+      }
+
+      zeroPos = zeroPos.clamp(0.0, 1.0);
+      const double delta = 0.001;
+
       lines = [
-        _buildLineData(_allData, (m) => m.temperatureOut, Colors.blue),
         _buildLineData(_allData, (m) => m.temperatureIn, Colors.green),
+        _buildLineData(
+          _allData,
+              (m) => m.temperatureOut,
+          null,
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [
+              Colors.red,
+              Colors.red,
+              Colors.blue,
+              Colors.blue,
+            ],
+            stops: [
+              0.0,
+              (zeroPos - delta).clamp(0.0, 1.0),
+              (zeroPos + delta).clamp(0.0, 1.0),
+              1.0
+            ],
+          ),
+        ),
       ];
     } else {
       chartMinY = 0;
@@ -374,16 +420,23 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
     );
   }
 
-  LineChartBarData _buildLineData(List<AnalyticModel> data, double Function(AnalyticModel) getValue, Color color) {
+  LineChartBarData _buildLineData(
+      List<AnalyticModel> data,
+      double Function(AnalyticModel) getValue,
+      Color? color,
+      {Gradient? gradient}
+      ) {
     return LineChartBarData(
       spots: data.map((m) => FlSpot(m.timestamp.toDouble(), getValue(m))).toList(),
       isCurved: true,
       color: color,
+      gradient: gradient, // Додано підтримку градієнта
       barWidth: 2,
       dotData: const FlDotData(show: false),
       belowBarData: BarAreaData(
         show: true,
-        color: color.withValues(alpha: 0.1),
+        // Прозорий фон під лінією
+        color: (color ?? Colors.blue).withValues(alpha: 0.1),
       ),
     );
   }
