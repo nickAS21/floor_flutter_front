@@ -272,13 +272,13 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
                   style: TextStyle(fontSize: isLandscape ? 9 : 10, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(width: 12), // Фіксований відступ замість spaceBetween
-                statRow("Sol", selectedData.solarPower / 1000.0, Colors.blue, " kW/h"),
+                statRow("Sol", selectedData.solarPower / 1000.0, Colors.blue, " kW"),
                 const SizedBox(width: 10),
-                statRow("Load", selectedData.homePower / 1000.0, Colors.red, " kW/h"),
+                statRow("Load", selectedData.homePower / 1000.0, Colors.red, " kW"),
                 const SizedBox(width: 10),
                 statRow("SOC", selectedData.bmsSoc, Colors.green, "%"),
                 const SizedBox(width: 10),
-                statRow("Grid", selectedData.gridPower / 1000.0, Colors.orange, " kW/h"),
+                statRow("Grid", selectedData.gridPower / 1000.0, Colors.orange, " kW"),
               ],
             ),
           ),
@@ -804,8 +804,13 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
   Widget statRow(String label, dynamic val, Color col, [String unit = ""]) {
     String display;
     if (val is num) {
-      // Температура (малі числа) - 1 знак, Потужність (великі) - 2 знаки
+      // Якщо значення менше 1 (наприклад 0.05 kW), показуємо 3 знаки (0.050)
+      // Якщо більше (наприклад 230V або 77% SOC), показуємо 1 або 2
+      if (val.abs() < 1.0 && val.abs() > 0) {
+        display = val.toStringAsFixed(3);
+      } else {
       display = val.abs() < 20 ? val.toStringAsFixed(1) : val.toStringAsFixed(2);
+    }
     } else {
       display = val.toString();
     }
