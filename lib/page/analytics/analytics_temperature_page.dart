@@ -233,9 +233,21 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
     double baseWidth = isLandscape ? screenWidth * 1.5 : screenWidth;
     double chartWidth = baseWidth * chartScale;
 
-    var firstDate = DateTime.fromMillisecondsSinceEpoch(_allData.first.timestamp, isUtc: true);
-    double minX = DateTime.utc(firstDate.year, firstDate.month, firstDate.day).millisecondsSinceEpoch.toDouble();
-    double maxX = DateTime.utc(firstDate.year, firstDate.month, firstDate.day + 1).millisecondsSinceEpoch.toDouble();
+    // 1. Фактичні межі даних, які прийшли з беку (вже відсортовані)
+    double actualMinX = _allData.first.timestamp.toDouble();
+    double actualMaxX = _allData.last.timestamp.toDouble();
+
+// 2. Межі обраної доби (UTC 00:00 - 24:00)
+    final DateTime dayStart = DateTime.utc(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    double targetMinX = dayStart.millisecondsSinceEpoch.toDouble();
+    double targetMaxX = dayStart.add(const Duration(days: 1)).millisecondsSinceEpoch.toDouble();
+
+    // 3. Гнучкий розрахунок:
+    // Якщо є записи за вчора (actualMinX менше 00:00 сьогодні) — розширюємо сітку вліво
+    double minX = actualMinX < targetMinX ? actualMinX : targetMinX;
+
+    // Якщо дані вилазять за межі доби (що навряд чи, але для симетрії) — розширюємо вправо
+    double maxX = actualMaxX > targetMaxX ? actualMaxX : targetMaxX;
 
     double chartMinY;
     double chartMaxY;
