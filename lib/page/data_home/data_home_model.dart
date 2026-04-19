@@ -11,6 +11,8 @@ class DataHome {
   final double gridPower;
   final double dailyConsumptionPower;
   final double dailyGridPower;
+  final double dailyGridDayPower;
+  final double dailyGridNightPower;
   final double dailyBatteryCharge;
   final double dailyBatteryDischarge;
   final double dailyProductionSolarPower;
@@ -29,6 +31,8 @@ class DataHome {
     required this.gridPower,
     required this.dailyConsumptionPower,
     required this.dailyGridPower,
+    required this.dailyGridDayPower,
+    required this.dailyGridNightPower,
     required this.dailyBatteryCharge,
     required this.dailyBatteryDischarge,
     required this.dailyProductionSolarPower,
@@ -56,6 +60,8 @@ class DataHome {
       gridPower: (json['gridPower'] ?? 0).toDouble(),
       dailyConsumptionPower: (json['dailyConsumptionPower'] ?? json['consumptionPower'] ?? 0).toDouble(),
       dailyGridPower: (json['dailyGridPower'] ?? 0).toDouble(),
+      dailyGridDayPower: (json['dailyGridDayPower'] ?? 0).toDouble(), // Додано
+      dailyGridNightPower: (json['dailyGridNightPower'] ?? 0).toDouble(), // Додано
       dailyBatteryCharge: (json['dailyBatteryCharge'] ?? 0).toDouble(),
       dailyBatteryDischarge: (json['dailyBatteryDischarge'] ?? 0).toDouble(),
       dailyProductionSolarPower: (json['dailyProductionSolarPower'] ?? 0).toDouble(),

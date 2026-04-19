@@ -239,6 +239,7 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
     for (var m in data) {
       if (m.solarPower / 1000.0 > maxPowerkW) maxPowerkW = m.solarPower / 1000.0;
       if (m.homePower / 1000.0 > maxPowerkW) maxPowerkW = m.homePower / 1000.0;
+      if (m.gridPower / 1000.0 > maxPowerkW) maxPowerkW = m.gridPower / 1000.0;
     }
     double powerMaxY = maxPowerkW * 1.15;
     double ratio = 100 / powerMaxY;

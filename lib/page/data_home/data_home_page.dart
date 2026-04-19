@@ -28,11 +28,11 @@ class _HomePageState extends RefreshableState<HomePage> with SingleTickerProvide
   AnimationController? _animController;
   bool _hasShownAlarmSnippet = false;
 
-  static const double solarY = -0.85;
+  static const double solarY = -0.94;
   static const double inverterY = -0.15;
   static const double gridY = 0.85;
-  static const double bottomNodesY = 0.5;
-  static const double sideNodesX = 0.82;
+  static const double bottomNodesY = 0.15;
+  static const double sideNodesX = 0.75;
 
   @override
   void refresh() {
@@ -185,11 +185,12 @@ class _HomePageState extends RefreshableState<HomePage> with SingleTickerProvide
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
           child: Column(
             children: [
               Container(
-                height: MediaQuery.of(context).size.height * 0.55,
-                constraints: const BoxConstraints(minHeight: 380),
+                height: MediaQuery.of(context).size.height * 0.44,
+                constraints: const BoxConstraints(minHeight: 310),
                 child: AnimatedBuilder(
                   animation: _animController!,
                   builder: (context, child) {
@@ -236,7 +237,7 @@ class _HomePageState extends RefreshableState<HomePage> with SingleTickerProvide
                 ),
               ),
               _buildBottomStats(_dataHome!),
-              const SizedBox(height: 20),
+              const SizedBox(height: 5),
             ],
           ),
         ),
@@ -267,10 +268,10 @@ class _HomePageState extends RefreshableState<HomePage> with SingleTickerProvide
             val,
             textAlign: TextAlign.center,
             style: TextStyle(
-                fontSize: 12,
+                fontSize: isGrid ? 10 : 11, // Трохи менший шрифт для мережі
                 fontWeight: FontWeight.bold,
                 color: (isAlarm || (isGrid && !status)) ? Colors.red : Colors.black,
-                height: 1.2
+                height: 1.1 // Щільніші рядки
             ),
           ),
         ],
@@ -288,6 +289,8 @@ class _HomePageState extends RefreshableState<HomePage> with SingleTickerProvide
           _buildStatCard("${data.dailyConsumptionPower.toStringAsFixed(1)} kWh", AppLocalizations.of(context)!.dailyLoad, Icons.home_outlined),
           _buildStatCard("${data.dailyBatteryCharge.toStringAsFixed(1)} kWh", AppLocalizations.of(context)!.dailyBatteryCharge, Icons.battery_charging_full),
           _buildStatCard("${data.dailyBatteryDischarge.toStringAsFixed(1)} kWh", AppLocalizations.of(context)!.dailyBatteryDischarge, Icons.battery_std),
+          _buildStatCard("${data.dailyGridDayPower.toStringAsFixed(1)} kWh", "Grid Day", Icons.wb_sunny),
+          _buildStatCard("${data.dailyGridNightPower.toStringAsFixed(1)} kWh", "Grid Night", Icons.nightlight_round),
           _buildStatCard("${data.dailyGridPower.toStringAsFixed(1)} kWh", AppLocalizations.of(context)!.dailyGrid, Icons.electrical_services),
         ],
       ),
@@ -295,7 +298,7 @@ class _HomePageState extends RefreshableState<HomePage> with SingleTickerProvide
   }
 
   Widget _buildStatCard(String val, String label, IconData icon) {
-    double cardWidth = MediaQuery.of(context).size.width > 600 ? 180 : (MediaQuery.of(context).size.width / 2) - 20;
+    double cardWidth = MediaQuery.of(context).size.width > 600 ? 160 : (MediaQuery.of(context).size.width / 2) - 20;
     return Container(
       width: cardWidth, padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.05), blurRadius: 4)]),
