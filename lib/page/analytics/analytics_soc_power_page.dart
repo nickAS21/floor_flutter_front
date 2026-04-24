@@ -342,86 +342,73 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
   Widget build(BuildContext context) {
     final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
-    Widget mainContent = Column(
-      children: [
-        // ПАНЕЛЬ КЕРУВАННЯ
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(widget.location.label,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)),
-                    Text(
-                      _currentMode == ViewMode.day
-                          ? DateFormat('dd.MM.yyyy').format(_selectedDate)
-                          : _currentMode == ViewMode.month
-                          ? DateFormat('MMMM yyyy', 'uk').format(_selectedDate)
-                          : _currentMode == ViewMode.year
-                          ? "Рік: ${_selectedDate.year}"
-                          : "${DateFormat('dd.MM').format(_startDate)} - ${DateFormat('dd.MM.yyyy').format(_endDate)}",
-                      style: TextStyle(fontSize: 12, color: Colors.grey[800], fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(icon: const Icon(Icons.upload_file, size: 20, color: Colors.black), onPressed: _importExcel),
-              IconButton(icon: const Icon(Icons.calendar_today, size: 20, color: Colors.black), onPressed: _pickDate),
-
-              // ТІЛЬКИ ОДИН СЕЛЕКТОР МАСШТАБУ
-              buildScaleSelector(),
-
-              PopupMenuButton<ViewMode>(
-                icon: const Icon(Icons.tune, size: 20, color: Colors.black),
-                onSelected: (val) async {
-                  switch (val) {
-                    case ViewMode.period: await _pickPeriod(); break;
-                    case ViewMode.month: await _pickMonth(); break;
-                    case ViewMode.year: await _pickYear(); break;
-                    default: break;
-                  }
-                },
-                itemBuilder: (ctx) => [
-                  const PopupMenuItem(value: ViewMode.month, child: Text("Місяць")),
-                  const PopupMenuItem(value: ViewMode.year, child: Text("Рік")),
-                  const PopupMenuItem(value: ViewMode.period, child: Text("Період")),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-
-        // КОНТЕНТ ГРАФІКА
-        isLandscape
-            ? ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 350),
-          child: (_currentMode == ViewMode.month || _currentMode == ViewMode.year)
-              ? _buildBarChart(_allData)
-              : _buildCombinedCharts(_allData, isLandscape),
-        )
-            : Expanded(
-          child: (_currentMode == ViewMode.month || _currentMode == ViewMode.year)
-              ? _buildBarChart(_allData)
-              : _buildCombinedCharts(_allData, isLandscape),
-        ),
-
-        // СТАТИСТИКА ВНИЗУ
-        if (!isLandscape && _allData.isNotEmpty) _buildStats(_allData.last),
-      ],
-    );
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : isLandscape
-            ? SingleChildScrollView(child: mainContent)
-            : mainContent,
+            : Column(
+          children: [
+            // 1. ПАНЕЛЬ КЕРУВАННЯ (завжди зверху, фіксована висота)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(widget.location.label,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)),
+                        Text(
+                          _currentMode == ViewMode.day
+                              ? DateFormat('dd.MM.yyyy').format(_selectedDate)
+                              : _currentMode == ViewMode.month
+                              ? DateFormat('MMMM yyyy', 'uk').format(_selectedDate)
+                              : _currentMode == ViewMode.year
+                              ? "Рік: ${_selectedDate.year}"
+                              : "${DateFormat('dd.MM').format(_startDate)} - ${DateFormat('dd.MM.yyyy').format(_endDate)}",
+                          style: TextStyle(fontSize: 12, color: Colors.grey[800], fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(icon: const Icon(Icons.upload_file, size: 20, color: Colors.black), onPressed: _importExcel),
+                  IconButton(icon: const Icon(Icons.calendar_today, size: 20, color: Colors.black), onPressed: _pickDate),
+
+                  buildScaleSelector(), // Твій селектор масштабу
+
+                  PopupMenuButton<ViewMode>(
+                    icon: const Icon(Icons.tune, size: 20, color: Colors.black),
+                    onSelected: (val) async {
+                      switch (val) {
+                        case ViewMode.period: await _pickPeriod(); break;
+                        case ViewMode.month: await _pickMonth(); break;
+                        case ViewMode.year: await _pickYear(); break;
+                        default: break;
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(value: ViewMode.month, child: Text("Місяць")),
+                      const PopupMenuItem(value: ViewMode.year, child: Text("Рік")),
+                      const PopupMenuItem(value: ViewMode.period, child: Text("Період")),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+
+            Expanded(
+              child: (_currentMode == ViewMode.month || _currentMode == ViewMode.year)
+                  ? _buildBarChart(_allData)
+                  : _buildCombinedCharts(_allData, isLandscape),
+            ),
+
+            if (_allData.isNotEmpty)
+              _buildStats(_allData.last),
+          ],
+        ),
       ),
     );
   }

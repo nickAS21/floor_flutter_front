@@ -229,97 +229,72 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
 
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-
     double baseWidth = isLandscape ? screenWidth * 1.5 : screenWidth;
     double chartWidth = baseWidth * chartScale;
 
-    // 1. Фактичні межі даних, які прийшли з беку (вже відсортовані)
-    double actualMinX = _allData.first.timestamp.toDouble();
-    double actualMaxX = _allData.last.timestamp.toDouble();
+    double minX = _allData.first.timestamp.toDouble();
+    double maxX = _allData.last.timestamp.toDouble();
 
-// 2. Межі обраної доби (UTC 00:00 - 24:00)
     final DateTime dayStart = DateTime.utc(_selectedDate.year, _selectedDate.month, _selectedDate.day);
     double targetMinX = dayStart.millisecondsSinceEpoch.toDouble();
     double targetMaxX = dayStart.add(const Duration(days: 1)).millisecondsSinceEpoch.toDouble();
 
-    // 3. Гнучкий розрахунок:
-    // Якщо є записи за вчора (actualMinX менше 00:00 сьогодні) — розширюємо сітку вліво
-    double minX = actualMinX < targetMinX ? actualMinX : targetMinX;
-
-    // Якщо дані вилазять за межі доби (що навряд чи, але для симетрії) — розширюємо вправо
-    double maxX = actualMaxX > targetMaxX ? actualMaxX : targetMaxX;
+    if (minX > targetMinX) minX = targetMinX;
+    if (maxX < targetMaxX) maxX = targetMaxX;
 
     double chartMinY;
     double chartMaxY;
-    List<LineChartBarData> lines = [];
 
     if (widget.isTemperature) {
       double minTemp = 100.0;
       double maxTemp = -100.0;
-
-      // Знаходимо реальні межі саме значень Out T для градієнта
-      double outMin = 100.0;
-      double outMax = -100.0;
-
       for (var m in _allData) {
         if (m.temperatureOut < minTemp) minTemp = m.temperatureOut;
         if (m.temperatureIn < minTemp) minTemp = m.temperatureIn;
         if (m.temperatureOut > maxTemp) maxTemp = m.temperatureOut;
         if (m.temperatureIn > maxTemp) maxTemp = m.temperatureIn;
-
-        // Окремо для Out лінії
-        if (m.temperatureOut < outMin) outMin = m.temperatureOut;
-        if (m.temperatureOut > outMax) outMax = m.temperatureOut;
       }
-
       chartMinY = (minTemp / 5).floor() * 5.0 - 5.0;
       chartMaxY = (maxTemp / 5).ceil() * 5.0 + 5.0;
-
-      // КРИТИЧНЕ ВИПРАВЛЕННЯ:
-      // Градієнт LinearGradient у LineChartBarData малюється від outMin до outMax лінії.
-      // Нам потрібно знайти, де 0.0 всередині діапазону [outMin, outMax]
-      double outRange = outMax - outMin;
-      double zeroPos;
-
-      if (outMax <= 0) {
-        zeroPos = 1.0; // Вся лінія нижче нуля (червона)
-      } else if (outMin >= 0) {
-        zeroPos = 0.0; // Вся лінія вище нуля (синя)
-      } else {
-        // Рахуємо відсоток, де знаходиться нуль
-        zeroPos = (0.0 - outMin) / outRange;
-      }
-
-      zeroPos = zeroPos.clamp(0.0, 1.0);
-      const double delta = 0.001;
-
-      lines = [
-        _buildLineData(_allData, (m) => m.temperatureIn, Colors.green),
-        _buildLineData(
-          _allData,
-              (m) => m.temperatureOut,
-          null,
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [
-              Colors.red,
-              Colors.red,
-              Colors.blue,
-              Colors.blue,
-            ],
-            stops: [
-              0.0,
-              (zeroPos - delta).clamp(0.0, 1.0),
-              (zeroPos + delta).clamp(0.0, 1.0),
-              1.0
-            ],
-          ),
-        ),
-      ];
     } else {
       chartMinY = 0;
       chartMaxY = 105;
+    }
+
+    // СТАБІЛЬНИЙ ГРАДІЄНТ (Без розрахунку stops в real-time)
+    Gradient? buildFixedGradient(double Function(AnalyticModel) getter, Color posColor) {
+      double lMin = 100.0;
+      double lMax = -100.0;
+      for (var m in _allData) {
+        double v = getter(m);
+        if (v < lMin) lMin = v;
+        if (v > lMax) lMax = v;
+      }
+
+      if (lMin >= 0) return LinearGradient(colors: [posColor, posColor]);
+      if (lMax <= 0) return const LinearGradient(colors: [Colors.red, Colors.red]);
+
+      double range = lMax - lMin;
+      double stop = (0.0 - lMin) / range;
+      stop = stop.clamp(0.0, 1.0);
+
+      return LinearGradient(
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
+        colors: [Colors.red, Colors.red, posColor, posColor],
+        stops: [0.0, stop, stop, 1.0],
+      );
+    }
+
+    List<LineChartBarData> lines = [];
+    if (widget.isTemperature) {
+      lines = [
+        _buildLineData(_allData, (m) => m.temperatureIn, null,
+            gradient: buildFixedGradient((m) => m.temperatureIn, Colors.green)),
+        _buildLineData(_allData, (m) => m.temperatureOut, null,
+            gradient: buildFixedGradient((m) => m.temperatureOut, Colors.blue)),
+      ];
+    } else {
       lines = [
         _buildLineData(_allData, (m) => m.humidityOut, Colors.deepPurple),
         _buildLineData(_allData, (m) => m.humidityIn, Colors.brown),
@@ -339,32 +314,35 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
           padding: const EdgeInsets.only(left: 10, right: 30, bottom: 15),
           child: LineChart(
             LineChartData(
-              minX: minX,
-              maxX: maxX,
-              minY: chartMinY,
-              maxY: chartMaxY,
+              minX: minX, maxX: maxX, minY: chartMinY, maxY: chartMaxY,
               clipData: const FlClipData.all(),
               lineTouchData: LineTouchData(
                 handleBuiltInTouches: true,
+                // ВИМИКАЄМО ЕФЕКТ ПІДСВІТКИ ЛІНІЇ ПРИ НАВЕДЕННІ
+                enabled: true,
                 touchCallback: (event, res) {
                   if (res == null || res.lineBarSpots == null || res.lineBarSpots!.isEmpty) {
-                    setState(() { _touchedGroupIndex = -1; });
+                    if (_touchedGroupIndex != -1) setState(() => _touchedGroupIndex = -1);
                     return;
                   }
-                  setState(() {
-                    _touchedGroupIndex = res.lineBarSpots!.first.spotIndex;
-                  });
+                  int newIndex = res.lineBarSpots!.first.spotIndex;
+                  if (_touchedGroupIndex != newIndex) {
+                    setState(() => _touchedGroupIndex = newIndex);
+                  }
                 },
+                // ПОВНІСТЮ СТАТИЧНА ЛІНІЯ (вона не реагує на тач зміною товщини чи кольору)
                 getTouchedSpotIndicator: (barData, spotIndexes) {
                   return spotIndexes.map((index) {
+                    final spot = barData.spots[index];
                     return TouchedSpotIndicatorData(
-                      FlLine(color: Colors.grey.withValues(alpha: 0.4), strokeWidth: 2),
-                      FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
-                          radius: 3.0, color: Colors.white, strokeColor: barData.color ?? Colors.black, strokeWidth: 1.5,
-                        ),
-                      ),
+                      FlLine(color: Colors.grey.withOpacity(0.4), strokeWidth: 2),
+                      FlDotData(show: true, getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                        radius: 3.5,
+                        color: Colors.white,
+                        // СУВОРИЙ КОЛІР ТОЧКИ
+                        strokeColor: spot.y < 0 ? Colors.red : (barData.gradient?.colors.last ?? barData.color ?? Colors.black),
+                        strokeWidth: 2.0,
+                      )),
                     );
                   }).toList();
                 },
@@ -374,53 +352,33 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
                 ),
               ),
               gridData: FlGridData(
-                show: true,
-                drawVerticalLine: true,
-                verticalInterval: 3600000,
+                show: true, drawVerticalLine: true, verticalInterval: 3600000,
                 checkToShowVerticalLine: (v) => DateTime.fromMillisecondsSinceEpoch(v.toInt(), isUtc: true).hour % 4 == 0,
                 getDrawingVerticalLine: (v) {
                   final date = DateTime.fromMillisecondsSinceEpoch(v.toInt(), isUtc: true);
-                  return date.hour == 0 ? FlLine(color: Colors.black, strokeWidth: 1.5) : FlLine(color: Colors.black.withValues(alpha: 0.05), strokeWidth: 0.5);
+                  return date.hour == 0 ? FlLine(color: Colors.black, strokeWidth: 1.5) : FlLine(color: Colors.black.withOpacity(0.05), strokeWidth: 0.5);
                 },
                 horizontalInterval: widget.isTemperature ? 5 : 20,
-                getDrawingHorizontalLine: (v) => FlLine(color: Colors.black.withValues(alpha: 0.05), strokeWidth: 1),
+                getDrawingHorizontalLine: (v) => FlLine(color: (v == 0 && widget.isTemperature) ? Colors.black.withOpacity(0.4) : Colors.black.withOpacity(0.05), strokeWidth: (v == 0 && widget.isTemperature) ? 1.0 : 0.5),
               ),
               titlesData: FlTitlesData(
-                leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 35,
-                        interval: widget.isTemperature ? 5 : 20,
-                        getTitlesWidget: (v, m) {
-                          if (!widget.isTemperature && v > 100) return const SizedBox();
-                          String unit = widget.isTemperature ? "°" : "%";
-                          return Text("${v.toInt()}$unit", style: const TextStyle(fontSize: 8));
-                        }
-                    )
-                ),
+                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 35, interval: widget.isTemperature ? 5 : 20, getTitlesWidget: (v, m) {
+                  return Text("${v.toInt()}${widget.isTemperature ? "°" : "%"}", style: const TextStyle(fontSize: 8));
+                })),
                 rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    interval: 3600000,
-                    getTitlesWidget: (v, m) {
-                      final date = DateTime.fromMillisecondsSinceEpoch(v.toInt(), isUtc: true);
-                      if ((v - maxX).abs() < 1000) return SideTitleWidget(meta: m, child: const Text("24:00", style: TextStyle(fontSize: 8)));
-                      if (date.minute != 0 || date.hour % 4 != 0) return const SizedBox();
-                      if (date.hour == 0 && date.minute == 0) {
-                        return SideTitleWidget(
-                          meta: m,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                            decoration: BoxDecoration(border: Border.all(color: Colors.black), borderRadius: BorderRadius.circular(4), color: Colors.white),
-                            child: Text(DateFormat('dd.MM').format(date), style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold)),
-                          ),
-                        );
-                      }
-                      return SideTitleWidget(meta: m, child: Text("${date.hour}:00", style: const TextStyle(fontSize: 8)));
-                    },
-                  ),
-                ),
+                bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, interval: 3600000, getTitlesWidget: (v, m) {
+                  final date = DateTime.fromMillisecondsSinceEpoch(v.toInt(), isUtc: true);
+                  if ((v - maxX).abs() < 1000) return SideTitleWidget(meta: m, child: const Text("24:00", style: TextStyle(fontSize: 8)));
+                  if (date.minute != 0 || date.hour % 4 != 0) return const SizedBox();
+                  if (date.hour == 0 && date.minute == 0) {
+                    return SideTitleWidget(meta: m, child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                      decoration: BoxDecoration(border: Border.all(color: Colors.black), borderRadius: BorderRadius.circular(4), color: Colors.white),
+                      child: Text(DateFormat('dd.MM').format(date), style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold)),
+                    ));
+                  }
+                  return SideTitleWidget(meta: m, child: Text("${date.hour}:00", style: const TextStyle(fontSize: 8)));
+                })),
                 topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
               borderData: FlBorderData(show: true, border: Border.all(color: Colors.black12)),
@@ -429,6 +387,18 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
           ),
         ),
       ),
+    );
+  }
+
+  // Допоміжний метод для малювання сегмента лінії
+  LineChartBarData _buildSimpleLine(List<AnalyticModel> points, double Function(AnalyticModel) getter, Color color) {
+    return LineChartBarData(
+      spots: points.map((p) => FlSpot(p.timestamp.toDouble(), getter(p))).toList(),
+      isCurved: false, // Для сегментів краще false, щоб не було артефактів на стиках
+      color: color,
+      barWidth: 2,
+      dotData: const FlDotData(show: false),
+      belowBarData: BarAreaData(show: true, color: color.withValues(alpha: 0.05)),
     );
   }
 
