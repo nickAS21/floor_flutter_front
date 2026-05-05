@@ -339,17 +339,19 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
       backgroundColor: Colors.white,
+      // Убираем SingleChildScrollView отсюда
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : Column(
           children: [
-            // 1. ПАНЕЛЬ КЕРУВАННЯ (завжди зверху, фіксована висота)
+            // 1. ПАНЕЛЬ КЕРУВАННЯ (Фиксированная высота)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
@@ -375,9 +377,7 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
                   ),
                   IconButton(icon: const Icon(Icons.upload_file, size: 20, color: Colors.black), onPressed: _importExcel),
                   IconButton(icon: const Icon(Icons.calendar_today, size: 20, color: Colors.black), onPressed: _pickDate),
-
-                  buildScaleSelector(), // Твій селектор масштабу
-
+                  buildScaleSelector(),
                   PopupMenuButton<ViewMode>(
                     icon: const Icon(Icons.tune, size: 20, color: Colors.black),
                     onSelected: (val) async {
@@ -399,14 +399,19 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
             ),
             const Divider(height: 1),
 
+            // 2. ГРАФИК (Занимает все доступное место)
             Expanded(
               child: (_currentMode == ViewMode.month || _currentMode == ViewMode.year)
                   ? _buildBarChart(_allData)
                   : _buildCombinedCharts(_allData, isLandscape),
             ),
 
-            if (_allData.isNotEmpty)
+            // 3. НИЖНЯЯ ПАНЕЛЬ (Скрываем или уменьшаем в Landscape)
+            if (_allData.isNotEmpty && !isLandscape)
               _buildStats(_allData.last),
+
+            // Если в Landscape статистика все же нужна, можно сделать её компактнее
+            // или обернуть в маленький скролл.
           ],
         ),
       ),
