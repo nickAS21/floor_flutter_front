@@ -12,6 +12,7 @@ import 'device_model.dart';
 import 'unit_model.dart';
 import 'unit_helper.dart';
 import 'inverter_model.dart';
+import 'panel_info_model.dart';
 
 class UnitPage extends StatefulWidget {
   final LocationType location;
@@ -196,7 +197,11 @@ class _UnitPageState extends RefreshableState<UnitPage> {
         if (_unitModel!.batteries.isNotEmpty)
           _buildBatteryExpansion(_unitModel!.batteries),
 
-        // 3. Мережа
+        // 3. Сонячні панелі
+        if (_unitModel!.panels != null)
+          _buildSolarPanelsExpansion(_unitModel!.panels!),
+
+        // 4. Мережа
         if (grid.isNotEmpty) ..._buildDeviceSection("Мережа (Grid)", grid),
 
         // 4. Тепла підлога
@@ -291,6 +296,98 @@ class _UnitPageState extends RefreshableState<UnitPage> {
           subtitle: Text("${b.socPercent.toInt()}% | ${b.voltageCurV.toStringAsFixed(2)}V"),
           onTap: () => _showBatteryDetails(b),
         )).toList(),
+      ),
+    );
+  }
+
+  // --- Solar Panels Widgets ---
+
+  Widget _buildSolarPanelsExpansion(PanelInfoModels panelsData) {
+    final panelsMap = panelsData.panels;
+    if (panelsMap.isEmpty) return const SizedBox.shrink();
+
+    // 1. Рахуємо сумарну потужність усіх панелей
+    final double totalPowerW = panelsMap.values
+        .fold(0.0, (sum, panel) => sum + panel.pvPowerCurW);
+
+    // 2. Перетворюємо Map у список записів та сортуємо (M1 -> S2..., потім pvIndex)
+    final sortedPanels = panelsMap.entries.toList()
+      ..sort((a, b) {
+        int parallelCompare = a.value.parallelInfo.compareTo(b.value.parallelInfo);
+        if (parallelCompare != 0) {
+          return parallelCompare;
+        }
+        return a.value.pvIndex.compareTo(b.value.pvIndex);
+      });
+
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.all(10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ExpansionTile(
+        leading: const Icon(
+          Icons.solar_power,
+          color: Colors.amber,
+          size: 40,
+        ),
+        title: Text(
+          "Сонячні панелі (${totalPowerW.toStringAsFixed(1)} W)",
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Панелей: ${sortedPanels.length}"),
+            if (panelsData.timestamp.isNotEmpty)
+              Text(
+                "Оновлено: ${panelsData.timestamp}",
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+          ],
+        ),
+        children: sortedPanels.map((entry) {
+          final key = entry.key;
+          final panel = entry.value;
+          return ListTile(
+            leading: const Icon(Icons.wb_sunny_outlined, color: Colors.orange),
+            title: Text(key),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("${panel.pvVoltageCurV.toStringAsFixed(1)} V | ${panel.pvPowerCurW.toStringAsFixed(1)} W"),
+              ],
+            ),
+            onTap: () => _showSolarPanelDetails(key, panel),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _showSolarPanelDetails(String key, PanelInfoModel panel) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Text("Панель $key"),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_unitModel?.panels?.timestamp != null && _unitModel!.panels!.timestamp.isNotEmpty)
+                _buildDetailRow("Оновлено", _unitModel!.panels!.timestamp, Colors.grey),
+              _buildDetailRow("Паралель", panel.parallelInfo, Colors.blueGrey),
+              _buildDetailRow("Індекс PV", "${panel.pvIndex}", null),
+              _buildDetailRow("Потужність", "${panel.pvPowerCurW.toStringAsFixed(1)} W", Colors.orange),
+              _buildDetailRow("Напруга", "${panel.pvVoltageCurV.toStringAsFixed(1)} V", Colors.blue),
+              _buildDetailRow("Струм", "${panel.pvCurrentCurA.toStringAsFixed(2)} A", Colors.green),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Закрити"))
+        ],
       ),
     );
   }
