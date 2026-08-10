@@ -1,3 +1,5 @@
+import '../unit/panel_info_model.dart';
+
 class AnalyticModel {
   final int timestamp;
   final String location;
@@ -18,6 +20,7 @@ class AnalyticModel {
   final double temperatureIn;
   final double humidityIn;
   final double luminanceIn;
+  final PanelInfoModels? panelInfoDtos;
 
   AnalyticModel({
     required this.timestamp,
@@ -39,6 +42,7 @@ class AnalyticModel {
     required this.temperatureIn,
     required this.humidityIn,
     required this.luminanceIn,
+    this.panelInfoDtos,
   });
 
   static double _toDouble(dynamic value) {
@@ -68,6 +72,9 @@ class AnalyticModel {
       temperatureIn: _toDouble(json['temperatureIn']),
       humidityIn: _toDouble(json['humidityIn']),
       luminanceIn: _toDouble(json['luminanceIn']),
+      panelInfoDtos: json['panelInfoDtos'] != null
+          ? PanelInfoModels.fromJson(json['panelInfoDtos'])
+          : null,
     );
   }
 
@@ -91,5 +98,6 @@ class AnalyticModel {
     'temperatureIn': temperatureIn,
     'humidityIn': humidityIn,
     'luminanceIn': luminanceIn,
+    'panelInfoDtos': panelInfoDtos,
   };
 }

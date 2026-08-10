@@ -3,6 +3,7 @@ import '../data_home/data_location_type.dart';
 import '../refreshable_state.dart';
 import 'analytics_soc_power_page.dart';
 import 'analytics_temperature_page.dart';
+import 'analytics_solar_panels_page.dart';
 
 class AnalyticsPage extends StatefulWidget {
   final LocationType location;
@@ -14,9 +15,10 @@ class AnalyticsPage extends StatefulWidget {
 
 class _AnalyticsPageState extends RefreshableState<AnalyticsPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final List<String> _tabNames = ["Power & SOC", "Temperature", "L & H"];
+  final List<String> _tabNames = ["Power & SOC", "Temperature", "L & H", "Solar Panels"];
 
   final List<GlobalKey<RefreshableState>> _innerKeys = [
+    GlobalKey<RefreshableState>(),
     GlobalKey<RefreshableState>(),
     GlobalKey<RefreshableState>(),
     GlobalKey<RefreshableState>(),
@@ -32,7 +34,7 @@ class _AnalyticsPageState extends RefreshableState<AnalyticsPage> with SingleTic
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -49,6 +51,7 @@ class _AnalyticsPageState extends RefreshableState<AnalyticsPage> with SingleTic
         toolbarHeight: 0, // Приховуємо верхню частину (заголовок), залишаємо тільки таби
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
           tabs: _tabNames.map((name) => Tab(text: name)).toList(),
         ),
       ),
@@ -58,6 +61,7 @@ class _AnalyticsPageState extends RefreshableState<AnalyticsPage> with SingleTic
           AnalyticsSocPowerPage(key: _innerKeys[0], location: widget.location),
           AnalyticsTemperaturePage(key: _innerKeys[1], location: widget.location, isTemperature: true),
           AnalyticsTemperaturePage(key: _innerKeys[2], location: widget.location, isTemperature: false),
+          AnalyticsSolarPanelsPage(key: _innerKeys[3], location: widget.location),
         ],
       ),
     );

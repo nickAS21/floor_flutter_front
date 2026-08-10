@@ -29,7 +29,7 @@ class HistoryDetailsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final batteries = record.batteries ?? [];
-    final panelsData = record.panels;
+    final panelsData = record.panelInfos;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.75,

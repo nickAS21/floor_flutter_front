@@ -6,13 +6,13 @@ import 'panel_info_model.dart';
 class UnitModel {
   final InverterModel? inverter;
   final List<BatteryInfoModel> batteries;
-  final PanelInfoModels? panels;
+  final PanelInfoModels? panelInfos;
   final List<DeviceModel> devices;
 
   UnitModel({
     this.inverter,
     required this.batteries,
-    this.panels,
+    this.panelInfos,
     required this.devices,
   });
 
@@ -24,8 +24,8 @@ class UnitModel {
       batteries: (json['batteries'] as List? ?? [])
           .map((e) => BatteryInfoModel.fromJson(e))
           .toList(),
-      panels: json['panels'] != null
-          ? PanelInfoModels.fromJson(json['panels'])
+      panelInfos: json['panelInfoDtos'] != null
+          ? PanelInfoModels.fromJson(json['panelInfoDtos'])
           : null,
       devices: (json['devices'] as List? ?? [])
           .map((e) => DeviceModel.fromJson(e))

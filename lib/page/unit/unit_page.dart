@@ -198,8 +198,8 @@ class _UnitPageState extends RefreshableState<UnitPage> {
           _buildBatteryExpansion(_unitModel!.batteries),
 
         // 3. Сонячні панелі
-        if (_unitModel!.panels != null)
-          _buildSolarPanelsExpansion(_unitModel!.panels!),
+        if (_unitModel!.panelInfos != null)
+          _buildSolarPanelsExpansion(_unitModel!.panelInfos!),
 
         // 4. Мережа
         if (grid.isNotEmpty) ..._buildDeviceSection("Мережа (Grid)", grid),
@@ -375,8 +375,8 @@ class _UnitPageState extends RefreshableState<UnitPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (_unitModel?.panels?.timestamp != null && _unitModel!.panels!.timestamp.isNotEmpty)
-                _buildDetailRow("Оновлено", _unitModel!.panels!.timestamp, Colors.grey),
+              if (_unitModel?.panelInfos?.timestamp != null && _unitModel!.panelInfos!.timestamp.isNotEmpty)
+                _buildDetailRow("Оновлено", _unitModel!.panelInfos!.timestamp, Colors.grey),
               _buildDetailRow("Паралель", panel.parallelInfo, Colors.blueGrey),
               _buildDetailRow("Індекс PV", "${panel.pvIndex}", null),
               _buildDetailRow("Потужність", "${panel.pvPowerCurW.toStringAsFixed(1)} W", Colors.orange),

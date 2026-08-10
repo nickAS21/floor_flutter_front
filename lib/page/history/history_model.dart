@@ -12,7 +12,7 @@ class HistoryModel {
   final String inverterPortConnectionStatus;
   final Map<String, dynamic>? dataHome;
   final List<dynamic>? batteries;
-  final PanelInfoModels? panels;
+  final PanelInfoModels? panelInfos;
 
   HistoryModel({
     required this.timestamp,
@@ -26,7 +26,7 @@ class HistoryModel {
     required this.inverterPortConnectionStatus,
     this.dataHome,
     this.batteries,
-    this.panels,
+    this.panelInfos,
   });
 
   factory HistoryModel.fromJson(Map<String, dynamic> json) {
@@ -42,8 +42,8 @@ class HistoryModel {
       inverterPortConnectionStatus: json['inverterPortConnectionStatus'] ?? '--',
       dataHome: json['dataHome'] as Map<String, dynamic>?,
       batteries: json['batteries'] as List<dynamic>?,
-      panels: json['panels'] != null
-          ? PanelInfoModels.fromJson(json['panels'] as Map<String, dynamic>)
+      panelInfos: json['panelInfoDtos'] != null
+          ? PanelInfoModels.fromJson(json['panelInfoDtos'] as Map<String, dynamic>)
           : null,
     );
   }
