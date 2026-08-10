@@ -15,7 +15,7 @@ class AnalyticsPage extends StatefulWidget {
 
 class _AnalyticsPageState extends RefreshableState<AnalyticsPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final List<String> _tabNames = ["Power & SOC", "Temperature", "L & H", "Solar Panels"];
+  final List<String> _tabNames = ["P & SOC", "Temp", "L & H", "Solar P"];
 
   final List<GlobalKey<RefreshableState>> _innerKeys = [
     GlobalKey<RefreshableState>(),
