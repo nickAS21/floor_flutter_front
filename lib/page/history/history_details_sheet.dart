@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../analytics/panel_info_model.dart';
 import 'history_model.dart';
-import '../unit/panel_info_model.dart';
 import '../unit/unit_helper.dart';
 import '../data_home/data_location_type.dart';
 

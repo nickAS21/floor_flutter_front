@@ -1,4 +1,4 @@
-import '../unit/panel_info_model.dart';
+import 'panel_info_model.dart';
 
 class AnalyticModel {
   final int timestamp;

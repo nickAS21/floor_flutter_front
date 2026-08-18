@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../helpers/api_server_helper.dart';
 import '../../helpers/app_helper.dart';
 import '../data_home/data_location_type.dart';
-import 'analitic_model.dart';
+import 'analytic_model.dart';
 
 class AnalyticConnectService {
 

@@ -1,7 +1,7 @@
+import '../analytics/panel_info_model.dart';
 import 'battery_info_model.dart';
 import 'device_model.dart';
 import 'inverter_model.dart';
-import 'panel_info_model.dart';
 
 class UnitModel {
   final InverterModel? inverter;

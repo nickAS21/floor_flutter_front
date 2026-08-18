@@ -4,8 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../data_home/data_location_type.dart';
 import '../refreshable_state.dart';
-import 'analitic_model.dart';
-import 'anaytic_connect_service.dart';
+import 'analytic_model.dart';
+import 'analytic_connect_service.dart';
 
 class AnalyticsTemperaturePage extends StatefulWidget {
   final LocationType location;

@@ -6,9 +6,9 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../data_home/data_location_type.dart';
 import '../refreshable_state.dart';
-import 'analitic_model.dart';
+import 'analytic_model.dart';
 import 'analytic_enums.dart';
-import 'anaytic_connect_service.dart';
+import 'analytic_connect_service.dart';
 import 'month_picker.dart';
 
 class AnalyticsSocPowerPage extends StatefulWidget {

@@ -1,4 +1,4 @@
-import '../unit/panel_info_model.dart';
+import '../analytics/panel_info_model.dart';
 
 class HistoryModel {
   final int timestamp;

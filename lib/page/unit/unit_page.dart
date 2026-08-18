@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../helpers/api_server_helper.dart';
 import '../../helpers/app_helper.dart';
+import '../analytics/panel_info_model.dart';
 import '../data_home/data_location_type.dart';
 import '../refreshable_state.dart';
 import 'battery_info_model.dart';
@@ -12,7 +13,6 @@ import 'device_model.dart';
 import 'unit_model.dart';
 import 'unit_helper.dart';
 import 'inverter_model.dart';
-import 'panel_info_model.dart';
 
 class UnitPage extends StatefulWidget {
   final LocationType location;
