@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:floor_front/page/components/chart_scale_selector.dart'; // Імпорт ChartScaleSelector
 import '../data_home/data_location_type.dart';
 import '../refreshable_state.dart';
 import 'analytic_model.dart';
@@ -29,6 +30,7 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
   DateTime _endDate = DateTime.now();
   ViewMode _currentMode = ViewMode.day;
   int _touchedGroupIndex = -1;
+  double _chartScale = 1.0; // Масштаб для цієї сторінки
 
   final ScrollController _horizontalScroll = ScrollController();
 
@@ -86,7 +88,6 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
     }
   }
 
-  // СПІЛЬНИЙ ШАБЛОН ДЛЯ ОБОХ ГРАФІКІВ
   Widget _buildBaseChart({
     required List<AnalyticModel> data,
     required double maxY,
@@ -97,11 +98,9 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
   }) {
     double minX;
     double maxX;
-    // 1. Отримуємо першу точку даних як базу
     var firstDate = DateTime.fromMillisecondsSinceEpoch(data.first.timestamp, isUtc: true);
     var lastDate = DateTime.fromMillisecondsSinceEpoch(data.last.timestamp, isUtc: true);
 
-    // 2. Встановлюємо minX чітко на 00:00:00
     if (_currentMode == ViewMode.period) {
       firstDate = _startDate;
       lastDate = _endDate;
@@ -119,34 +118,30 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
       LineChartData(
         minX: minX, maxX: maxX, minY: 0, maxY: maxY,
         clipData: const FlClipData.all(),
-
         lineTouchData: LineTouchData(
           handleBuiltInTouches: true,
           touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
             if (!event.isInterestedForInteractions || touchResponse == null || touchResponse.lineBarSpots == null) {
-              // Якщо прибрали палець — не скидаємо індекс відразу, або скидаємо на -1
               return;
             }
-            // Отримуємо індекс точки, на яку навів користувач
             setState(() => _touchedGroupIndex = touchResponse.lineBarSpots!.first.spotIndex);
           },
           touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => Colors.transparent, // Ховаємо плаваючий тултіп
-            getTooltipItems: (spots) => spots.map((s) => null).toList(), // Прибираємо текст з ліній
+            getTooltipColor: (_) => Colors.transparent,
+            getTooltipItems: (spots) => spots.map((s) => null).toList(),
           ),
           getTouchedSpotIndicator: (barData, spotIndexes) {
             return spotIndexes.map((index) {
-              // Малюємо таку саму сіру риску, як у стовпчиках
               return TouchedSpotIndicatorData(
                 FlLine(color: Colors.grey.withValues(alpha: 0.4), strokeWidth: 2),
                 FlDotData(
                   show: true,
                   getDotPainter: (spot, percent, barData, index) {
                     return FlDotCirclePainter(
-                      radius: 3.0,               // Радіус кола
-                      color: Colors.white,       // Колір середини (зроби білим або прозорим)
-                      strokeColor: barData.color ?? Colors.black,        // Колір лінії по краю (твій колір графіка)
-                      strokeWidth: 1.5,          // Товщина цієї лінії
+                      radius: 3.0,
+                      color: Colors.white,
+                      strokeColor: barData.color ?? Colors.black,
+                      strokeWidth: 1.5,
                     );
                   },
                 ),
@@ -163,27 +158,21 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
             if (v % 50 == 0 || v == 100) return Text("${v.toInt()}%", style: const TextStyle(fontSize: 8, color: Colors.green));
             return const SizedBox();
           })),
-
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              interval: 3600000, // Перевіряємо кожну годину
+              interval: 3600000,
               getTitlesWidget: (v, m) {
-                // 1. Створюємо об'єкт часу суворо Local
                 final date = DateTime.fromMillisecondsSinceEpoch(v.toInt(), isUtc: true);
 
-                // 2. Жорстка перевірка на 24:00 (кінець доби)
                 if ((v - maxX).abs() < 1000) {
                   return SideTitleWidget(meta: m, child: const Text("24:00", style: TextStyle(fontSize: 8)));
                 }
 
-                // 3. Фільтруємо мітки: тільки початок години і кожні 4 години
-                // Це прибере зсув -1 година на Android
                 if (date.minute != 0 || date.hour % 4 != 0) {
                   return const SizedBox();
                 }
 
-                // 4. Малюємо дату для першої точки (00:00)
                 if (date.hour == 0 && date.minute == 0) {
                   return SideTitleWidget(
                     meta: m,
@@ -195,7 +184,6 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
                   );
                 }
 
-                // 5. Для всіх інших точок (4:00, 8:00...) просто час
                 return SideTitleWidget(
                     meta: m,
                     child: Text("${date.hour}:00", style: const TextStyle(fontSize: 8))
@@ -208,16 +196,15 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
         gridData: FlGridData(
           show: true,
           drawVerticalLine: true,
-          // Перевіряємо кожну годину
           verticalInterval: 3600000,
           checkToShowVerticalLine: (value) {
             final date = DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: true);
-            return date.hour % 4 == 0; // Лінія кожні 4 години
+            return date.hour % 4 == 0;
           },
           getDrawingVerticalLine: (value) {
             final date = DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: true);
             if (date.hour == 0) {
-              return FlLine(color: Colors.black, strokeWidth: 1.5); // Жирна північ
+              return FlLine(color: Colors.black, strokeWidth: 1.5);
             }
             return FlLine(color: Colors.black.withValues(alpha: 0.05), strokeWidth: 0.5);
           },
@@ -230,7 +217,6 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
     );
   }
 
-  // РОЗДІЛЕННЯ ГРАФІКІВ ПО КАТЕГОРІЯХ
   Widget _buildCombinedCharts(List<AnalyticModel> data, bool isLandscape) {
     if (data.isEmpty) return const Center(child: Text("Дані відсутні"));
 
@@ -246,7 +232,7 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
 
     double chartWidth = (_currentMode == ViewMode.period
         ? (_endDate.difference(_startDate).inDays + 1) * screenWidth
-        : (isLandscape ? screenWidth * 1.5 : screenWidth)) * chartScale;
+        : (isLandscape ? screenWidth * 1.5 : screenWidth)) * _chartScale;
 
     final selectedData = (_touchedGroupIndex != -1 && _touchedGroupIndex < data.length)
         ? data[_touchedGroupIndex]
@@ -254,7 +240,6 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
 
     return Column(
       children: [
-// ВЕРХНЯ ПАНЕЛЬ
         Container(
           width: double.infinity,
           padding: EdgeInsets.symmetric(horizontal: 10, vertical: isLandscape ? 2 : 6),
@@ -265,14 +250,14 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
           child: selectedData == null
               ? const Text("Оберіть точку на графіку", style: TextStyle(fontSize: 10, color: Colors.grey))
               : SingleChildScrollView(
-            scrollDirection: Axis.horizontal, // Дозволяємо горизонтальний скрол
+            scrollDirection: Axis.horizontal,
             child: Row(
               children: [
                 Text(
                   "Time: ${DateFormat('HH:mm').format(DateTime.fromMillisecondsSinceEpoch(selectedData.timestamp, isUtc: true))}",
                   style: TextStyle(fontSize: isLandscape ? 9 : 10, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(width: 12), // Фіксований відступ замість spaceBetween
+                const SizedBox(width: 12),
                 statRow("Sol", selectedData.solarPower / 1000.0, Colors.blue, " kW"),
                 const SizedBox(width: 10),
                 statRow("Load", selectedData.homePower / 1000.0, Colors.red, " kW"),
@@ -284,8 +269,6 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
             ),
           ),
         ),
-
-        // ГРАФІК
         Expanded(
           child: Scrollbar(
             controller: _horizontalScroll,
@@ -339,19 +322,16 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
     final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      // Убираем SingleChildScrollView отсюда
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : Column(
           children: [
-            // 1. ПАНЕЛЬ КЕРУВАННЯ (Фиксированная высота)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
@@ -377,7 +357,15 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
                   ),
                   IconButton(icon: const Icon(Icons.upload_file, size: 20, color: Colors.black), onPressed: _importExcel),
                   IconButton(icon: const Icon(Icons.calendar_today, size: 20, color: Colors.black), onPressed: _pickDate),
-                  buildScaleSelector(),
+
+                  // Встановлено уніфікований віджет селектора масштабу
+                  ChartScaleSelector(
+                    currentScale: _chartScale,
+                    onScaleChanged: (newScale) {
+                      setState(() => _chartScale = newScale);
+                    },
+                  ),
+
                   PopupMenuButton<ViewMode>(
                     icon: const Icon(Icons.tune, size: 20, color: Colors.black),
                     onSelected: (val) async {
@@ -399,19 +387,14 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
             ),
             const Divider(height: 1),
 
-            // 2. ГРАФИК (Занимает все доступное место)
             Expanded(
               child: (_currentMode == ViewMode.month || _currentMode == ViewMode.year)
                   ? _buildBarChart(_allData)
                   : _buildCombinedCharts(_allData, isLandscape),
             ),
 
-            // 3. НИЖНЯЯ ПАНЕЛЬ (Скрываем или уменьшаем в Landscape)
             if (_allData.isNotEmpty && !isLandscape)
               _buildStats(_allData.last),
-
-            // Если в Landscape статистика все же нужна, можно сделать её компактнее
-            // или обернуть в маленький скролл.
           ],
         ),
       ),
@@ -454,8 +437,8 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
       initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
-      saveText: 'ОК', // <--- ОСЬ ТУТ МІНЯЄМО ТЕКСТ КНОПКИ
-      helpText: 'Оберіть період', // Можна також змінити заголовок зверху
+      saveText: 'ОК',
+      helpText: 'Оберіть період',
     );
 
     if (r != null) {
@@ -469,12 +452,12 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
   }
 
   Future<void> _pickMonth() async {
-    DateTime tempDate = _selectedDate; // Локальна змінна для діалогу
+    DateTime tempDate = _selectedDate;
 
     await showDialog(
       context: context,
       builder: (context) {
-        return StatefulBuilder( // Це дозволяє діалогу "оживати" при кліках
+        return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
               title: const Text("Оберіть місяць"),
@@ -484,7 +467,6 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
                 child: MonthPicker(
                   selectedDate: tempDate,
                   onChanged: (dt) {
-                    // Оновлюємо стан ВСЕРЕДИНІ діалогу
                     setDialogState(() => tempDate = dt);
                   },
                 ),
@@ -493,7 +475,6 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
                 TextButton(onPressed: () => Navigator.pop(context), child: const Text("Відміна")),
                 TextButton(
                   onPressed: () {
-                    // При натисканні ОК оновлюємо головний екран
                     setState(() {
                       _selectedDate = DateTime(tempDate.year, tempDate.month, 1);
                       _currentMode = ViewMode.month;
@@ -529,7 +510,6 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
                   lastDate: DateTime(2030),
                   selectedDate: tempDate,
                   onChanged: (dt) {
-                    // Оновлюємо колір виділеного року в діалозі
                     setDialogState(() => tempDate = dt);
                   },
                 ),
@@ -556,14 +536,6 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
   }
 
   Widget _buildBarChart(List<AnalyticModel> rawData) {
-    // 1. ДЕБАГ-ЛОГИ ВХІДНИХ ДАНИХ
-    // debugPrint("--- BAR CHART DEBUG START ---");
-    // debugPrint("Всього точок від бека: ${rawData.length}");
-    // if (rawData.isNotEmpty) {
-    //   debugPrint("Перша точка: ${DateTime.fromMillisecondsSinceEpoch(rawData.first.timestamp, isUtc: true)}");
-    //   debugPrint("Остання точка: ${DateTime.fromMillisecondsSinceEpoch(rawData.last.timestamp, isUtc: true)}");
-    // }
-
     double minX = 1;
     double maxX;
     if (_currentMode == ViewMode.year) {
@@ -573,31 +545,22 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
     }
 
     final screenWidth = MediaQuery.of(context).size.width;
-    double chartWidth = screenWidth * chartScale;
+    double chartWidth = screenWidth * _chartScale;
 
-    // 2. ГРУПУВАННЯ З ЛОГУВАННЯМ
     Map<int, AnalyticModel> grouped = {};
     for (var m in rawData) {
       final date = DateTime.fromMillisecondsSinceEpoch(m.timestamp, isUtc: true);
       int key = _currentMode == ViewMode.month ? date.day : date.month;
 
-      // Лог для кожної точки (можна закоментувати, якщо точок забагато)
-      // debugPrint("Парсинг: точка ${date.toIso8601String()} -> ключ $key");
-
       if (!grouped.containsKey(key)) {
         grouped[key] = m;
       } else {
-        // Вибираємо запис з найбільшою генерацією як репрезентативний для стовпчика
         if (m.solarDailyPower > grouped[key]!.solarDailyPower) {
           grouped[key] = m;
         }
       }
     }
 
-    debugPrint("Згруповано ключів (стовпчиків): ${grouped.keys.toList()}");
-    debugPrint("--- BAR CHART DEBUG END ---");
-
-    // РОЗРАХУНОК МАКСИМУМУ
     double maxVal = 1.0;
     for (var m in grouped.values) {
       List<double> values = [
@@ -617,7 +580,6 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
     }
     final selectedData = grouped[displayIndex + 1];
 
-    // РОЗУМНЕ ФОРМАТУВАННЯ ЧИСЕЛ
     Widget _smartStat(String label, double val, Color col) {
       bool isLarge = val.abs() > 999;
       double displayVal = isLarge ? val / 1000 : val;
@@ -707,7 +669,7 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
                     minY: 0,
                     maxY: chartMaxY,
                     alignment: BarChartAlignment.center,
-                    groupsSpace: (_currentMode == ViewMode.year ? 12.0 : 8.0) * chartScale,
+                    groupsSpace: (_currentMode == ViewMode.year ? 12.0 : 8.0) * _chartScale,
                     barTouchData: BarTouchData(
                       touchCallback: (FlTouchEvent event, barTouchResponse) {
                         if (!event.isInterestedForInteractions || barTouchResponse == null || barTouchResponse.spot == null) {
@@ -739,7 +701,7 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
                           getTitlesWidget: (v, m) {
                             int val = v.toInt();
                             if (val < minX || val > maxX) return const SizedBox();
-                            if (chartScale > 1.5 || _currentMode == ViewMode.year || val == 1 || val == maxX || val % 5 == 0) {
+                            if (_chartScale > 1.5 || _currentMode == ViewMode.year || val == 1 || val == maxX || val % 5 == 0) {
                               return SideTitleWidget(
                                 meta: m,
                                 child: Text(val.toString(), style: const TextStyle(fontSize: 8)),
@@ -759,7 +721,7 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
                     borderData: FlBorderData(show: false),
                     barGroups: List.generate(maxX.toInt(), (index) {
                       int key = index + 1;
-                      final double withCol = 2.0 * (chartScale > 2.0 ? 1.5 : 1.0);
+                      final double withCol = 2.0 * (_chartScale > 2.0 ? 1.5 : 1.0);
                       final double minH = chartMaxY * 0.005;
                       final m = grouped[key];
                       bool isActive = (displayIndex == index);
@@ -797,13 +759,11 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
   Widget statRow(String label, dynamic val, Color col, [String unit = ""]) {
     String display;
     if (val is num) {
-      // Якщо значення менше 1 (наприклад 0.05 kW), показуємо 3 знаки (0.050)
-      // Якщо більше (наприклад 230V або 77% SOC), показуємо 1 або 2
       if (val.abs() < 1.0 && val.abs() > 0) {
         display = val.toStringAsFixed(3);
       } else {
-      display = val.abs() < 20 ? val.toStringAsFixed(1) : val.toStringAsFixed(2);
-    }
+        display = val.abs() < 20 ? val.toStringAsFixed(1) : val.toStringAsFixed(2);
+      }
     } else {
       display = val.toString();
     }
@@ -811,13 +771,8 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Назва поля (чорна, тонка)
         Text("$label: ", style: const TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.w400)),
-
-        // Сама цифра (кольорова, жирна)
         Text(display, style: TextStyle(color: col, fontSize: 10, fontWeight: FontWeight.bold)),
-
-        // Одиниця виміру (нейтральна, як і назва поля)
         if (unit.isNotEmpty)
           Text(unit, style: const TextStyle(color: Colors.black54, fontSize: 9, fontWeight: FontWeight.w400)),
       ],
@@ -836,7 +791,6 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
         File file = File(result.files.single.path!);
         var bytes = await file.readAsBytes();
 
-        // 1. Парсимо Excel у список моделей
         List<AnalyticModel> detailedPoints = await _service.processExcelData(
           bytes: bytes,
           location: widget.location,
@@ -851,22 +805,18 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
           return;
         }
 
-        // 2. Відправляємо запит.
-        // Тепер success — це об'єкт ImportResult (або перевіряємо через результат сервісу)
         final importResponse = await _service.importXmlsData(detailedPoints);
 
         if (mounted) {
           if (importResponse.isSuccess) {
-            // Успіх
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                   content: Text(importResponse.message),
                   backgroundColor: Colors.green
               ),
             );
-            await _fetchData(); // Оновлюємо графік
+            await _fetchData();
           } else {
-            // ПОМИЛКА (тут вилетить твоє повідомлення про 413)
             _showErrorDialog(importResponse.message);
           }
         }
@@ -882,7 +832,6 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
     }
   }
 
-// Допоміжний метод для гарного діалогу
   void _showErrorDialog(String message) {
     showDialog(
       context: context,

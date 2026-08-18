@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:floor_front/page/components/chart_scale_selector.dart'; // Імпорт ChartScaleSelector
 
 import '../data_home/data_location_type.dart';
 import '../refreshable_state.dart';
@@ -21,6 +22,7 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
   List<AnalyticModel> _allData = [];
   bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
+  double _chartScale = 1.0; // Масштаб для сторінки температури/вологості
 
   int _touchedGroupIndex = -1;
   final ScrollController _tempScrollController = ScrollController();
@@ -86,7 +88,6 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -94,7 +95,6 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
             ? const Center(child: CircularProgressIndicator())
             : Column(
           children: [
-            // РЯДОК 1: КЕРУВАННЯ
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Row(
@@ -109,13 +109,19 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
                     ),
                   ),
                   IconButton(icon: const Icon(Icons.calendar_today, size: 20), onPressed: _pickDate),
-                  buildScaleSelector(),
+
+                  // Використовуємо уніфікований віджет для обох типів (Temp / L&H)
+                  ChartScaleSelector(
+                    currentScale: _chartScale,
+                    onScaleChanged: (newScale) {
+                      setState(() => _chartScale = newScale);
+                    },
+                  ),
                 ],
               ),
             ),
             const Divider(height: 1),
 
-            // РЯДОК 2: ПОКАЗНИКИ (Time зліва, Дані парами справа)
             _buildCombinedChartsHeader(),
 
             Padding(
@@ -123,12 +129,10 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Зліва для Температури (In/Out)
                   Text(
                       widget.isTemperature ? "°C" : "%",
                       style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: widget.isTemperature ? Colors.blue : Colors.deepPurple)
                   ),
-                  // Справа (якщо є друга шкала, або просто для симетрії)
                   Text(
                       widget.isTemperature ? "°C" : "%",
                       style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)
@@ -137,7 +141,6 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
               ),
             ),
 
-            // ГРАФІК
             Expanded(
               child: _buildMainChart(),
             ),
@@ -160,7 +163,6 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
     Widget statRow(String label, dynamic val, Color col, [String unit = ""]) {
       String display;
       if (val is num) {
-        // Температура (малі числа) - 1 знак, Потужність (великі) - 2 знаки
         display = val.abs() < 20 ? val.toStringAsFixed(1) : val.toStringAsFixed(2);
       } else {
         display = val.toString();
@@ -169,13 +171,8 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Назва поля (чорна, тонка)
           Text("$label: ", style: const TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.w400)),
-
-          // Сама цифра (кольорова, жирна)
           Text(display, style: TextStyle(color: col, fontSize: 10, fontWeight: FontWeight.bold)),
-
-          // Одиниця виміру (нейтральна, як і назва поля)
           if (unit.isNotEmpty)
             Text(unit, style: const TextStyle(color: Colors.black54, fontSize: 9, fontWeight: FontWeight.w400)),
         ],
@@ -191,11 +188,8 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
       ),
       child: Row(
         children: [
-          // Час (Time)
           Text("Time: $timeStr", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
           const SizedBox(width: 15),
-
-          // Дані в один рядок зі скролом
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -230,7 +224,7 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     double baseWidth = isLandscape ? screenWidth * 1.5 : screenWidth;
-    double chartWidth = baseWidth * chartScale;
+    double chartWidth = baseWidth * _chartScale;
 
     double minX = _allData.first.timestamp.toDouble();
     double maxX = _allData.last.timestamp.toDouble();
@@ -261,7 +255,6 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
       chartMaxY = 105;
     }
 
-    // СТАБІЛЬНИЙ ГРАДІЄНТ (Без розрахунку stops в real-time)
     Gradient? buildFixedGradient(double Function(AnalyticModel) getter, Color posColor) {
       double lMin = 100.0;
       double lMax = -100.0;
@@ -318,7 +311,6 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
               clipData: const FlClipData.all(),
               lineTouchData: LineTouchData(
                 handleBuiltInTouches: true,
-                // ВИМИКАЄМО ЕФЕКТ ПІДСВІТКИ ЛІНІЇ ПРИ НАВЕДЕННІ
                 enabled: true,
                 touchCallback: (event, res) {
                   if (res == null || res.lineBarSpots == null || res.lineBarSpots!.isEmpty) {
@@ -330,16 +322,13 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
                     setState(() => _touchedGroupIndex = newIndex);
                   }
                 },
-                // ПОВНІСТЮ СТАТИЧНА ЛІНІЯ (вона не реагує на тач зміною товщини чи кольору)
                 getTouchedSpotIndicator: (barData, spotIndexes) {
                   return spotIndexes.map((index) {
-                    final spot = barData.spots[index];
                     return TouchedSpotIndicatorData(
-                      FlLine(color: Colors.grey.withOpacity(0.4), strokeWidth: 2),
+                      FlLine(color: Colors.grey.withValues(alpha: 0.4), strokeWidth: 2),
                       FlDotData(show: true, getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
                         radius: 3.5,
                         color: Colors.white,
-                        // СУВОРИЙ КОЛІР ТОЧКИ
                         strokeColor: spot.y < 0 ? Colors.red : (barData.gradient?.colors.last ?? barData.color ?? Colors.black),
                         strokeWidth: 2.0,
                       )),
@@ -356,10 +345,10 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
                 checkToShowVerticalLine: (v) => DateTime.fromMillisecondsSinceEpoch(v.toInt(), isUtc: true).hour % 4 == 0,
                 getDrawingVerticalLine: (v) {
                   final date = DateTime.fromMillisecondsSinceEpoch(v.toInt(), isUtc: true);
-                  return date.hour == 0 ? FlLine(color: Colors.black, strokeWidth: 1.5) : FlLine(color: Colors.black.withOpacity(0.05), strokeWidth: 0.5);
+                  return date.hour == 0 ? FlLine(color: Colors.black, strokeWidth: 1.5) : FlLine(color: Colors.black.withValues(alpha: 0.05), strokeWidth: 0.5);
                 },
                 horizontalInterval: widget.isTemperature ? 5 : 20,
-                getDrawingHorizontalLine: (v) => FlLine(color: (v == 0 && widget.isTemperature) ? Colors.black.withOpacity(0.4) : Colors.black.withOpacity(0.05), strokeWidth: (v == 0 && widget.isTemperature) ? 1.0 : 0.5),
+                getDrawingHorizontalLine: (v) => FlLine(color: (v == 0 && widget.isTemperature) ? Colors.black.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.05), strokeWidth: (v == 0 && widget.isTemperature) ? 1.0 : 0.5),
               ),
               titlesData: FlTitlesData(
                 leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 35, interval: widget.isTemperature ? 5 : 20, getTitlesWidget: (v, m) {
@@ -390,18 +379,6 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
     );
   }
 
-  // Допоміжний метод для малювання сегмента лінії
-  LineChartBarData _buildSimpleLine(List<AnalyticModel> points, double Function(AnalyticModel) getter, Color color) {
-    return LineChartBarData(
-      spots: points.map((p) => FlSpot(p.timestamp.toDouble(), getter(p))).toList(),
-      isCurved: false, // Для сегментів краще false, щоб не було артефактів на стиках
-      color: color,
-      barWidth: 2,
-      dotData: const FlDotData(show: false),
-      belowBarData: BarAreaData(show: true, color: color.withValues(alpha: 0.05)),
-    );
-  }
-
   LineChartBarData _buildLineData(
       List<AnalyticModel> data,
       double Function(AnalyticModel) getValue,
@@ -412,12 +389,11 @@ class _AnalyticsTemperaturePageState extends RefreshableState<AnalyticsTemperatu
       spots: data.map((m) => FlSpot(m.timestamp.toDouble(), getValue(m))).toList(),
       isCurved: true,
       color: color,
-      gradient: gradient, // Додано підтримку градієнта
+      gradient: gradient,
       barWidth: 2,
       dotData: const FlDotData(show: false),
       belowBarData: BarAreaData(
         show: true,
-        // Прозорий фон під лінією
         color: (color ?? Colors.blue).withValues(alpha: 0.1),
       ),
     );
