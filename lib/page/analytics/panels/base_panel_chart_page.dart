@@ -120,50 +120,59 @@ abstract class BasePanelChartPageState<T extends BasePanelChartPage> extends Ref
 
   @override
   Widget build(BuildContext context) {
+    final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
-            : Column(
-          children: [
-            // РЯДОК 1: КЕРУВАННЯ
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(widget.location.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                        Text(DateFormat('dd.MM.yyyy').format(widget.selectedDate), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                      ],
+            : SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ВЕРХНЯ ЧАСТИНА (Керування)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.location.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          Text(DateFormat('dd.MM.yyyy').format(widget.selectedDate), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        ],
+                      ),
                     ),
-                  ),
-                  IconButton(icon: const Icon(Icons.calendar_today, size: 20), onPressed: pickDate),
-                ],
+                    IconButton(icon: const Icon(Icons.calendar_today, size: 18), onPressed: pickDate),
+                  ],
+                ),
               ),
-            ),
-            const Divider(height: 1),
+              const Divider(height: 1),
 
-            // РЯДОК 2: ПОКАЗНИКИ
-            _buildCombinedChartsHeader(),
+              // РЯДОК ПОКАЗНИКІВ
+              _buildCombinedChartsHeader(),
 
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(metricType.unit, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue)),
-                  Text(metricType.unit, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(metricType.unit, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blue)),
+                    Text(metricType.unit, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  ],
+                ),
               ),
-            ),
 
-            // ГРАФІК
-            Expanded(child: _buildMainChart()),
-          ],
+              // ГРАФІК З ЧІТКОЮ ВИСОТОЮ ДЛЯ УНИКНЕННЯ OVERFLOW
+              SizedBox(
+                height: isLandscape ? 280.0 : 380.0,
+                child: _buildMainChart(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -177,61 +186,115 @@ abstract class BasePanelChartPageState<T extends BasePanelChartPage> extends Ref
         : touchedGroupIndex;
     final last = allData[index];
 
-    final timeStr = DateFormat('HH:mm').format(DateTime.fromMillisecondsSinceEpoch(last.timestamp, isUtc: true));
+    final timeStr = DateFormat('HH:mm').format(
+      DateTime.fromMillisecondsSinceEpoch(last.timestamp, isUtc: true),
+    );
     final panelKeys = getUniquePanelKeys();
 
-    Widget statRow(String label, dynamic val, Color col, [String unit = ""]) {
-      String display = (val is num) ? val.toStringAsFixed(1) : val.toString();
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text("$label: ", style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.w400)),
-          Text(display, style: TextStyle(color: col, fontSize: 11, fontWeight: FontWeight.bold)),
-          if (unit.isNotEmpty)
-            Text(unit, style: const TextStyle(color: Colors.black54, fontSize: 10, fontWeight: FontWeight.w400)),
-        ],
+    final Map<String, List<String>> groupedKeys = {};
+    for (var key in panelKeys) {
+      final prefix = key.contains('_') ? key.split('_').first : 'P';
+      groupedKeys.putIfAbsent(prefix, () => []).add(key);
+    }
+
+    final groupEntries = groupedKeys.entries.toList();
+
+    int maxCols = 0;
+    for (var e in groupEntries) {
+      if (e.value.length > maxCols) maxCols = e.value.length;
+    }
+
+    Widget buildStatCell(String key) {
+      final panel = last.panelInfoDtos?.panels[key];
+      final rawVal = getPanelValue(panel);
+      final displayVal = metricType == PanelMetricType.power ? rawVal / 1000.0 : rawVal;
+      final colorIndex = panelKeys.indexOf(key);
+      final col = panelColors[colorIndex % panelColors.length];
+
+      return Padding(
+        padding: const EdgeInsets.only(right: 8.0, bottom: 2.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "$key: ",
+              style: const TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.w400),
+            ),
+            Text(
+              displayVal.toStringAsFixed(1),
+              style: TextStyle(color: col, fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              " ${metricType.unit}",
+              style: const TextStyle(color: Colors.black54, fontSize: 9, fontWeight: FontWeight.w400),
+            ),
+          ],
+        ),
       );
+    }
+
+    List<TableRow> tableRows = [];
+    for (var entry in groupEntries) {
+      final keys = entry.value;
+      List<Widget> rowCells = [];
+
+      for (int c = 0; c < maxCols; c++) {
+        if (c < keys.length) {
+          rowCells.add(buildStatCell(keys[c]));
+        } else {
+          rowCells.add(const SizedBox());
+        }
+      }
+
+      tableRows.add(TableRow(children: rowCells));
     }
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.grey.withValues(alpha: 0.05),
         border: const Border(bottom: BorderSide(color: Colors.black12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
+          // СТРОКА 1: Time + Solar
           Row(
             children: [
-              Text("Time: $timeStr", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              Text("Time: $timeStr", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
               if (metricType == PanelMetricType.power) ...[
-                const SizedBox(width: 15),
-                statRow("Solar", last.solarPower, Colors.black, " W"),
-              ]
+                const SizedBox(width: 12),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text("Solar: ", style: TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.w400)),
+                    Text(last.solarPower.toStringAsFixed(1), style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
+                    const Text(" W", style: TextStyle(color: Colors.black54, fontSize: 9, fontWeight: FontWeight.w400)),
+                  ],
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 4),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (int i = 0; i < panelKeys.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 12),
-                  Builder(builder: (_) {
-                    final key = panelKeys[i];
-                    final panel = last.panelInfoDtos?.panels[key];
-                    final rawVal = getPanelValue(panel);
-                    final displayVal = metricType == PanelMetricType.power ? rawVal / 1000.0 : rawVal;
-                    final col = panelColors[i % panelColors.length];
 
-                    return statRow(key, displayVal, col, " ${metricType.unit}");
-                  }),
-                ],
-              ],
+          // СТРОКИ 2+: M1, S2, S3... Обмежені за висотою, щоб не ламати верстку
+          if (tableRows.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 65),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Table(
+                    defaultColumnWidth: const IntrinsicColumnWidth(),
+                    children: tableRows,
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -294,7 +357,7 @@ abstract class BasePanelChartPageState<T extends BasePanelChartPage> extends Ref
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        double targetHeight = isLandscape ? 320 : constraints.maxHeight;
+        double targetHeight = isLandscape ? 300.0 : constraints.maxHeight;
 
         return SingleChildScrollView(
           scrollDirection: Axis.vertical,
@@ -308,7 +371,7 @@ abstract class BasePanelChartPageState<T extends BasePanelChartPage> extends Ref
                 width: chartWidth,
                 height: targetHeight,
                 child: Padding(
-                  padding: const EdgeInsets.only(left: 10, right: 30, bottom: 15),
+                  padding: const EdgeInsets.only(left: 10, right: 30, bottom: 10),
                   child: LineChart(
                     LineChartData(
                       minX: minX,
