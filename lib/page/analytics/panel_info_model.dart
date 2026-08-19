@@ -5,6 +5,9 @@ class PanelInfoModel {
   final double pvVoltageCurV;
   final double pvCurrentCurA;
   final double pvPowerCurW;
+  final String vendor;
+  final String modelName;
+  final int panelsCount;
 
   PanelInfoModel({
     required this.timeStamp,
@@ -13,6 +16,9 @@ class PanelInfoModel {
     required this.pvVoltageCurV,
     required this.pvCurrentCurA,
     required this.pvPowerCurW,
+    required this.vendor,
+    required this.modelName,
+    required this.panelsCount,
   });
 
   factory PanelInfoModel.fromJson(Map<String, dynamic> json) {
@@ -23,6 +29,9 @@ class PanelInfoModel {
       pvVoltageCurV: (json['pvVoltageCurV'] ?? 0.0).toDouble(),
       pvCurrentCurA: (json['pvCurrentCurA'] ?? 0.0).toDouble(),
       pvPowerCurW: (json['pvPowerCurW'] ?? 0.0).toDouble(),
+      vendor: json['vendor'] ?? '',
+      modelName: json['modelName'] ?? '',
+      panelsCount: json['panelsCount'] ?? 0,
     );
   }
 
