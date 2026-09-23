@@ -261,12 +261,15 @@ class UsrWiFi232HttpClient implements UsrClient {
     required String ipB,
     required int portB,
     required int bitrate,
+    bool isRs485Enabled = true,
   }) async {
+    final mode485Value = isRs485Enabled ? 'enable' : 'disable';
     // Послідовний ланцюжок налаштувань (взято з твого onSaveHttpUpdate)
     await postApStaMode();
     await postApStaOn();
     await postDhcpModeWanAuto(moduleSsid);
     await postApLan(moduleSsid);
+    await postUartMode485(isRs485Enabled);
     await postAppSetting(
         serverIpA: ipA,
         serverPortA: portA,
@@ -387,6 +390,18 @@ class UsrWiFi232HttpClient implements UsrClient {
       UsrWiFi232HttpClientHelper.mainCmd: UsrWiFi232HttpClientHelper.cmdASysConf,
       UsrWiFi232HttpClientHelper.mainGo: UsrWiFi232HttpClientHelper.htmlManagement,
       UsrWiFi232HttpClientHelper.mainCCMD: '${UsrWiFi232HttpClientHelper.values1}',
+    });
+  }
+
+  Future<String> postUartMode485(bool isRs485Enabled) async {
+    final modeValue = isRs485Enabled
+        ? UsrWiFi232HttpClientHelper.valuesEnable
+        : UsrWiFi232HttpClientHelper.valuesDisable;
+
+    return await _sendRequest({
+      UsrWiFi232HttpClientHelper.mainCmd: UsrWiFi232HttpClientHelper.cmdApplication,
+      UsrWiFi232HttpClientHelper.mainGo: UsrWiFi232HttpClientHelper.htmlOpmode,
+      UsrWiFi232HttpClientHelper.set0: '${UsrWiFi232HttpClientHelper.fieldMode485}=$modeValue',
     });
   }
 

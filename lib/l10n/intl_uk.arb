@@ -21,7 +21,7 @@
   "aboutDialogTitle": "Oasis: Екосистема сонячної енергії та розумного дому",
   "aboutDialogTitleDop": "Додаткова інформація:",
   "aboutDialogMessage": "• Інтелектуальне керування обладнанням на базі сонячних інверторів\n• Єдиний інтерфейс для керування квартирою та заміським будинком\n• Моніторинг стану акумуляторів та електромережі в реальному часі\n• Дистанційне налаштування глибини розряду (60%, 50% тощо)\n• Керування режимами зарядки (Автоматичний/Ручний)\n• Перегляд системних журналів та відстеження помилок",
-  "aboutDialogMessageSettingsBms": "Цей застосунок оптимізовано для роботи з акумуляторами GBL_2.45K3 від GS Energy Storage (SYL Battery). Для коректної роботи необхідна конфігурація Wi-Fi модуля USR-WIFI232-B2/A2.",
+  "aboutDialogMessageSettingsBms": "Цей застосунок оптимізовано для роботи з акумуляторами GBL_2.45K3 від GS Energy Storage (SYL Battery), GOOTO, BMS JK. Для коректної роботи необхідна конфігурація Wi-Fi модуля USR-WIFI232-B2/A2. USR-100, ESP.",
   "versionInfo": "Версія: ",
   "githubUrl": "https://github.com/nickAS21/floor_flutter_front.git",
   "githubUrlSettingsBms": "https://github.com/nickAS21/BMSUSRProvision_Android",

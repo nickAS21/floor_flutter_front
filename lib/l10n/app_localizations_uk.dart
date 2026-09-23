@@ -84,7 +84,7 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get aboutDialogMessageSettingsBms =>
-      'Цей застосунок оптимізовано для роботи з акумуляторами GBL_2.45K3 від GS Energy Storage (SYL Battery). Для коректної роботи необхідна конфігурація Wi-Fi модуля USR-WIFI232-B2/A2.';
+      'Цей застосунок оптимізовано для роботи з акумуляторами GBL_2.45K3 від GS Energy Storage (SYL Battery), GOOTO, BMS JK. Для коректної роботи необхідна конфігурація Wi-Fi модуля USR-WIFI232-B2/A2. USR-100, ESP.';
 
   @override
   String get versionInfo => 'Версія: ';

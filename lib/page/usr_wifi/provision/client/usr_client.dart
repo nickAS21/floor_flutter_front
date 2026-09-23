@@ -16,5 +16,6 @@ abstract class UsrClient {
     required String ipB,
     required int portB,
     required int bitrate,
+    bool isRs485Enabled = true,
   });
 }

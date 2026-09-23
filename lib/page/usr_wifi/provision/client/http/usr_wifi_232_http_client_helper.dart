@@ -51,6 +51,7 @@ class UsrWiFi232HttpClientHelper {
   static const String fieldCountryCode = '75038976';        // addCfg('country_code',0x04790100,'5');
   static const String fieldSysOpmode = '18088192';          // addCfg('sys_opmode',0x01140100,'2');
   static const String fieldDataTransformMode = '285278720'; // addCfg('Data_Transfor_Mode',0x11010200,'0');
+  static const String fieldMode485 = '285409792';           // addCfg('mode485', 0x11030200, 'enable'/'disable');
 
   /**
    * DHCP Mode
@@ -181,5 +182,7 @@ class UsrWiFi232HttpClientHelper {
   static const String valuesAES = "AES";
   static const String valuesOPEN = "OPEN";
   static const String valuesNONE = "NONE";
+  static const String valuesEnable = "enable";
+  static const String valuesDisable = "disable";
 
 }

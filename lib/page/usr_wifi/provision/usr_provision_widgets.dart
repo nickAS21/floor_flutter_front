@@ -3,6 +3,7 @@ import 'package:floor_front/helpers/app_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'client/usr_client_helper.dart';
+import 'client/usr_uart_mode.dart';
 import 'usr_provision_base_page.dart';
 
 class UsrProvisionWidgets {
@@ -102,6 +103,9 @@ class UsrProvisionWidgets {
           const SizedBox(height: 6),
           // поле для сервер B та порт
           _buildIpBPortRow(state.ipBController, state.portBController, "Server IP B"),
+
+          const SizedBox(height: 6),
+          buildUartModeSelector(state),
 
           if (networkSelector != null) ...[
             const SizedBox(height: 6),
@@ -209,6 +213,51 @@ class UsrProvisionWidgets {
           ),
         ),
       ],
+    );
+  }
+
+  Widget buildUartModeSelector(UsrProvisionBasePage pageState) {
+    // Якщо вибрано S100 — цей селектор ховаємо, бо налаштування актуальне для WIFI232
+    if (pageState.selectedPrefix.contains("S100")) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Тип вхідного інтерфейсу (UART Mode):",
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          Row(
+            children: UsrUartInterfaceType.values.map((type) {
+              return Expanded(
+                child: RadioListTile<UsrUartInterfaceType>(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(type.label, style: const TextStyle(fontSize: 12)),
+                  value: type,
+                  groupValue: pageState.selectedUartType,
+                  onChanged: (val) {
+                    if (val != null) {
+                      pageState.setState(() {
+                        pageState.selectedUartType = val;
+                      });
+                    }
+                  },
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 

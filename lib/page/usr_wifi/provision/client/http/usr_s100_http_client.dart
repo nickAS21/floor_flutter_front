@@ -86,6 +86,7 @@ class UsrS100HttpClient implements UsrClient {
     required String ipB,
     required int portB,
     required int bitrate,
+    bool isRs485Enabled = true,
   }) async {
     final http.Client httpClient = http.Client();
     final payload = [

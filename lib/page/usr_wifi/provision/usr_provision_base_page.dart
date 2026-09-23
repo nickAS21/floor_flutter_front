@@ -12,6 +12,7 @@ import 'client/usr_client.dart';
 import 'client/usr_client_factory.dart';
 import 'client/usr_client_device_type.dart';
 import 'client/usr_client_helper.dart';
+import 'client/usr_uart_mode.dart';
 
 abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   // Контролери
@@ -26,6 +27,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   final portBController = TextEditingController();
   final bitrateController = TextEditingController(text: UsrProvisionHelper.bitrateDef.toString());
   bool keepTargetSettings = true;
+  UsrUartInterfaceType selectedUartType = UsrUartInterfaceType.rxTx;
 
   // Спільні стани
   // String? detectedMac;
@@ -37,7 +39,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   List<Map<String, dynamic>> networks = [];
   bool scanSuccess = false;
   String? selectedSsid;
-  String selectedPrefix = UsrClientDeviceType.b2.prefix;
+  String selectedPrefix = UsrClientDeviceType.a2.prefix;
 
   // Інструменти
   late UsrClient httpClient;
@@ -286,6 +288,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
         ipB: ipBController.text,
         portB: int.tryParse(portBController.text) ?? 0,
         bitrate: int.tryParse(bitrateController.text) ?? UsrProvisionHelper.bitrateDef,
+        isRs485Enabled: selectedUartType.isRs485Enabled,
       );
 
       final infoBms = await _onUpdateDataUsrWiFiInfo(selectedLocation);
@@ -391,6 +394,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       // 4. Скидання статусу та префікса модуля
       ssidNameController.text = selectedPrefix;
       status = statusStr;
+      selectedUartType = UsrUartInterfaceType.rs485;
     });
   }
 }
