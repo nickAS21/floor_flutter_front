@@ -452,6 +452,14 @@ class _UnitPageState extends RefreshableState<UnitPage> {
               _buildDetailRow("Оновлено", battery.timestamp, Colors.grey),
               _buildDetailRow("Напруга", "${battery.voltageCurV.toStringAsFixed(2)} V", null),
               _buildDetailRow("Заряд (SOC)", "${battery.socPercent.toStringAsFixed(1)}%", Colors.blue),
+              if (battery.sohPercent != null)
+                _buildDetailRow(
+                    "Знос (SOH)",
+                    "${battery.sohPercent!.toStringAsFixed(1)}%",
+                    battery.sohPercent! > 80.0 ? Colors.green : Colors.orange
+                ),
+              if (battery.cyclesCount != null)
+                _buildDetailRow("Циклів заряду", "${battery.cyclesCount}", Colors.blueGrey),
               _buildDetailRow("Струм", "${battery.currentCurA} A", null),
               _buildDetailRow("Статус BMS", battery.bmsStatusStr, _getStatusColor(battery.bmsStatusStr)),
               if (battery.bmsTempValue != null)

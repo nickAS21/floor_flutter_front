@@ -10,15 +10,33 @@ class UnitHelper {
   );
 
   static IconData getConnectionIcon(String? status) {
-    if (status?.toUpperCase() == 'ACTIVE' || status?.toUpperCase() == 'ONLINE') return Icons.cloud_done;
-    if (status?.toUpperCase() == 'STANDBY') return Icons.access_time_filled;
-    return Icons.cloud_off;
+    switch (status?.toUpperCase()) {
+      case 'ACTIVE':
+      case 'ONLINE':
+        return Icons.cloud_done;
+      case 'ACTIVE_INVERTER':
+        return Icons.alt_route; // Іконка транзиту/маршрутизації через інвертор
+      case 'STANDBY':
+        return Icons.access_time_filled;
+      case 'OFFLINE':
+      default:
+        return Icons.cloud_off;
+    }
   }
 
   static Color getConnectionColor(String? status) {
-    if (status?.toUpperCase() == 'ACTIVE' || status?.toUpperCase() == 'ONLINE') return Colors.green;
-    if (status?.toUpperCase() == 'STANDBY') return Colors.orange;
-    return Colors.red;
+    switch (status?.toUpperCase()) {
+      case 'ACTIVE':
+      case 'ONLINE':
+        return Colors.green;
+      case 'ACTIVE_INVERTER':
+        return Colors.teal; // Бірюзовий колір для підкреслення інверторного хаку
+      case 'STANDBY':
+        return Colors.orange;
+      case 'OFFLINE':
+      default:
+        return Colors.red;
+    }
   }
 
   static Color getStatusColor(String status) {

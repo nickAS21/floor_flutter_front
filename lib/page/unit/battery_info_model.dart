@@ -13,6 +13,8 @@ class BatteryInfoModel {
   final int minCellIdx;
   final int maxCellIdx;
   final Map<int, double> cellVoltagesV;
+  final int? cyclesCount;
+  final double? sohPercent;
 
   BatteryInfoModel({
     required this.timestamp,
@@ -29,6 +31,8 @@ class BatteryInfoModel {
     required this.minCellIdx,
     required this.maxCellIdx,
     required this.cellVoltagesV,
+    this.cyclesCount,
+    this.sohPercent,
   });
 
   factory BatteryInfoModel.fromJson(Map<String, dynamic> json) {
@@ -55,6 +59,8 @@ class BatteryInfoModel {
       minCellIdx: json['minCellIdx'] ?? 0,
       maxCellIdx: json['maxCellIdx'] ?? 0,
       cellVoltagesV: voltages,
+      cyclesCount: json['cyclesCount'] != null ? (json['cyclesCount'] as num).toInt() : null,
+      sohPercent: json['sohPercent'] != null ? (json['sohPercent'] as num).toDouble() : null,
     );
   }
 }

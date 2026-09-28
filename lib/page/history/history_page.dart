@@ -120,6 +120,7 @@ class _HistoryPageState extends RefreshableState<HistoryPage> with SingleTickerP
   }
 
   // Спільний метод діалогу для батареї (викликається з Sheet)
+// history_page.dart - оновлений метод _showBatteryDialog
   void _showBatteryDialog(Map<String, dynamic> b) {
     final cellVoltages = b['cellVoltagesV'] as Map<String, dynamic>? ?? {};
     final sortedKeys = cellVoltages.keys.toList()
@@ -130,6 +131,11 @@ class _HistoryPageState extends RefreshableState<HistoryPage> with SingleTickerP
     final bool isCriticalDelta = deltaMv >= UnitHelper.cellsCriticalDeltaMin;
     final int minIdx = b['minCellIdx'] ?? -1;
     final int maxIdx = b['maxCellIdx'] ?? -1;
+
+    // Парсинг SOH та циклів
+    final num? sohNum = b['sohPercent'] as num?;
+    final double? soh = sohNum?.toDouble();
+    final int? cycles = (b['cyclesCount'] as num?)?.toInt();
 
     showDialog(
       context: context,
@@ -144,7 +150,21 @@ class _HistoryPageState extends RefreshableState<HistoryPage> with SingleTickerP
               _dialogRow("Зв'язок", b['connectionStatus'], UnitHelper.getConnectionColor(b['connectionStatus'])),
               _dialogRow("Напруга", "${(b['voltageCurV'] ?? 0.0).toStringAsFixed(2)} V", null),
               _dialogRow("Струм", "${(b['currentCurA'] ?? 0.0).toStringAsFixed(2)} A", null),
-              _dialogRow("Заряд", "${(b['socPercent'] ?? 0.0).toInt()}%", Colors.blue),
+              _dialogRow("Заряд (SOC)", "${(b['socPercent'] ?? 0.0).toInt()}%", Colors.blue),
+
+              // =======================================================
+              // НОВІ ПОЛЯ В ДІАЛОЗІ ІСТОРІЇ
+              // =======================================================
+              if (soh != null)
+                _dialogRow(
+                    "Знос (SOH)",
+                    "${soh.toStringAsFixed(1)}%",
+                    soh > 80.0 ? Colors.green : Colors.orange
+                ),
+              if (cycles != null)
+                _dialogRow("Циклів заряду", "$cycles", Colors.blueGrey),
+              // =======================================================
+
               _dialogRow("Статус BMS", b['bmsStatusStr'], UnitHelper.getStatusColor(b['bmsStatusStr'] ?? '')),
               _dialogRow(
                   "Помилка",
@@ -181,13 +201,12 @@ class _HistoryPageState extends RefreshableState<HistoryPage> with SingleTickerP
                       Color? cellColor;
                       FontWeight weight = FontWeight.normal;
 
-                      // Логіка підсвітки конкретних комірок в історії
                       if (isCriticalDelta) {
                         if (key == maxIdx) {
-                          cellColor = Colors.red; // Max - Red
+                          cellColor = Colors.red;
                           weight = FontWeight.bold;
                         } else if (key == minIdx) {
-                          cellColor = Colors.blue; // Min - Blue
+                          cellColor = Colors.blue;
                           weight = FontWeight.bold;
                         }
                       }

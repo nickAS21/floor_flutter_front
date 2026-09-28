@@ -1,3 +1,4 @@
+// history_details_sheet.dart
 import 'package:flutter/material.dart';
 import '../analytics/panel_info_model.dart';
 import 'history_model.dart';
@@ -196,11 +197,9 @@ class HistoryDetailsSheet extends StatelessWidget {
   Widget _buildSolarPanelsCard(BuildContext context, PanelInfoModels panelsData) {
     final panelsMap = panelsData.panels;
 
-    // 1. Рахуємо сумарну потужність
     final double totalPowerW = panelsMap.values
         .fold(0.0, (sum, panel) => sum + panel.pvPowerCurW);
 
-    // 2. Сортування (M1 -> S2..., потім pvIndex)
     final sortedPanels = panelsMap.entries.toList()
       ..sort((a, b) {
         int parallelCompare =
@@ -354,6 +353,10 @@ class HistoryDetailsSheet extends StatelessWidget {
             statusColor = Colors.orange;
           }
 
+          // Витягуємо SOH %
+          final num? sohNum = b['sohPercent'] as num?;
+          final String sohText = sohNum != null ? " | SOH: ${sohNum.toDouble().toStringAsFixed(1)}%" : "";
+
           return ListTile(
             onTap: () => onBatteryTap(b),
             leading: Icon(
@@ -362,7 +365,7 @@ class HistoryDetailsSheet extends StatelessWidget {
             ),
             title: Text("Battery ${b['port'] ?? ''}"),
             subtitle: Text(
-                "${(b['socPercent'] ?? 0).toInt()}% | ${(b['voltageCurV'] ?? 0).toStringAsFixed(2)}V"),
+                "${(b['socPercent'] ?? 0).toInt()}% | ${(b['voltageCurV'] ?? 0).toStringAsFixed(2)}V$sohText"),
             trailing: const Icon(Icons.chevron_right),
           );
         }).toList(),
