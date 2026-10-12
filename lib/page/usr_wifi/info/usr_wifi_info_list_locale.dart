@@ -85,7 +85,7 @@ class _UsrWiFiInfoListLocaleState extends State<UsrWiFiInfoListLocale> {
     );
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => UsrWiFiInfoPage(info: newInfo)),
+      MaterialPageRoute(builder: (context) => UsrWiFiInfoPage(info: newInfo, isNew: true,)),
     );
     if (result == true) _refresh();
   }
@@ -100,7 +100,7 @@ class _UsrWiFiInfoListLocaleState extends State<UsrWiFiInfoListLocale> {
   Future<void> _editInfo(DataUsrWiFiInfo info) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => UsrWiFiInfoPage(info: info)),
+      MaterialPageRoute(builder: (context) => UsrWiFiInfoPage(info: info, isNew: false,)),
     );
     if (result == true) _refresh();
   }

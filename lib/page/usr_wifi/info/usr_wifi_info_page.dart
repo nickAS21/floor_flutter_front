@@ -4,11 +4,12 @@ import '../provision/client/usr_client_helper.dart';
 import '../provision/usr_provision_helper.dart';
 import 'data_usr_wifi_info.dart';
 import 'usr_wifi_info_storage.dart';
+import '../../../esp/info/data_bms_ble_info.dart';
 
 class UsrWiFiInfoPage extends StatefulWidget {
   final DataUsrWiFiInfo info;
-
-  const UsrWiFiInfoPage({super.key, required this.info});
+  final bool isNew;
+  const UsrWiFiInfoPage({super.key,required this.info, this.isNew = false,});
 
   @override
   State<UsrWiFiInfoPage> createState() => _UsrWiFiInfoPageState();
@@ -49,6 +50,11 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
       }
     }
 
+    final currentDevice = UsrClientDeviceType.fromPrefix(_selectedPrefix);
+    if (currentDevice.isBleSupported && widget.info.bmsBles == null) {
+      widget.info.bmsBles = [];
+    }
+
     _idController.addListener(_updatePortsFromId);
     _macController.addListener(_updateSsidFromMac);
   }
@@ -58,16 +64,13 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     if (mac.length >= 4) {
       return mac.substring(mac.length - 4).toUpperCase();
     }
-    return "0000";
+    return "____";
   }
 
   void _updateSsidFromMac() {
-    // Оновлюємо тільки якщо поле SSID порожнє або вже містить префікс USR
-    if (_ssidController.text.isEmpty || _ssidController.text.contains("USR-WIFI232")) {
-      setState(() {
-        _ssidController.text = "$_selectedPrefix${_generateSsidSuffix()}";
-      });
-    }
+    setState(() {
+      _ssidController.text = "$_selectedPrefix${_generateSsidSuffix()}";
+    });
   }
 
   void _updatePortsFromId() {
@@ -171,8 +174,11 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
   @override
   @override
   Widget build(BuildContext context) {
+    final titleText = widget.isNew
+        ? "Додати модуль зв'язку: ${widget.info.locationType.label}"
+        : "Редагувати: ${widget.info.locationType.label}";
     return Scaffold(
-      appBar: AppBar(title: Text("Редагувати: ${widget.info.locationType.label}")),
+      appBar: AppBar(title: Text(titleText)),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -232,6 +238,15 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
                       if (nv != null) {
                         setState(() {
                           _selectedPrefix = nv;
+                          _updateSsidFromMac();
+
+                          // Отримуємо тип пристрою з enum і перевіряємо його властивість
+                          final deviceType = UsrClientDeviceType.fromPrefix(nv);
+                          if (deviceType.isBleSupported) {
+                            widget.info.bmsBles ??= [];
+                          } else {
+                            widget.info.bmsBles = null;
+                          }
                         });
                       }
                     },
@@ -253,6 +268,73 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
               ],
             ),
             const SizedBox(height: 12),
+            // --- БЛОК СПИСКУ BLE BMS (якщо bmsBles не null) ---
+            if (widget.info.bmsBles != null) ...[
+              const Divider(height: 30, thickness: 1),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "BLE BMS Список",
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle, color: Colors.blueAccent),
+                    onPressed: () {
+                      setState(() {
+                        widget.info.bmsBles!.add(DataBmsBleInfo(mac: '', name: ''));
+                      });
+                    },
+                  ),
+                ],
+              ),
+              ...widget.info.bmsBles!.asMap().entries.map((entry) {
+                final int idx = entry.key;
+                final item = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          initialValue: item.name,
+                          decoration: const InputDecoration(
+                            labelText: "Назва",
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          ),
+                          onChanged: (val) => item.name = val,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 3,
+                        child: TextFormField(
+                          initialValue: item.mac,
+                          decoration: const InputDecoration(
+                            labelText: "MAC",
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          ),
+                          onChanged: (val) => item.mac = val.toUpperCase(),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle, color: Colors.redAccent),
+                        onPressed: () {
+                          setState(() {
+                            widget.info.bmsBles!.removeAt(idx);
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
             const Text("Налаштування NetB (BMS)", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
             const SizedBox(height: 8),
             Row(

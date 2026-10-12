@@ -56,7 +56,7 @@ class _UsrWiFiInfoListPageState extends State<UsrWiFiInfoListPage> {
               size: 32,
             ),
             title: Text(
-              _isSelectionMode ? "Вибрано: ${_selectedIds.length}" : "Модулі зв'язку USR",
+              _isSelectionMode ? "Вибрано: ${_selectedIds.length}" : "Модулі зв'язку",
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             trailing: _buildActions(),

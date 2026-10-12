@@ -1,6 +1,7 @@
 import '../../data_home/data_location_type.dart';
 import '../provision/client/usr_client_helper.dart';
 import '../provision/usr_provision_helper.dart';
+import '../../../esp/info/data_bms_ble_info.dart';
 
 class DataUsrWiFiInfo {
   int id;                         // netIpA - 18890 = id
@@ -13,6 +14,7 @@ class DataUsrWiFiInfo {
   int netBPort;                   // Port BMS (8890 + id)
   String? oui;                    // Chip manufacturer (Vendor)
   int bitrate;                    // Bit Rate (Baud)
+  List<DataBmsBleInfo>? bmsBles;  // Список BMS BLE (optional)
 
   DataUsrWiFiInfo({
     this.id = 0,
@@ -25,6 +27,7 @@ class DataUsrWiFiInfo {
     this.netBPort = UsrClientHelper.netPortBDef,
     this.oui,
     this.bitrate = UsrProvisionHelper.bitrateDef,
+    this.bmsBles,
   });
 
   factory DataUsrWiFiInfo.fromJson(Map<String, dynamic> json) {
@@ -41,6 +44,11 @@ class DataUsrWiFiInfo {
       netBPort: json['netBPort'] ?? UsrClientHelper.netPortBDef,
       oui: json['oui'],
       bitrate: json['bitrate'] ?? UsrProvisionHelper.bitrateDef,
+      bmsBles: json['bmsBles'] != null
+          ? (json['bmsBles'] as List)
+          .map((e) => DataBmsBleInfo.fromJson(e))
+          .toList()
+          : null,
     );
   }
 
@@ -55,5 +63,6 @@ class DataUsrWiFiInfo {
     'netBPort': netBPort,
     'oui': oui,
     'bitrate': bitrate,
+    if (bmsBles != null) 'bmsBles': bmsBles!.map((e) => e.toJson()).toList(),
   };
 }

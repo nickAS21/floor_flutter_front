@@ -1,5 +1,5 @@
-import '../models/esp_device.dart';
-import '../models/esp_status.dart';
+import '../models_tmp/esp_device.dart';
+import '../models_tmp/esp_status.dart';
 
 /// Сервіс підключення та обміну даними з ESP/BL602 по BLE
 abstract class BleConnector {

@@ -1,7 +1,7 @@
 import '../config/ble_uuid_config.dart';
 import '../config/esp_ble_commands.dart';
-import '../models/bms_device.dart';
-import '../models/wifi_config.dart';
+import '../models_tmp/bms_device.dart';
+import '../models_tmp/wifi_config.dart';
 import 'ble_connector.dart';
 
 /// Високорівневий сервіс для виконання бізнес-команд на ESP/BL602

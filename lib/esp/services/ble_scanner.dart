@@ -1,5 +1,5 @@
 import '../config/ble_uuid_config.dart';
-import '../models/esp_device.dart';
+import '../models_tmp/esp_device.dart';
 
 /// Сервіс для пошуку ESP/BL602 шлюзів у BLE-ефірі
 abstract class BleScanner {
