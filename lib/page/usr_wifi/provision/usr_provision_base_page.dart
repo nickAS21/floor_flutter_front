@@ -12,7 +12,7 @@ import 'client/usr_client.dart';
 import 'client/usr_client_factory.dart';
 import 'client/usr_client_device_type.dart';
 import 'client/usr_client_helper.dart';
-import 'client/usr_uart_mode.dart';
+import 'client/connect_interface_type.dart';
 
 abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   // Контролери
@@ -27,7 +27,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   final portBController = TextEditingController();
   final bitrateController = TextEditingController(text: UsrProvisionHelper.bitrateDef.toString());
   bool keepTargetSettings = true;
-  UsrUartInterfaceType selectedUartType = UsrUartInterfaceType.rxTx;
+  ConnectInterfaceType selectedUartType = ConnectInterfaceType.rxTx;
 
   // Спільні стани
   // String? detectedMac;
@@ -394,7 +394,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       // 4. Скидання статусу та префікса модуля
       ssidNameController.text = selectedPrefix;
       status = statusStr;
-      selectedUartType = UsrUartInterfaceType.rs485;
+      selectedUartType = ConnectInterfaceType.rs485;
     });
   }
 }

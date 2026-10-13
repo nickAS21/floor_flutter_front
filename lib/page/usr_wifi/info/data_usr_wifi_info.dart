@@ -1,7 +1,7 @@
 import '../../data_home/data_location_type.dart';
 import '../provision/client/usr_client_helper.dart';
 import '../provision/usr_provision_helper.dart';
-import '../../../esp/info/data_bms_ble_info.dart';
+import '../../../esp/info/data_esp_bms_info.dart';
 
 class DataUsrWiFiInfo {
   int id;                         // netIpA - 18890 = id
@@ -14,7 +14,7 @@ class DataUsrWiFiInfo {
   int netBPort;                   // Port BMS (8890 + id)
   String? oui;                    // Chip manufacturer (Vendor)
   int bitrate;                    // Bit Rate (Baud)
-  List<DataBmsBleInfo>? bmsBles;  // Список BMS BLE (optional)
+  List<DataEspBmsInfo>? bmsList;  // Перелік BMS (RS485 та/або BLE)
 
   DataUsrWiFiInfo({
     this.id = 0,
@@ -27,10 +27,17 @@ class DataUsrWiFiInfo {
     this.netBPort = UsrClientHelper.netPortBDef,
     this.oui,
     this.bitrate = UsrProvisionHelper.bitrateDef,
-    this.bmsBles,
+    this.bmsList,
   });
 
+  /// Геттер для сумісності зі старим кодом, де використовувалась назва bmsBles
+  List<DataEspBmsInfo>? get bmsBles => bmsList;
+  set bmsBles(List<DataEspBmsInfo>? val) => bmsList = val;
+
   factory DataUsrWiFiInfo.fromJson(Map<String, dynamic> json) {
+    // Підтримуємо зчитування як з нового ключа 'bmsList', так і зі старого 'bmsBles'
+    final rawList = json['bmsList'] ?? json['bmsBles'];
+
     return DataUsrWiFiInfo(
       id: json['id'] ?? 0,
       locationType: json['locationType'] == 'DACHA'
@@ -44,9 +51,9 @@ class DataUsrWiFiInfo {
       netBPort: json['netBPort'] ?? UsrClientHelper.netPortBDef,
       oui: json['oui'],
       bitrate: json['bitrate'] ?? UsrProvisionHelper.bitrateDef,
-      bmsBles: json['bmsBles'] != null
-          ? (json['bmsBles'] as List)
-          .map((e) => DataBmsBleInfo.fromJson(e))
+      bmsList: rawList != null
+          ? (rawList as List)
+          .map((e) => DataEspBmsInfo.fromJson(e))
           .toList()
           : null,
     );
@@ -63,6 +70,7 @@ class DataUsrWiFiInfo {
     'netBPort': netBPort,
     'oui': oui,
     'bitrate': bitrate,
-    if (bmsBles != null) 'bmsBles': bmsBles!.map((e) => e.toJson()).toList(),
+    if (bmsList != null)
+      'bmsList': bmsList!.map((e) => e.toJson()).toList(),
   };
 }

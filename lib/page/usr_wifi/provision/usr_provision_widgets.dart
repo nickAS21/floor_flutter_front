@@ -3,7 +3,7 @@ import 'package:floor_front/helpers/app_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'client/usr_client_helper.dart';
-import 'client/usr_uart_mode.dart';
+import 'client/connect_interface_type.dart';
 import 'usr_provision_base_page.dart';
 
 class UsrProvisionWidgets {
@@ -237,9 +237,9 @@ class UsrProvisionWidgets {
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
           ),
           Row(
-            children: UsrUartInterfaceType.values.map((type) {
+            children: ConnectInterfaceType.values.map((type) {
               return Expanded(
-                child: RadioListTile<UsrUartInterfaceType>(
+                child: RadioListTile<ConnectInterfaceType>(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(type.label, style: const TextStyle(fontSize: 12)),

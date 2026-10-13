@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
+import '../provision/client/connect_interface_type.dart';
 import '../provision/client/usr_client_device_type.dart';
 import '../provision/client/usr_client_helper.dart';
 import '../provision/usr_provision_helper.dart';
 import 'data_usr_wifi_info.dart';
 import 'usr_wifi_info_storage.dart';
-import '../../../esp/info/data_bms_ble_info.dart';
+import '../../../esp/info/data_esp_bms_info.dart';
 
 class UsrWiFiInfoPage extends StatefulWidget {
   final DataUsrWiFiInfo info;
   final bool isNew;
-  const UsrWiFiInfoPage({super.key,required this.info, this.isNew = false,});
+  const UsrWiFiInfoPage({
+    super.key,
+    required this.info,
+    this.isNew = false,
+  });
 
   @override
   State<UsrWiFiInfoPage> createState() => _UsrWiFiInfoPageState();
@@ -29,6 +34,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
   late TextEditingController _bitrateController;
 
   String _selectedPrefix = UsrClientDeviceType.b2.prefix;
+  bool _isFormValid = false;
 
   @override
   void initState() {
@@ -45,18 +51,53 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
 
     for (var device in UsrClientDeviceType.values) {
       if (widget.info.ssidWifiBms.startsWith(device.prefix)) {
-        _selectedPrefix = device.prefix; // Зберігаємо рядок префікса
+        _selectedPrefix = device.prefix;
         break;
       }
     }
 
     final currentDevice = UsrClientDeviceType.fromPrefix(_selectedPrefix);
-    if (currentDevice.isBleSupported && widget.info.bmsBles == null) {
-      widget.info.bmsBles = [];
+    if (currentDevice.isBleSupported && widget.info.bmsList == null) {
+      widget.info.bmsList = [];
     }
 
     _idController.addListener(_updatePortsFromId);
     _macController.addListener(_updateSsidFromMac);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _validateForm());
+  }
+
+  void _validateForm() {
+    final int? id = int.tryParse(_idController.text);
+    final bool isIdValid = id != null && id > 0;
+    final bool isFieldsValid = _formKey.currentState?.validate() ?? false;
+
+    bool isBmsValid = true;
+    if (widget.info.bmsList != null) {
+      if (widget.info.bmsList!.isEmpty) {
+        isBmsValid = false;
+      } else {
+        final macRegex = RegExp(r'^[0-9A-F]{2}(:[0-9A-F]{2}){5}$');
+        for (var bms in widget.info.bmsList!) {
+          if (bms.name.trim().isEmpty || bms.name.startsWith('-')) {
+            isBmsValid = false;
+            break;
+          }
+          if (bms.interfaceType == ConnectInterfaceType.ble &&
+              !macRegex.hasMatch(bms.mac.toUpperCase())) {
+            isBmsValid = false;
+            break;
+          }
+        }
+      }
+    }
+
+    final bool isValid = isIdValid && isFieldsValid && isBmsValid;
+    if (_isFormValid != isValid) {
+      setState(() {
+        _isFormValid = isValid;
+      });
+    }
   }
 
   String _generateSsidSuffix() {
@@ -68,19 +109,17 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
   }
 
   void _updateSsidFromMac() {
-    setState(() {
-      _ssidController.text = "$_selectedPrefix${_generateSsidSuffix()}";
-    });
+    _ssidController.text = "$_selectedPrefix${_generateSsidSuffix()}";
+    _validateForm();
   }
 
   void _updatePortsFromId() {
     final int? id = int.tryParse(_idController.text);
     if (id != null) {
-      setState(() {
-        _portAController.text = (UsrClientHelper.netPortADef + id).toString();
-        _portBController.text = (UsrClientHelper.netPortBDef + id).toString();
-      });
+      _portAController.text = (UsrClientHelper.netPortADef + id).toString();
+      _portBController.text = (UsrClientHelper.netPortBDef + id).toString();
     }
+    _validateForm();
   }
 
   @override
@@ -98,21 +137,17 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
   }
 
   void _save() async {
-    // 1. Валідація: перевіряємо, чи всі поля заповнені (TextField validator)
-    if (!_formKey.currentState!.validate()) return;
+    if (!_isFormValid) return;
 
+    final int newId = int.parse(_idController.text);
     final int oldId = widget.info.id;
-    final int newId = int.tryParse(_idController.text) ?? oldId;
 
     final storage = UsrWiFiInfoStorage();
     List<DataUsrWiFiInfo> list = await storage.loadAllInfoForLocation(widget.info.locationType);
 
-    // Перевіряємо, чи цей пристрій (за старим ID) вже є в базі
     bool isExisting = list.any((e) => e.id == oldId);
 
-    // ЛОГІКА ЗМІНИ ID АБО ПЕРЕВІРКИ ДУБЛІКАТІВ
     if (isExisting && oldId != newId) {
-      // Сценарій: редагуємо старий, але міняємо ID (наприклад, з 1 на 5)
       bool isOccupied = list.any((e) => e.id == newId);
       String msg = "USR з id=$oldId буде видалено. id=$newId буде ";
       msg += isOccupied ? "ПЕРЕЗАПИСАНО." : "створено.";
@@ -120,15 +155,12 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
       bool? confirm = await _showConfirmReplaceDialog(msg);
       if (confirm != true) return;
 
-      // Видаляємо старий ID перед тим як записати новий
       await _deleteOldIdBeforeUpdate(oldId);
     } else if (!isExisting && list.any((e) => e.id == newId)) {
-      // Сценарій: додаємо НОВИЙ, але введений ID вже кимось зайнятий
       bool? confirm = await _showConfirmReplaceDialog("ID $newId вже зайнятий іншим пристроєм. Перезаписати його?");
       if (confirm != true) return;
     }
 
-    // ОНОВЛЕННЯ ОБ'ЄКТА ДАНИМИ З КОНТРОЛЕРІВ
     widget.info.id = newId;
     widget.info.bssidMac = _macController.text;
     widget.info.ssidWifiBms = _ssidController.text;
@@ -137,15 +169,12 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     widget.info.netIpB = _ipBController.text;
     widget.info.netBPort = int.tryParse(_portBController.text) ?? (UsrClientHelper.netPortBDef + newId);
     widget.info.bitrate = int.tryParse(_bitrateController.text) ?? UsrProvisionHelper.bitrateDef;
-    // oui не чіпаємо, воно тільки для читання
 
-    // Остаточне збереження в SharedPreferences
     await storage.updateOrAddById(widget.info);
 
     if (mounted) Navigator.pop(context, true);
   }
 
-  // Допоміжний метод для діалогу (додай його в цей же клас)
   Future<bool?> _showConfirmReplaceDialog(String message) {
     return showDialog<bool>(
       context: context,
@@ -163,7 +192,6 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     );
   }
 
-// Твій метод, який ти питав, чи залишати:
   Future<void> _deleteOldIdBeforeUpdate(int oldId) async {
     final storage = UsrWiFiInfoStorage();
     List<DataUsrWiFiInfo> list = await storage.loadAllInfoForLocation(widget.info.locationType);
@@ -171,7 +199,6 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     await storage.saveFullList(widget.info.locationType, list);
   }
 
-  @override
   @override
   Widget build(BuildContext context) {
     final titleText = widget.isNew
@@ -181,12 +208,13 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
       appBar: AppBar(title: Text(titleText)),
       body: Form(
         key: _formKey,
+        onChanged: _validateForm,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             Row(
               children: [
-                Expanded(flex: 1, child: _buildField(_idController, "ID", isNumber: true)),
+                Expanded(flex: 1, child: _buildField(_idController, "ID", isNumber: true, isId: true)),
                 const SizedBox(width: 8),
                 Expanded(flex: 2, child: _buildField(_bitrateController, "Bit Rate (Baud)", isNumber: true)),
               ],
@@ -199,12 +227,11 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
             const Text("Налаштування SSID модуля", style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
             const SizedBox(height: 6),
 
-            // РЯДОК: Префікс (Enum) та SSID
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
-                  width: 90, // Трохи розширив для S100
+                  width: 90,
                   height: 47,
                   child: DropdownButtonFormField<String>(
                     initialValue: _selectedPrefix,
@@ -215,11 +242,10 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                     ),
-                    // Використовуємо наш новий Enum UsrClientDeviceType для побудови списку
                     selectedItemBuilder: (BuildContext context) {
                       return UsrClientDeviceType.values.map((device) {
                         return Text(
-                          device.label, // Відобразить "B2", "A2" або "S100"
+                          device.label,
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                           overflow: TextOverflow.ellipsis,
                         );
@@ -240,14 +266,22 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
                           _selectedPrefix = nv;
                           _updateSsidFromMac();
 
-                          // Отримуємо тип пристрою з enum і перевіряємо його властивість
                           final deviceType = UsrClientDeviceType.fromPrefix(nv);
                           if (deviceType.isBleSupported) {
-                            widget.info.bmsBles ??= [];
+                            widget.info.bmsList ??= [
+                              DataEspBmsInfo(
+                                mac: '',
+                                name: '',
+                                interfaceType: ConnectInterfaceType.rs485,
+                                addressRs485: 1,
+                              )
+                            ];
+                            _isFormValid = false;
                           } else {
-                            widget.info.bmsBles = null;
+                            widget.info.bmsList = null;
                           }
                         });
+                        WidgetsBinding.instance.addPostFrameCallback((_) => _validateForm());
                       }
                     },
                   ),
@@ -268,73 +302,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
               ],
             ),
             const SizedBox(height: 12),
-            // --- БЛОК СПИСКУ BLE BMS (якщо bmsBles не null) ---
-            if (widget.info.bmsBles != null) ...[
-              const Divider(height: 30, thickness: 1),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "BLE BMS Список",
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add_circle, color: Colors.blueAccent),
-                    onPressed: () {
-                      setState(() {
-                        widget.info.bmsBles!.add(DataBmsBleInfo(mac: '', name: ''));
-                      });
-                    },
-                  ),
-                ],
-              ),
-              ...widget.info.bmsBles!.asMap().entries.map((entry) {
-                final int idx = entry.key;
-                final item = entry.value;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: TextFormField(
-                          initialValue: item.name,
-                          decoration: const InputDecoration(
-                            labelText: "Назва",
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          ),
-                          onChanged: (val) => item.name = val,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 3,
-                        child: TextFormField(
-                          initialValue: item.mac,
-                          decoration: const InputDecoration(
-                            labelText: "MAC",
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          ),
-                          onChanged: (val) => item.mac = val.toUpperCase(),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle, color: Colors.redAccent),
-                        onPressed: () {
-                          setState(() {
-                            widget.info.bmsBles!.removeAt(idx);
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ],
+
             const Text("Налаштування NetB (BMS)", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
             const SizedBox(height: 8),
             Row(
@@ -344,11 +312,62 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
                 Expanded(flex: 1, child: _buildField(_portBController, "Port", isNumber: true)),
               ],
             ),
+
+            if (widget.info.bmsList != null) ...[
+              const Divider(height: 30, thickness: 1),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Перелік підключених BMS",
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle, color: Colors.blueAccent),
+                    onPressed: () {
+                      setState(() {
+                        widget.info.bmsList!.add(
+                          DataEspBmsInfo(
+                            mac: '',
+                            name: '',
+                            interfaceType: ConnectInterfaceType.rs485,
+                            addressRs485: 1,
+                          ),
+                        );
+                        _isFormValid = false;
+                      });
+                      WidgetsBinding.instance.addPostFrameCallback((_) => _validateForm());
+                    },
+                  ),
+                ],
+              ),
+              ...widget.info.bmsList!.asMap().entries.map((entry) {
+                final int idx = entry.key;
+                final item = entry.value;
+
+                return _BmsItemCard(
+                  key: ValueKey(item),
+                  item: item,
+                  onDelete: () {
+                    setState(() {
+                      widget.info.bmsList!.removeAt(idx);
+                    });
+                    _validateForm();
+                  },
+                  onChanged: () {
+                    setState(() {});
+                    _validateForm();
+                  },
+                );
+              }),
+            ],
+
             const SizedBox(height: 30),
             ElevatedButton(
-              onPressed: _save,
+              onPressed: _isFormValid ? _save : null,
               style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueAccent,
+                  disabledBackgroundColor: Colors.grey.shade300,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 50)),
               child: const Text("ЗБЕРЕГТИ ЛОКАЛЬНО"),
@@ -364,6 +383,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     bool readOnly = false,
     bool isOptional = false,
     bool isMac = false,
+    bool isId = false,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -371,11 +391,13 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
         controller: ctrl,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
         readOnly: readOnly,
-        // Автоматичне перетворення на великі літери для MAC
-        onChanged: isMac ? (val) => ctrl.value = ctrl.value.copyWith(
-          text: val.toUpperCase(),
-          selection: TextSelection.collapsed(offset: val.length),
-        ) : null,
+        onChanged: isMac ? (val) {
+          ctrl.value = ctrl.value.copyWith(
+            text: val.toUpperCase(),
+            selection: TextSelection.collapsed(offset: val.length),
+          );
+          _validateForm();
+        } : (_) => _validateForm(),
         style: TextStyle(fontSize: 14, color: readOnly ? Colors.blueGrey : Colors.black),
         decoration: InputDecoration(
           labelText: label,
@@ -390,21 +412,196 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
           if (isOptional && (value == null || value.isEmpty)) return null;
           if (value == null || value.isEmpty) return "!";
 
-          // СУВОРИЙ РЕГУЛЯРНИЙ ВИРАЗ
+          if (isId) {
+            final id = int.tryParse(value);
+            if (id == null || id <= 0) return "ID > 0";
+          }
+
           if (isMac) {
-            // Дозволяє 6 пар HEX-символів через двокрапку
             final macRegex = RegExp(r'^[0-9A-F]{2}(:[0-9A-F]{2}){5}$');
             if (!macRegex.hasMatch(value.toUpperCase())) {
               return "Формат: XX:XX:XX:XX:XX:XX";
             }
           }
 
-          if (isNumber) {
+          if (isNumber && !isId) {
             final n = int.tryParse(value);
             if (n == null || n <= 0) return ">0";
           }
           return null;
         },
+      ),
+    );
+  }
+}
+
+class _BmsItemCard extends StatefulWidget {
+  final DataEspBmsInfo item;
+  final VoidCallback onDelete;
+  final VoidCallback onChanged;
+
+  const _BmsItemCard({
+    super.key,
+    required this.item,
+    required this.onDelete,
+    required this.onChanged,
+  });
+
+  @override
+  State<_BmsItemCard> createState() => _BmsItemCardState();
+}
+
+class _BmsItemCardState extends State<_BmsItemCard> {
+  late TextEditingController _typeController;
+
+  @override
+  void initState() {
+    super.initState();
+    String prefix = widget.item.name;
+    if (prefix.contains('-')) {
+      prefix = prefix.substring(0, prefix.lastIndexOf('-'));
+    }
+    _typeController = TextEditingController(text: prefix);
+  }
+
+  @override
+  void dispose() {
+    _typeController.dispose();
+    super.dispose();
+  }
+
+  void _updateName() {
+    widget.item.name = DataEspBmsInfo.buildName(
+      customPrefix: _typeController.text,
+      interfaceType: widget.item.interfaceType,
+      addressRs485: widget.item.addressRs485,
+      mac: widget.item.mac,
+    );
+    widget.onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8.0),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextFormField(
+                    controller: _typeController,
+                    decoration: const InputDecoration(
+                      labelText: "Тип BMS",
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    validator: (val) => (val == null || val.trim().isEmpty) ? "!" : null,
+                    onChanged: (_) => _updateName(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 90,
+                  child: DropdownButtonFormField<ConnectInterfaceType>(
+                    value: widget.item.interfaceType == ConnectInterfaceType.ble
+                        ? ConnectInterfaceType.ble
+                        : ConnectInterfaceType.rs485,
+                    isDense: true,
+                    decoration: const InputDecoration(
+                      labelText: "Тип",
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: ConnectInterfaceType.rs485,
+                        child: Text("RS485", style: TextStyle(fontSize: 12)),
+                      ),
+                      DropdownMenuItem(
+                        value: ConnectInterfaceType.ble,
+                        child: Text("BLE", style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        widget.item.interfaceType = val;
+                        if (val == ConnectInterfaceType.rs485) {
+                          widget.item.addressRs485 ??= 1;
+                        } else {
+                          widget.item.addressRs485 = null;
+                        }
+                        _updateName();
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 4,
+                  child: widget.item.interfaceType == ConnectInterfaceType.rs485
+                      ? TextFormField(
+                    initialValue: (widget.item.addressRs485 ?? 1).toString(),
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: "DIP / Addr",
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    validator: (val) {
+                      final n = int.tryParse(val ?? '');
+                      if (n == null || n < 1) return ">0";
+                      return null;
+                    },
+                    onChanged: (val) {
+                      widget.item.addressRs485 = int.tryParse(val) ?? 1;
+                      _updateName();
+                    },
+                  )
+                      : TextFormField(
+                    initialValue: widget.item.mac,
+                    decoration: const InputDecoration(
+                      labelText: "MAC-адреса",
+                      hintText: "XX:XX:XX:XX:XX:XX",
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    onChanged: (val) {
+                      widget.item.mac = val.toUpperCase();
+                      _updateName();
+                    },
+                    validator: (value) {
+                      if (widget.item.interfaceType == ConnectInterfaceType.ble) {
+                        if (value == null || value.isEmpty) return "!";
+                        final macRegex = RegExp(r'^[0-9A-F]{2}(:[0-9A-F]{2}){5}$');
+                        if (!macRegex.hasMatch(value.toUpperCase())) {
+                          return "XX:XX:XX:XX:XX:XX";
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.remove_circle, color: Colors.redAccent),
+                  onPressed: widget.onDelete,
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Name BMS: ${widget.item.name}",
+              style: const TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
       ),
     );
   }
