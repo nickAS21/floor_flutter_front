@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:floor_front/page/usr_wifi/provision/client/usr_client_device_type.dart';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_linux.dart';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_widgets.dart';
-import 'package:flutter/material.dart';
+import '../../../esp/provision/ble_client.dart';
+import '../../../esp/provision/ble_client_scanner.dart';
 import 'usr_provision_base_page.dart';
 import '../../data_home/data_location_type.dart';
+import 'client/connect_interface_type.dart';
 
 class UsrProvisionLinuxPage extends StatefulWidget {
   final LocationType selectedLocation;
@@ -19,109 +22,135 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
   @override
   late final provision = UsrProvisionLinux();
 
-  // Заглушки стану BLE для тестового запуску UI
+  final BleClientScanner _bleScanner = BleClientScanner();
+  List<BleDiscoveredDevice> discoveredBleDevices = [];
+  BleDiscoveredDevice? selectedBleDevice;
   bool isBleScanning = false;
-  List<dynamic> bleDevices = [];
-  dynamic selectedBleDevice;
+
+  @override
+  void onPrefixChanged(String newPrefix) {
+    super.onPrefixChanged(newPrefix);
+    final newDeviceType = UsrClientDeviceType.fromPrefix(newPrefix);
+    onDeviceTypeChanged(newDeviceType);
+  }
 
   /// Обробник зміни типу девайса (префікса)
   void onDeviceTypeChanged(UsrClientDeviceType newType) {
-    debugPrint("КРОК 1: Зміна типу девайса на ${newType.label} (isBleSupported: ${newType.isBleSupported})");
-
     if (newType.isBleSupported) {
-      // ----------------------------------------------------
-      // ГІЛКА BLE (isBleSupported == true)
-      // ----------------------------------------------------
-      _switchToBleMode();
+      debugPrint("КРОК 5: Перехід USR -> ESP: Зупиняємо HTTP, переходимо до BLE");
+      _switchToBleMode(newType);
     } else {
-      // ----------------------------------------------------
-      // ГІЛКА HTTP (isBleSupported == false) — Все по-старому
-      // ----------------------------------------------------
+      debugPrint("КРОК 6: Перехід ESP -> USR: Зупиняємо BLE, повертаємо HTTP");
       _switchToHttpMode();
     }
   }
 
-  /// Перехід у режим BLE (очищення HTTP + запуск BLE)
-  void _switchToBleMode() {
-    debugPrint("КРОК 2: Очищення стану HTTP та перехід у BLE режим");
-
-    // 1. Очищаємо стан HTTP
+  /// Перехід у режим BLE (Очищення Wi-Fi + запуск BLE-сканеру)
+  void _switchToBleMode(UsrClientDeviceType deviceType) {
     setState(() {
       networks.clear();
+
+      httpClient = BleClient(deviceType: deviceType);
       httpClient.mac = null;
       httpClient.ssidName = null;
+
+      macController.clear();
+      ssidNameController.text = deviceType.prefix;
+
+      selectedBleDevice = null;
+      discoveredBleDevices.clear();
       isLoading = false;
-      status = "Переключено на BLE. Пошук BLE пристроїв...";
+      status = "Переключено на ${deviceType.label}. Пошук BLE пристроїв...";
     });
 
-    // 2. Якщо раніше був вибраний несумісний варіант (наприклад RxTx), скидаємо на RS485
     if (selectedUartType.name == 'rxTx') {
       setState(() {
-        // За замовчуванням залишаємо RS485 для BLE
+        selectedUartType = ConnectInterfaceType.rs485;
       });
     }
 
-    // 3. Запускаємо BLE тестовий режим
-    _startBleScanTest();
+    _startBleScan();
   }
 
-  /// Перехід у режим HTTP (очищення BLE + відновлення HTTP)
+  /// Перехід у режим HTTP (USR)
   void _switchToHttpMode() {
-    debugPrint("КРОК 3: Очищення стану BLE та повернення до HTTP (USR)");
+    _bleScanner.stopScan();
 
-    // 1. Зупиняємо та очищаємо BLE
-    _stopBleScanTest();
     setState(() {
       isBleScanning = false;
-      bleDevices.clear();
+      discoveredBleDevices.clear();
       selectedBleDevice = null;
-      status = "Переключено на HTTP (USR). Пошук мереж...";
+      status = "Переключено на USR. Пошук мереж...";
     });
 
-    // 2. Якщо був вибраний BLE-інтерфейс, скидаємо на RS485
     if (selectedUartType.name == 'ble') {
       setState(() {
-        // За замовчуванням повертаємо RS485
+        selectedUartType = ConnectInterfaceType.rs485;
       });
     }
 
-    // 3. Повертаємо стандартний HTTP-скан USR
-    debugPrint("КРОК 4: Запуск стандартної послідовності runSetupSequence(null)");
     runSetupSequence(null);
   }
 
-  /// Тестовий запуск сканування BLE з повідомленнями та оновленням status
-  void _startBleScanTest() {
-    debugPrint("КРОК 5: Викликаємо сканування BLE");
+  /// Запуск BLE сканування через bluetoothctl (Linux)
+  Future<void> _startBleScan() async {
+    debugPrint("BLE: Стартуємо сканування BLE-ефіру...");
 
     setState(() {
       isBleScanning = true;
       isLoading = true;
-      status = "Запуск сканування BLE ефіру...";
+      status = "Запуск BLE сканування ефіру...";
     });
 
-    // Заглушка тестового сканування
-    Timer(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      debugPrint("КРОК 6: Тестове сканування BLE завершено");
-      setState(() {
-        isBleScanning = false;
-        isLoading = false;
-        status = "BLE сканування завершено. Знайдено пристроїв: ${bleDevices.length}";
-      });
+    // 1. Чекаємо завершення сканування bluetoothctl
+    await _bleScanner.startScan(timeout: const Duration(seconds: 5));
+
+    if (!mounted) return;
+
+    // 2. Беремо зафіксований список знайдених пристроїв з геттера сканера
+    setState(() {
+      discoveredBleDevices = List.from(_bleScanner.discoveredDevices);
+      isBleScanning = false;
+      isLoading = false;
+
+      if (discoveredBleDevices.isEmpty) {
+        status = selectedUartType.isRs485Enabled
+            ? "Відсутній коннект Device-шлюз в режимі BLE"
+            : "BLE пристроїв не знайдено";
+      } else {
+        status = "Знайдено BLE-шлюзів: ${discoveredBleDevices.length}";
+      }
     });
   }
 
-  /// Зупинка BLE сканування
-  void _stopBleScanTest() {
-    debugPrint("КРОК 7: Зупинка BLE сканування");
-    isBleScanning = false;
+  /// Вибір BLE-шлюзу зі списку
+  void _onSelectBleDevice(BleDiscoveredDevice device) {
+    setState(() {
+      selectedBleDevice = device;
+
+      macController.text = device.id.toUpperCase();
+      ssidNameController.text = device.name;
+
+      if (httpClient is BleClient) {
+        final bleClient = httpClient as BleClient;
+        bleClient.mac = device.id.toUpperCase();
+        bleClient.ssidName = device.name;
+      }
+
+      status = "Обрано BLE-шлюз: ${device.name}";
+    });
+
+    validateFormInternal();
   }
 
   @override
   Future<bool> onScan() async {
+    final deviceType = UsrClientDeviceType.fromPrefix(selectedPrefix);
+    if (deviceType.isBleSupported) {
+      return false;
+    }
+
     try {
-      // 3. Скануємо мережі через нативного провайдера Linux
       final results = await provision.scanNetworks(null, httpClient);
 
       if (mounted) {
@@ -153,7 +182,7 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
     } finally {
       if (mounted) {
         setState(() => isLoading = false);
-        validateFormInternal(); // Оновлюємо стан кнопки Save
+        validateFormInternal();
       }
     }
     return false;
@@ -162,23 +191,23 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
   @override
   Widget build(BuildContext context) {
     final widgets = UsrProvisionWidgets(this);
+    final deviceType = UsrClientDeviceType.fromPrefix(selectedPrefix);
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 40, // ВСТАНОВІТЬ БАЖАНУ ВИСОТУ ТУТ (стандартна — 56)
+        toolbarHeight: 40,
         title: const Text(
           "Linux Configuration",
-          style: TextStyle(fontSize: 16), // Можна зменшити шрифт для гармонії
+          style: TextStyle(fontSize: 16),
         ),
-        // actions: [
-        //   IconButton(
-        //     icon: const Icon(Icons.refresh),
-        //     onPressed: () => runSetupSequence(null), // Передаємо null явно
-        //   ),
-        // ],
       ),
       body: widgets.buildCommonForm(
-        networkSelector: _buildNetworkSelector(),
+        networkSelector: Column(
+          children: [
+            if (deviceType.isBleSupported) _buildBleGatewaySelector(),
+            _buildNetworkSelector(),
+          ],
+        ),
         actionButtons: widgets.buildActionButtons(
           onSave: () => onSaveHttpUpdate(widget.selectedLocation),
           saveLabel: "ЗБЕРЕГТИ ТА РЕСТАРТ",
@@ -187,24 +216,101 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
     );
   }
 
+  Widget _buildBleGatewaySelector() {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Material(
+        color: Colors.deepPurple.shade50,
+        borderRadius: BorderRadius.circular(8),
+        clipBehavior: Clip.antiAlias,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.deepPurple.shade300, width: 1.5),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              initiallyExpanded: true,
+              leading: const Icon(Icons.bluetooth_searching, color: Colors.deepPurple),
+              title: Text(
+                selectedBleDevice == null
+                    ? "Оберіть BLE-шлюз (${discoveredBleDevices.length})"
+                    : "Обрано шлюз: ${selectedBleDevice!.name}",
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepPurple, fontSize: 11),
+              ),
+              children: [
+                if (discoveredBleDevices.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(12.0),
+                    child: Text(
+                      "BLE-шлюзів не знайдено...",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  )
+                else
+                  Material(
+                    color: Colors.white,
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: discoveredBleDevices.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final device = discoveredBleDevices[index];
+                        final isSelected = selectedBleDevice?.id == device.id;
+
+                        return ListTile(
+                          dense: true,
+                          title: Text(
+                            device.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          subtitle: Text(
+                            "MAC: ${device.id}",
+                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check_circle, color: Colors.green, size: 22)
+                              : Text("${device.rssi} dBm", style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          onTap: () => _onSelectBleDevice(device),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildNetworkSelector() {
     if (isLoading) return const SizedBox.shrink();
+
+    final deviceType = UsrClientDeviceType.fromPrefix(selectedPrefix);
     if (networks.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Text("WiFi Мереж не знайдено", style: TextStyle(color: Colors.red)),
+      return Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Text(
+          deviceType.isBleSupported
+              ? "Wi-Fi мережі (Provisioning) — очікування..."
+              : "WiFi Мереж не знайдено",
+          style: TextStyle(color: deviceType.isBleSupported ? Colors.grey : Colors.red, fontSize: 11),
+        ),
       );
     }
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10),
+      margin: const EdgeInsets.symmetric(vertical: 6),
       child: Material(
         color: Colors.blue.withAlpha(15),
         borderRadius: BorderRadius.circular(8),
         clipBehavior: Clip.antiAlias,
         child: Container(
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.blue, width: 2), // Жирна рамка блоку
+            border: Border.all(color: Colors.blue, width: 2),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Theme(
@@ -255,7 +361,6 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
     );
   }
 
-  // Усередині State-класу сторінки
   void onNetworkTap(Map<String, dynamic> network) {
     final String ssid = network['ssid'] ?? "";
 
@@ -265,23 +370,15 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
 
       if (isModule) {
         setState(() {
-          // isLoading = true; // Вмикаємо колесо відразу
           status = "Підключення до $ssid...";
         });
 
-        // 1. ВИКЛИКАЄМО КОНЕКТ (через той самий метод провайдера)
-        // Ми передаємо SSID, щоб Linux виконав nmcli connect
         provision.scanNetworks(ssid, httpClient).then((results) {
-          // Перевіряємо тільки маркер успіху
           if (results.isNotEmpty && results.first.containsKey('connected')) {
-
-            // ТІЛЬКИ ПІСЛЯ ТОГО як ОС підключилася, запускаємо п.1 архітектури
-            // Ніяких foundNetworks = results, нам це вже не цікаво
             isLoading = false;
             httpClient.ssidName = ssid;
             runSetupSequence(ssid);
           } else {
-            // Якщо маркера немає, значить це був просто холостий скан
             setState(() => isLoading = false);
           }
         }).catchError((e) {
@@ -294,7 +391,6 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
       }
     }
 
-    // Звичайний вибір робочої мережі
     setState(() => targetSsidController.text = ssid);
     validateFormInternal();
   }
