@@ -1,16 +1,15 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../../page/usr_wifi/provision/client/connect_interface_type.dart';
 import '../../page/usr_wifi/provision/client/usr_client.dart';
-import '../../page/usr_wifi/provision/client/usr_client_device_type.dart';
+import '../../page/usr_wifi/provision/client/usr_client_node_type.dart';
 import '../info/data_esp_bms_info.dart';
 import 'ble_helper_bl602.dart';
 import 'ble_helper_esp.dart';
 
-class BleClient implements UsrClient {
-  final UsrClientDeviceType deviceType;
+class BleClientNode implements UsrClient {
+  final UsrClientNodeType deviceType;
 
-  BleClient({this.deviceType = UsrClientDeviceType.bl602});
+  BleClientNode({this.deviceType = UsrClientNodeType.bl602});
 
   @override
   String? mac;
@@ -39,13 +38,13 @@ class BleClient implements UsrClient {
   @override
   Future<List<Map<String, dynamic>>> getScanResults() async {
     try {
-      final Uint8List command = deviceType == UsrClientDeviceType.esp
+      final Uint8List command = deviceType == UsrClientNodeType.esp
           ? BleHelperEsp.buildWifiScanCommand()
           : BleHelperBl602.buildWifiScanCommand();
 
       final Uint8List responseBytes = Uint8List(0); // Відповідь від BLE
 
-      if (deviceType == UsrClientDeviceType.esp) {
+      if (deviceType == UsrClientNodeType.esp) {
         return [];
       } else {
         return BleHelperBl602.parseWifiScanResults(responseBytes);
@@ -71,11 +70,11 @@ class BleClient implements UsrClient {
     return bmsList;
   }
 
-  /// Сканування кінцевих BLE BMS пристроїв довкола шлюзу
+  /// Сканування кінцевих BLE BMS пристроїв довкола node
   Future<List<DataEspBmsInfo>> _scanBleTargetDevices() async {
     try {
       debugPrint("Сканування BLE-девайсів (BMS)...");
-      // TODO: Відправка команди на шлюз для BLE-сканування BMS та парсинг результатів
+      // TODO: Відправка команди на node для BLE-сканування BMS та парсинг результатів
       return [];
     } catch (e) {
       debugPrint("Помилка сканування BLE BMS: $e");
@@ -87,7 +86,7 @@ class BleClient implements UsrClient {
   Future<List<DataEspBmsInfo>> _scanRs485TargetDevices() async {
     try {
       debugPrint("Опитування RS485-девайсів (BMS)...");
-      // TODO: Відправка команди на шлюз для RS485-опитування BMS та парсинг результатів
+      // TODO: Відправка команди на node для RS485-опитування BMS та парсинг результатів
       return [];
     } catch (e) {
       debugPrint("Помилка опитування RS485 BMS: $e");
@@ -108,14 +107,14 @@ class BleClient implements UsrClient {
     bool isRs485Enabled = true,
   }) async {
     // 1. Формування та відправка Wi-Fi credentials
-    final Uint8List wifiPayload = deviceType == UsrClientDeviceType.esp
+    final Uint8List wifiPayload = deviceType == UsrClientNodeType.esp
         ? BleHelperEsp.buildWifiCredentialsPayload(targetSsid, targetPass)
         : BleHelperBl602.buildWifiCredentialsPayload(targetSsid, targetPass);
 
     await _writeToBleCharacteristic(wifiPayload);
 
     // 2. Формування та відправка системних налаштувань
-    final Uint8List settingsPayload = deviceType == UsrClientDeviceType.esp
+    final Uint8List settingsPayload = deviceType == UsrClientNodeType.esp
         ? BleHelperEsp.buildSettingsPayload(
       moduleSsid: moduleSsid,
       ipA: ipA,
@@ -142,7 +141,7 @@ class BleClient implements UsrClient {
   @override
   Future<String> postRestart() async {
     try {
-      final Uint8List rebootCmd = deviceType == UsrClientDeviceType.esp
+      final Uint8List rebootCmd = deviceType == UsrClientNodeType.esp
           ? BleHelperEsp.buildRebootCommand()
           : BleHelperBl602.buildRebootCommand();
 

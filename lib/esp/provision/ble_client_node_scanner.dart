@@ -1,31 +1,31 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import '../../page/usr_wifi/provision/client/usr_client_device_type.dart';
+import '../../page/usr_wifi/provision/client/usr_client_node_type.dart';
 
 /// Клас для представлення знайденого BLE пристрою
-class BleDiscoveredDevice {
+class BleClientNodeDiscovered {
   final String id; // MAC-адреса або UUID
   final String name; // Назва пристрою (наприклад, ESP-1A2B)
   final int rssi; // Рівень сигналу
-  final UsrClientDeviceType deviceType;
+  final UsrClientNodeType clientNodeType;
 
-  BleDiscoveredDevice({
+  BleClientNodeDiscovered({
     required this.id,
     required this.name,
     required this.rssi,
-    required this.deviceType,
+    required this.clientNodeType,
   });
 }
 
 /// Сервіс сканування BLE-ефіру для пошуку ESP32 / BL602
-class BleClientScanner {
-  final _scanController = StreamController<List<BleDiscoveredDevice>>.broadcast();
-  final List<BleDiscoveredDevice> _discoveredDevices = [];
+class BleClientNodeScanner {
+  final _scanController = StreamController<List<BleClientNodeDiscovered>>.broadcast();
+  final List<BleClientNodeDiscovered> _discoveredDevices = [];
   bool _isScanning = false;
 
-  Stream<List<BleDiscoveredDevice>> get scanResults => _scanController.stream;
-  List<BleDiscoveredDevice> get discoveredDevices => List.unmodifiable(_discoveredDevices);
+  Stream<List<BleClientNodeDiscovered>> get scanResults => _scanController.stream;
+  List<BleClientNodeDiscovered> get discoveredDevices => List.unmodifiable(_discoveredDevices);
   bool get isScanning => _isScanning;
 
   /// Запуск сканування BLE-ефіру у Linux через bluetoothctl
@@ -91,19 +91,19 @@ class BleClientScanner {
     required String name,
     required int rssi,
   }) {
-    final isEsp = name.startsWith(UsrClientDeviceType.esp.prefix);
-    final isBl602 = name.startsWith(UsrClientDeviceType.bl602.prefix);
+    final isEsp = name.startsWith(UsrClientNodeType.esp.prefix);
+    final isBl602 = name.startsWith(UsrClientNodeType.bl602.prefix);
 
     if (!isEsp && !isBl602) return;
 
-    final deviceType = isEsp ? UsrClientDeviceType.esp : UsrClientDeviceType.bl602;
+    final deviceType = isEsp ? UsrClientNodeType.esp : UsrClientNodeType.bl602;
 
     final existingIndex = _discoveredDevices.indexWhere((d) => d.id == id);
-    final device = BleDiscoveredDevice(
+    final device = BleClientNodeDiscovered(
       id: id,
       name: name,
       rssi: rssi,
-      deviceType: deviceType,
+      clientNodeType: deviceType,
     );
 
     if (existingIndex >= 0) {

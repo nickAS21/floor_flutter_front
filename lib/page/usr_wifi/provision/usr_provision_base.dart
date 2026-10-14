@@ -3,7 +3,8 @@ import 'client/usr_client_helper.dart';
 
 abstract class UsrProvisionBase {
   // Реалізація за замовчуванням для всіх нащадків
-  String getHint() => UsrClientHelper.provisionHint;
+  String getHintHttp() => UsrClientHelper.provisionHintHttp;
+  String getHintBle() => UsrClientHelper.provisionHintBle;
 
   /// Сканування мереж
   Future<List<Map<String, dynamic>>> scanNetworks(String? ssid, UsrClient usrClient);

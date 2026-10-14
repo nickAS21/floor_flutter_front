@@ -10,7 +10,7 @@ import 'client/http/usr_s100_http_client.dart';
 import 'client/http/usr_wifi_232_http_client.dart';
 import 'client/usr_client.dart';
 import 'client/usr_client_factory.dart';
-import 'client/usr_client_device_type.dart';
+import 'client/usr_client_node_type.dart';
 import 'client/usr_client_helper.dart';
 import 'client/connect_interface_type.dart';
 
@@ -30,7 +30,6 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   ConnectInterfaceType selectedUartType = ConnectInterfaceType.rxTx;
 
   // Спільні стани
-  // String? detectedMac;
   bool obscurePassword = true;
   String status = "Очікування...";
   bool isLoading = false;
@@ -39,25 +38,26 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   List<Map<String, dynamic>> networks = [];
   bool scanSuccess = false;
   String? selectedSsid;
-  String selectedPrefix = UsrClientDeviceType.a2.prefix;
+  String selectedPrefix = UsrClientNodeType.a2.prefix;
 
-  // Інструменти
-  late UsrClient httpClient;
+  // Інструменти (Клієнт зв'язку з Node-вузлом)
+  late UsrClient nodeClient;
 
-  // АБСТРАКТНИЙ геттер
+  // АБСТРАКТНІ геттери та методи
   UsrProvisionBase get provision;
+  Future<bool> onScanNode();
 
-  Future<bool> onScan();
+  /// Віртуальні методи для BLE-сканування (перевизначаються на Linux / Android)
+  Future<void> startBleScanNode() async {}
+  Future<void> stopBleScanNode() async {}
 
   @override
   void initState() {
     super.initState();
-    httpClient = UsrWiFi232HttpClient();
+    nodeClient = UsrWiFi232HttpClient();
 
-    // Запускаємо єдиний ланцюжок і більше нічого не чіпаємо
     runSetupSequence(null);
 
-    // ОСЬ ЦЕЙ СПИСОК «ОЖИВИТЬ» КНОПКУ
     final fields = [
       idController,
       targetSsidController,
@@ -69,7 +69,6 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     ];
 
     for (var controller in fields) {
-      // Слухаємо кожну зміну тексту
       controller.addListener(() {
         if (controller == idController) _updatePortsInternal();
         validateFormInternal();
@@ -79,75 +78,62 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 
   Future<void> runSetupSequence(String? ssid) async {
     if (!mounted || isLoading) return;
-    if (!mounted) return;
     resetProvisioningState(true, "Розвідка пристрою...");
 
     try {
-      // КРОК 2: Завантажуємо налаштування (IP, Порти)
       await _loadPreferences();
 
-      // КРОК 3: Викликаємо розвідку заліза (шукаємо MAC)
-      debugPrint("КРОК 3.1: Викликаємо розвідку заліза (шукаємо MAC)");
-      await initDevice();
-      String? mac = httpClient.mac;
-      // 2. Отримуємо свіжий MAC
+      debugPrint("КРОК 3.1: Викликаємо розвідку заліза/node (шукаємо MAC)");
+      await initNodeClient();
+      String? mac = nodeClient.mac;
+
       if (mac.isNotBlank) {
         updateModuleSsid(mac);
         if (ssid.isBlank) {
           ssid = await provision.getActiveSsid();
         }
         if (ssid.isNotBlank) {
-          httpClient.ssidName = ssid;
-          debugPrint("Активний SSID встановлено: $ssid");
+          nodeClient.ssidName = ssid;
+          debugPrint("Активний SSID node встановлено: $ssid");
         }
       }
       debugPrint("КРОК 3.2: MAC: $mac");
 
-      // КРОК 4: Викликаємо сканування мереж
-      debugPrint("КРОК 4: Викликаємо сканування мереж");
-      bool isScanOk = await onScan();
+      debugPrint("КРОК 4: Викликаємо сканування WiFi мереж node");
+      bool isScanOk = await onScanNode();
 
       if (mounted) {
         setState(() {
-          isLoading = false; // Остаточно гасимо колесо
+          isLoading = false;
           if (isScanOk) {
-            status = "Готово. Знайдено ${networks.length} мереж";
+            status = "Готово. Знайдено ${networks.length} WiFi мереж через node";
           } else {
             if (mac.isNotBlank) {
-              status = "Пристрій знайдено, але список WiFi порожній";
+              status = "Node знайдено, але список WiFi порожній";
             } else {
-              status = "Пристрій не знайдено...";
+              status = "Node не знайдено...";
             }
           }
         });
 
-        // Перевіряємо кнопку збереження ще раз
         validateFormInternal();
       }
 
     } catch (e) {
-      // Якщо впало на старті — гасимо колесо тут
       if (mounted) setState(() => isLoading = false);
     }
-    // Зверни увагу: тут немає finally з isLoading = false,
-    // бо за вимкнення колеса тепер відповідає фінальний метод onScan
   }
 
-  Future<void> initDevice() async {
+  Future<void> initNodeClient() async {
     if (!mounted) return;
-    // 2. КРИТИЧНО: Чекаємо 100 мілісекунд.
-    // Це звільняє потік, і Flutter встигає намалювати колесо ПЕРЕД мережевим запитом.
     await Future(() {});
 
     try {
-      // Фабрика сама робить всю брудну роботу: шукає, пінгує, отримує MAC
-      httpClient = await UsrClientFactory.discoverDevice();
+      nodeClient = await UsrClientFactory.discoverDevice();
 
-      if (mounted && httpClient.mac != null) {
-        // Якщо MAC є — ми готові
+      if (mounted && nodeClient.mac != null) {
         setState(() => status = "Пристрій готовий");
       } else {
-        // Якщо MAC немає — показуємо, що пристрій не знайдено (режим Linux скан)
         if (mounted) setState(() => status = "Пристрій не знайдено в мережі");
       }
     } catch (e) {
@@ -170,12 +156,12 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     final bool isValid = targetSsidController.text.isNotEmpty &&
         passController.text.isNotEmpty &&
         idText.isNotEmpty &&
-        idValue != null && idValue != 0 && // Перевірка на нуль є
+        idValue != null && idValue != 0 &&
         ssidNameController.text.isNotEmpty &&
-        ipAController.text.isNotEmpty &&   // ДОДАНО: перевірка IP A
-        ipBController.text.isNotEmpty &&   // ДОДАНО: перевірка IP B
-        bitrateController.text.isNotEmpty && // ДОДАНО: Валідація BitRate
-        (httpClient.mac != null && httpClient.mac!.isNotEmpty);
+        ipAController.text.isNotEmpty &&
+        ipBController.text.isNotEmpty &&
+        bitrateController.text.isNotEmpty &&
+        (nodeClient.mac != null && nodeClient.mac!.isNotEmpty);
 
     if (isValid != isFormValid) {
       setState(() => isFormValid = isValid);
@@ -191,34 +177,30 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
         : "0000";
 
     setState(() {
-      // Встановлюємо в контролер для візуалізації
-      if (httpClient is UsrS100HttpClient) {
-        selectedPrefix = UsrClientDeviceType.s100.prefix;
-      } else if (selectedPrefix == UsrClientDeviceType.s100.prefix) {
-        selectedPrefix = UsrClientDeviceType.b2.prefix;
+      if (nodeClient is UsrS100HttpClient) {
+        selectedPrefix = UsrClientNodeType.s100.prefix;
+      } else if (selectedPrefix == UsrClientNodeType.s100.prefix) {
+        selectedPrefix = UsrClientNodeType.b2.prefix;
       }
       macController.text = mac.toUpperCase();
-      // detectedMac = mac.toUpperCase();
       ssidNameController.text = "$selectedPrefix$suffix";
     });
   }
 
-  // ТОЙ САМИЙ МЕТОД, ЯКИЙ ПОВЕРНУЛИ
   void togglePasswordVisibility() {
     setState(() {
       obscurePassword = !obscurePassword;
     });
-    _savePreferences(); // Зберігаємо вибір негайно
+    _savePreferences();
   }
 
   void toggleKeepSettings(bool? value) {
     setState(() {
       keepTargetSettings = value ?? false;
     });
-    _savePreferences(); // Зберігаємо вибір негайно
+    _savePreferences();
   }
 
-  // --- UI Методи ---
   Widget buildPrefixSelector() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -230,27 +212,21 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
         child: DropdownButton<String>(
           value: selectedPrefix,
           isDense: true,
-          items: UsrClientDeviceType.values.map((device) => DropdownMenuItem(
+          items: UsrClientNodeType.values.map((device) => DropdownMenuItem(
               value: device.prefix,
               child: Text(
-                  device.label, // Відображаємо "B2", "A2" або "S100"
+                  device.label,
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)
               )
           )).toList(),
           onChanged: (v) {
             if (v != null) {
               setState(() {
-                onPrefixChanged(v); // 1. Оновлюємо вибраний префікс
+                onPrefixChanged(v);
 
-                // 2. Отримуємо актуальний MAC (з детектора або з клієнта)
-                // final currentMac = detectedMac ?? httpClient.mac;
-
-                if (httpClient.mac.isNotBlank) {
-                  // Якщо MAC є — перераховуємо повний SSID (префікс + суфікс)
-                  updateModuleSsid(httpClient.mac);
+                if (nodeClient.mac.isNotBlank) {
+                  updateModuleSsid(nodeClient.mac);
                 } else {
-                  // Якщо MAC ще немає — просто записуємо префікс у поле,
-                  // щоб юзер бачив, що тип змінився
                   ssidNameController.text = v;
                 }
               });
@@ -275,11 +251,10 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     );
   }
 
-  // ОСНОВНИЙ МЕТОД ЗБЕРЕЖЕННЯ
   void onSaveHttpUpdate(LocationType selectedLocation) async {
     setState(() { isLoading = true; status = "Запис параметрів..."; });
     try {
-      await httpClient.onSaveUpdate(
+      await nodeClient.onSaveUpdate(
         targetSsid: targetSsidController.text,
         targetPass: passController.text,
         moduleSsid: ssidNameController.text,
@@ -293,10 +268,8 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 
       final infoBms = await _onUpdateDataUsrWiFiInfo(selectedLocation);
       setState(() { isLoading = false; status = "Успіх! Налаштування збережено."; });
-      // ВІДНОВЛЕНО: Зберігаємо останній успішний IP та прапорець
       await _savePreferences();
       if (mounted) {
-        // Перевіряємо, чи це S100 через префікс або тип клієнта
         if (selectedPrefix.contains("S100")) {
           ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text("Оновлено, перепідключення нової мережі - вручну: $infoBms"), backgroundColor: Colors.green)
@@ -306,7 +279,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
               SnackBar(content: Text("Оновлено: $infoBms"), backgroundColor: Colors.green)
           );
         }
-        resetProvisioningState(false, "Оновлення пристрою. завершено");
+        resetProvisioningState(false, "Оновлення пристрою завершено");
       }
     } catch (e) {
       setState(() { status = "Помилка: $e"; isLoading = false; });
@@ -316,7 +289,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   void onLoadDefault() async {
     setState(() { isLoading = true; status = "Скидання..."; });
     try {
-      await httpClient.postRestart();
+      await nodeClient.postRestart();
       setState(() => status = "Модуль перезавантажується...");
     } catch (e) {
       setState(() => status = "Помилка: $e");
@@ -327,7 +300,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 
   Future<String> _onUpdateDataUsrWiFiInfo(LocationType selectedLocation) async {
     final info = DataUsrWiFiInfo(
-        locationType: selectedLocation, id: int.tryParse(idController.text)!, bssidMac: httpClient.mac ?? "",
+        locationType: selectedLocation, id: int.tryParse(idController.text)!, bssidMac: nodeClient.mac ?? "",
         ssidWifiBms: ssidNameController.text, netIpA: ipAController.text, netAPort: int.tryParse(portAController.text)!,
         netIpB: ipBController.text, netBPort: int.tryParse(portBController.text)!
     );
@@ -347,11 +320,9 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Важливо: обгортаємо в setState, щоб UI оновився
     setState(() {
       keepTargetSettings = prefs.getBool('keepTargetSettings') ?? true;
 
-      // Завантажуємо IP, якщо вони були збережені
       String? savedIpA = prefs.getString('ipA');
       if (savedIpA != null) ipAController.text = savedIpA;
 
@@ -360,7 +331,6 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 
       String? savedBitrate = prefs.getString('bitrate');
       if (savedBitrate != null) bitrateController.text = savedBitrate;
-
     });
   }
 
@@ -374,100 +344,77 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 
   void resetProvisioningState(bool isStart, String statusStr) {
     setState(() {
-      // 1. Ідентифікатори - завжди в 0/null
       idController.text = "0";
 
-      // 2. Стан сканування
       networks = [];
       scanSuccess = false;
       selectedSsid = null;
       macController.clear();
       isLoading = isStart;
 
-      // 3. Поля, що залежать від keepTargetSettings.  Якщо true - нічого не робимо, залишаємо значення з контролерів
       if (!keepTargetSettings) {
         targetSsidController.clear();
         passController.clear();
-        bitrateController.text = UsrProvisionHelper.bitrateDef.toString(); // Скидаємо до заводського для BMS
+        bitrateController.text = UsrProvisionHelper.bitrateDef.toString();
       }
 
-      // 4. Скидання статусу та префікса модуля
       ssidNameController.text = selectedPrefix;
       status = statusStr;
       selectedUartType = ConnectInterfaceType.rs485;
     });
   }
+
   /// Викликається при зміні префікса (A2 / B2 / S100 / ESP / BL602)
   void onPrefixChanged(String newPrefix) {
-    final oldDeviceType = UsrClientDeviceType.fromPrefix(selectedPrefix);
-    final newDeviceType = UsrClientDeviceType.fromPrefix(newPrefix);
+    final oldDeviceType = UsrClientNodeType.fromPrefix(selectedPrefix);
+    final newDeviceType = UsrClientNodeType.fromPrefix(newPrefix);
 
     setState(() {
       selectedPrefix = newPrefix;
 
-      // 1. Корекція selectedUartType, якщо поточний вибір недоступний у новому режимі
       if (newDeviceType.isBleSupported) {
-        // У режимі BLE (ESP / BL602) доступні тільки RS485 та BLE.
-        // Якщо раніше стояв RxTx (від USR), автоматично скидаємо на RS485.
         if (selectedUartType == ConnectInterfaceType.rxTx) {
           selectedUartType = ConnectInterfaceType.rs485;
         }
       } else {
-        // У режимі HTTP (USR) доступні тільки RS485 та RxTx.
-        // Якщо раніше стояв BLE, скидаємо на RS485.
         if (selectedUartType == ConnectInterfaceType.ble) {
           selectedUartType = ConnectInterfaceType.rs485;
         }
       }
     });
 
-    // 2. Логіка перемикання між HTTP (USR) та BLE (ESP)
     if (!oldDeviceType.isBleSupported && newDeviceType.isBleSupported) {
-      // -----------------------------------------------------------------
-      // ПЕРЕХІД: USR (isBleSupported: false) ➡️ ESP (isBleSupported: true)
-      // -----------------------------------------------------------------
-      debugPrint("Перехід USR -> ESP: Зупиняємо HTTP, переходимо до BLE");
+      debugPrint("Перехід USR -> BLE Node: Зупиняємо HTTP, відкриваємо BLE");
 
-      setState(() {
-        // Зупиняємо та очищаємо HTTP-контекст USR
-        networks.clear();
-        httpClient.mac = null;
-        httpClient.ssidName = null;
-        isLoading = false;
-        status = "Переключено на ${newDeviceType.label}. Пошук BLE пристроїв...";
-      });
+      stopHttpScanNode(
+        statusMsg: "Переключено на ${newDeviceType.label}. Запуск BLE...",
+      );
 
-      // Стартуємо BLE-сканер
-      _startBleScanning();
+      startBleScanNode();
 
     } else if (oldDeviceType.isBleSupported && !newDeviceType.isBleSupported) {
-      // -----------------------------------------------------------------
-      // ПЕРЕХІД: ESP (isBleSupported: true) ➡️ USR (isBleSupported: false)
-      // -----------------------------------------------------------------
-      debugPrint("Перехід ESP -> USR: Зупиняємо BLE, повертаємо HTTP");
+      debugPrint("Перехід BLE -> USR Node: Зупиняємо BLE, повертаємо HTTP");
 
-      // Зупиняємо BLE-сканер та очищаємо стан BLE
-      _stopBleScanning();
+      stopBleScanNode();
 
       setState(() {
         status = "Переключено на ${newDeviceType.label}. Запуск пошуку USR...";
       });
 
-      // Повертаємо HTTP-скан USR
       runSetupSequence(null);
     }
   }
 
-  /// Заглушка запуску BLE-сканування
-  void _startBleScanning() {
-    debugPrint("BLE: Стартуємо сканування BLE-ефіру...");
-    // TODO: _bleScanner.startScan();
+  /// Зупиняє HTTP-сканування та скидає стан HTTP Node-клієнта
+  void stopHttpScanNode({String? statusMsg}) {
+    setState(() {
+      networks.clear();
+      nodeClient.mac = null;
+      nodeClient.ssidName = null;
+      isLoading = false;
+      if (statusMsg != null) {
+        status = statusMsg;
+      }
+    });
   }
-
-  /// Заглушка зупинки BLE-сканування
-  void _stopBleScanning() {
-    debugPrint("BLE: Зупиняємо сканування BLE...");
-    // TODO: _bleScanner.stopScan();
-  }
-
 }

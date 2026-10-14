@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:floor_front/helpers/app_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'client/usr_client_device_type.dart';
+import 'client/usr_client_node_type.dart';
 import 'client/usr_client_helper.dart';
 import 'client/connect_interface_type.dart';
 import 'usr_provision_base_page.dart';
@@ -15,6 +15,7 @@ class UsrProvisionWidgets {
   // Спільна форма для обох сторінок
   Widget buildCommonForm({required Widget actionButtons, Widget? networkSelector}) {
     final bool isConnectedToModule = state.macController.text.isNotBlank;
+    final nodeType = UsrClientNodeType.fromPrefix(state.selectedPrefix);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -35,7 +36,9 @@ class UsrProvisionWidgets {
               child: Text(
                 (isConnectedToModule)
                     ? "Підключено до MAC: ${state.macController.text}"
-                    : state.provision.getHint(),
+                    : (nodeType.isBleSupported
+                      ? state.provision.getHintBle()
+                      : state.provision.getHintHttp()),
                 style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -153,7 +156,7 @@ class UsrProvisionWidgets {
   }
 
   Widget buildActionButtons({required VoidCallback onSave, required String saveLabel}) {
-    final isDevisesActivated = state.httpClient.mac.isNotBlank;
+    final isDevisesActivated = state.nodeClient.mac.isNotBlank;
     final activeColorOnSave = const Color(0xFF00897B);
     return Column(
       children: [
@@ -219,9 +222,9 @@ class UsrProvisionWidgets {
 
   Widget buildUartModeSelector(UsrProvisionBasePage pageState) {
     // 1. Визначаємо тип девайса за поточним префіксом
-    final deviceType = UsrClientDeviceType.fromPrefix(pageState.selectedPrefix);
+    final deviceType = UsrClientNodeType.fromPrefix(pageState.selectedPrefix);
     // Якщо вибрано S100 — цей селектор ховаємо, бо налаштування актуальне для WIFI232
-    if (deviceType == UsrClientDeviceType.s100) {
+    if (deviceType == UsrClientNodeType.s100) {
       return const SizedBox.shrink();
     }
     // 3. Формуємо список ДОВОЛЕНИХ варіантів
@@ -250,7 +253,7 @@ class UsrProvisionWidgets {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "Інтерфейс зв’язку шлюзу з пристроєм:",
+            "Інтерфейс зв’язку node з пристроєм:",
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
           ),
           Row(

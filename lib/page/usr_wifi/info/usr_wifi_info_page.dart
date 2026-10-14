@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../provision/client/connect_interface_type.dart';
-import '../provision/client/usr_client_device_type.dart';
+import '../provision/client/usr_client_node_type.dart';
 import '../provision/client/usr_client_helper.dart';
 import '../provision/usr_provision_helper.dart';
 import 'data_usr_wifi_info.dart';
@@ -33,7 +33,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
   late TextEditingController _ouiController;
   late TextEditingController _bitrateController;
 
-  String _selectedPrefix = UsrClientDeviceType.b2.prefix;
+  String _selectedPrefix = UsrClientNodeType.b2.prefix;
   bool _isFormValid = false;
 
   @override
@@ -49,14 +49,14 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
     _ouiController = TextEditingController(text: widget.info.oui ?? '');
     _bitrateController = TextEditingController(text: widget.info.bitrate.toString());
 
-    for (var device in UsrClientDeviceType.values) {
+    for (var device in UsrClientNodeType.values) {
       if (widget.info.ssidWifiBms.startsWith(device.prefix)) {
         _selectedPrefix = device.prefix;
         break;
       }
     }
 
-    final currentDevice = UsrClientDeviceType.fromPrefix(_selectedPrefix);
+    final currentDevice = UsrClientNodeType.fromPrefix(_selectedPrefix);
     if (currentDevice.isBleSupported && widget.info.bmsList == null) {
       widget.info.bmsList = [];
     }
@@ -243,7 +243,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
                       contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                     ),
                     selectedItemBuilder: (BuildContext context) {
-                      return UsrClientDeviceType.values.map((device) {
+                      return UsrClientNodeType.values.map((device) {
                         return Text(
                           device.label,
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
@@ -251,7 +251,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
                         );
                       }).toList();
                     },
-                    items: UsrClientDeviceType.values.map((device) {
+                    items: UsrClientNodeType.values.map((device) {
                       return DropdownMenuItem<String>(
                         value: device.prefix,
                         child: Text(
@@ -266,7 +266,7 @@ class _UsrWiFiInfoPageState extends State<UsrWiFiInfoPage> {
                           _selectedPrefix = nv;
                           _updateSsidFromMac();
 
-                          final deviceType = UsrClientDeviceType.fromPrefix(nv);
+                          final deviceType = UsrClientNodeType.fromPrefix(nv);
                           if (deviceType.isBleSupported) {
                             widget.info.bmsList ??= [
                               DataEspBmsInfo(

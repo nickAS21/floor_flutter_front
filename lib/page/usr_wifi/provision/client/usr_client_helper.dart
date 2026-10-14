@@ -2,13 +2,13 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:floor_front/page/usr_wifi/provision/client/usr_client_device_type.dart';
+import 'package:floor_front/page/usr_wifi/provision/client/usr_client_node_type.dart';
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UsrClientHelper {
   // Використовуємо Enum для всіх налаштувань
-  static List<UsrClientDeviceType> get devices => UsrClientDeviceType.values;
+  static List<UsrClientNodeType> get devices => UsrClientNodeType.values;
 
   // const ports
   static const int netPortADef = 18890;
@@ -29,7 +29,8 @@ class UsrClientHelper {
 
   static const String openHttp232On10_10_100_254 = "ВІДКРИТИ ${UsrClientHelper.baseIpAtHttpWiFi232} (WiFi232)";
   static const String openHttpS100On168_8_1_1 = "ВІДКРИТИ ${UsrClientHelper.baseIpAtHttpS100} (S100)";
-  static const String provisionHint = "Відсутній коннект Device в режимі AP: USR-...";
+  static const String provisionHintHttp = "Відсутній коннект Node в режимі AP: USR-...";
+  static const String provisionHintBle = "Відсутній коннект Node Ble";
 
   static Future<void> openDeviceWeb({bool isS100 = false}) async {
     final String host = isS100

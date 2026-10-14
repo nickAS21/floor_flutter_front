@@ -26,11 +26,11 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
   // }
 
   @override
-  Future<bool> onScan() async {
+  Future<bool> onScanNode() async {
     if (!mounted) return false;
 
     // 1. АНТИ-БРЕД: Якщо ми не знайшли девайс (MAC == null) — на Android сканувати нічого
-    if (httpClient.mac == null) {
+    if (nodeClient.mac == null) {
       setState(() {
         networks = [];
         isLoading = false; // Вимикаємо колесо
@@ -47,12 +47,12 @@ class _UsrProvisionUdpPageState extends UsrProvisionBasePage<UsrProvisionUdpPage
       List<Map<String, dynamic>> results = [];
 
 // 2. АНАЛІЗ ПО КЛІЄНТУ: Працюємо через залізо
-      if (httpClient is UsrS100HttpClient) {
+      if (nodeClient is UsrS100HttpClient) {
         // Якщо це S100 - використовуємо його HTTP API для сканування
-        results = await (httpClient as UsrS100HttpClient).getScanResults();
+        results = await (nodeClient as UsrS100HttpClient).getScanResults();
       } else  {
         // Якщо це 232 серія - використовуємо твій UDP провайдер
-        results = await provision.scanNetworks(null, httpClient);
+        results = await provision.scanNetworks(null, nodeClient);
       }
       if (mounted) {
         final Map<String, Map<String, dynamic>> uniqueMap = {};
