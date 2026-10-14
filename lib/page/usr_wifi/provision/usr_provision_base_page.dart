@@ -240,7 +240,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
           onChanged: (v) {
             if (v != null) {
               setState(() {
-                selectedPrefix = v; // 1. Оновлюємо вибраний префікс
+                onPrefixChanged(v); // 1. Оновлюємо вибраний префікс
 
                 // 2. Отримуємо актуальний MAC (з детектора або з клієнта)
                 // final currentMac = detectedMac ?? httpClient.mac;
@@ -397,4 +397,77 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       selectedUartType = ConnectInterfaceType.rs485;
     });
   }
+  /// Викликається при зміні префікса (A2 / B2 / S100 / ESP / BL602)
+  void onPrefixChanged(String newPrefix) {
+    final oldDeviceType = UsrClientDeviceType.fromPrefix(selectedPrefix);
+    final newDeviceType = UsrClientDeviceType.fromPrefix(newPrefix);
+
+    setState(() {
+      selectedPrefix = newPrefix;
+
+      // 1. Корекція selectedUartType, якщо поточний вибір недоступний у новому режимі
+      if (newDeviceType.isBleSupported) {
+        // У режимі BLE (ESP / BL602) доступні тільки RS485 та BLE.
+        // Якщо раніше стояв RxTx (від USR), автоматично скидаємо на RS485.
+        if (selectedUartType == ConnectInterfaceType.rxTx) {
+          selectedUartType = ConnectInterfaceType.rs485;
+        }
+      } else {
+        // У режимі HTTP (USR) доступні тільки RS485 та RxTx.
+        // Якщо раніше стояв BLE, скидаємо на RS485.
+        if (selectedUartType == ConnectInterfaceType.ble) {
+          selectedUartType = ConnectInterfaceType.rs485;
+        }
+      }
+    });
+
+    // 2. Логіка перемикання між HTTP (USR) та BLE (ESP)
+    if (!oldDeviceType.isBleSupported && newDeviceType.isBleSupported) {
+      // -----------------------------------------------------------------
+      // ПЕРЕХІД: USR (isBleSupported: false) ➡️ ESP (isBleSupported: true)
+      // -----------------------------------------------------------------
+      debugPrint("Перехід USR -> ESP: Зупиняємо HTTP, переходимо до BLE");
+
+      setState(() {
+        // Зупиняємо та очищаємо HTTP-контекст USR
+        networks.clear();
+        httpClient.mac = null;
+        httpClient.ssidName = null;
+        isLoading = false;
+        status = "Переключено на ${newDeviceType.label}. Пошук BLE пристроїв...";
+      });
+
+      // Стартуємо BLE-сканер
+      _startBleScanning();
+
+    } else if (oldDeviceType.isBleSupported && !newDeviceType.isBleSupported) {
+      // -----------------------------------------------------------------
+      // ПЕРЕХІД: ESP (isBleSupported: true) ➡️ USR (isBleSupported: false)
+      // -----------------------------------------------------------------
+      debugPrint("Перехід ESP -> USR: Зупиняємо BLE, повертаємо HTTP");
+
+      // Зупиняємо BLE-сканер та очищаємо стан BLE
+      _stopBleScanning();
+
+      setState(() {
+        status = "Переключено на ${newDeviceType.label}. Запуск пошуку USR...";
+      });
+
+      // Повертаємо HTTP-скан USR
+      runSetupSequence(null);
+    }
+  }
+
+  /// Заглушка запуску BLE-сканування
+  void _startBleScanning() {
+    debugPrint("BLE: Стартуємо сканування BLE-ефіру...");
+    // TODO: _bleScanner.startScan();
+  }
+
+  /// Заглушка зупинки BLE-сканування
+  void _stopBleScanning() {
+    debugPrint("BLE: Зупиняємо сканування BLE...");
+    // TODO: _bleScanner.stopScan();
+  }
+
 }

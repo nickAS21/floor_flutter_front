@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:floor_front/helpers/app_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'client/usr_client_device_type.dart';
 import 'client/usr_client_helper.dart';
 import 'client/connect_interface_type.dart';
 import 'usr_provision_base_page.dart';
@@ -217,11 +218,27 @@ class UsrProvisionWidgets {
   }
 
   Widget buildUartModeSelector(UsrProvisionBasePage pageState) {
+    // 1. Визначаємо тип девайса за поточним префіксом
+    final deviceType = UsrClientDeviceType.fromPrefix(pageState.selectedPrefix);
     // Якщо вибрано S100 — цей селектор ховаємо, бо налаштування актуальне для WIFI232
-    if (pageState.selectedPrefix.contains("S100")) {
+    if (deviceType == UsrClientDeviceType.s100) {
       return const SizedBox.shrink();
     }
-
+    // 3. Формуємо список ДОВОЛЕНИХ варіантів
+    final List<ConnectInterfaceType> allowedTypes;
+    if (deviceType.isBleSupported) {
+      // Для ESP / BL602 (isBleSupported == true) -> тільки RS485 та BLE
+      allowedTypes = [
+        ConnectInterfaceType.rs485,
+        ConnectInterfaceType.ble,
+      ];
+    } else {
+      // Для USR A2 / B2 (isBleSupported == false) -> тільки RS485 та RxTx
+      allowedTypes = [
+        ConnectInterfaceType.rs485,
+        ConnectInterfaceType.rxTx,
+      ];
+    }
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.all(8),
@@ -233,11 +250,11 @@ class UsrProvisionWidgets {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "Тип вхідного інтерфейсу (UART Mode):",
+            "Інтерфейс зв’язку шлюзу з пристроєм:",
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
           ),
           Row(
-            children: ConnectInterfaceType.values.map((type) {
+            children: allowedTypes.map((type) {
               return Expanded(
                 child: RadioListTile<ConnectInterfaceType>(
                   dense: true,
