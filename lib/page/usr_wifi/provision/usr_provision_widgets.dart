@@ -158,10 +158,11 @@ class UsrProvisionWidgets {
   Widget buildActionButtons({required VoidCallback onSave, required String saveLabel}) {
     final isDevisesActivated = state.nodeClient.mac.isNotBlank;
     final activeColorOnSave = const Color(0xFF00897B);
+    final nodeType = UsrClientNodeType.fromPrefix(state.selectedPrefix);
     return Column(
       children: [
-        // Кнопка для перегляду сторінки модуля на Linux
-        if (Platform.isLinux) ...[
+        // Кнопка для перегляду сторінки модуля на Linux (тільки для пристроїв node with isBleSupported: false)
+        if (Platform.isLinux && !nodeType.isBleSupported) ...[
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
