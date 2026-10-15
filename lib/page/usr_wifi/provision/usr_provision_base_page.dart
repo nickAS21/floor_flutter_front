@@ -2,6 +2,8 @@ import 'package:floor_front/page/usr_wifi/provision/usr_provision_base.dart';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../esp/provision/ble_client_node.dart';
+import '../../../esp/provision/ble_client_node_scanner.dart';
 import '../../../helpers/app_helper.dart';
 import '../../data_home/data_location_type.dart';
 import '../info/data_usr_wifi_info.dart';
@@ -40,6 +42,10 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   String? selectedSsid;
   String selectedPrefix = UsrClientNodeType.a2.prefix;
 
+  // BLE Node стани
+  List<BleClientNodeDiscovered> discoveredBleDevices = [];
+  BleClientNodeDiscovered? selectedBleDevice;
+
   // Інструменти (Клієнт зв'язку з Node-вузлом)
   late UsrClient nodeClient;
 
@@ -47,9 +53,66 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   UsrProvisionBase get provision;
   Future<bool> onScanNode();
 
-  /// Віртуальні методи для BLE-сканування (перевизначаються на Linux / Android)
+  /// Віртуальні методи для BLE-сканування
   Future<void> startBleScanNode() async {}
   Future<void> stopBleScanNode() async {}
+
+  /// Перевірка BLE Node та встановлення префікса (ESP / BL602)
+  Future<bool> verifyClientNodeConnection(BleClientNodeDiscovered clientNode) async {
+    if (clientNode.id.isEmpty) return false;
+
+    nodeClient.mac = clientNode.id;
+    nodeClient.ssidName = clientNode.name;
+
+    // Чітка й проста перевірка
+    final bool isBl602 = clientNode.name.toUpperCase().contains('BL602');
+
+    final String newPrefix = isBl602
+        ? UsrClientNodeType.bl602.prefix
+        : UsrClientNodeType.esp.prefix;
+
+    if (selectedPrefix != newPrefix) {
+      setState(() {
+        selectedPrefix = newPrefix;
+      });
+    }
+    return true;
+  }
+
+  /// Вибір BLE-node зі списку
+  void onSelectBleClientNode(BleClientNodeDiscovered clientNode) async {
+    setState(() {
+      selectedBleDevice = clientNode;
+
+      macController.text = clientNode.id.toUpperCase();
+      ssidNameController.text = clientNode.name;
+
+      if (nodeClient is BleClientNode) {
+        final bleClient = nodeClient as BleClientNode;
+        bleClient.mac = clientNode.id.toUpperCase();
+        bleClient.ssidName = clientNode.name;
+      }
+
+      status = "Перевірка з'єднання з Node: ${clientNode.name}...";
+      isLoading = true;
+    });
+
+    validateFormInternal();
+
+    final isConnected = await verifyClientNodeConnection(clientNode);
+
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+        if (isConnected) {
+          status = "Підключено до MAC: ${clientNode.id.toUpperCase()}";
+        } else {
+          status = "Помилка підключення до Node: ${clientNode.name}";
+        }
+      });
+      validateFormInternal();
+    }
+  }
 
   @override
   void initState() {
@@ -267,6 +330,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       );
 
       final infoBms = await _onUpdateDataUsrWiFiInfo(selectedLocation);
+
       setState(() { isLoading = false; status = "Успіх! Налаштування збережено."; });
       await _savePreferences();
       if (mounted) {
@@ -365,14 +429,62 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   }
 
   /// Викликається при зміні префікса (A2 / B2 / S100 / ESP / BL602)
-  void onPrefixChanged(String newPrefix) {
+  Future<void> onPrefixChanged(String newPrefix) async {
     final oldDeviceType = UsrClientNodeType.fromPrefix(selectedPrefix);
     final newDeviceType = UsrClientNodeType.fromPrefix(newPrefix);
 
     setState(() {
       selectedPrefix = newPrefix;
+    });
 
-      if (newDeviceType.isBleSupported) {
+    if (!oldDeviceType.isBleSupported && newDeviceType.isBleSupported) {
+      clearScanNodeBle(
+        statusMsg: "Переключено на ${newDeviceType.label}. Запуск BLE...",
+        isFromHttpToBle: true,
+      );
+      await startBleScanNode();
+
+    } else if (oldDeviceType.isBleSupported && !newDeviceType.isBleSupported) {
+      // Чекаємо ПОВНОЇ зупинки BLE сканера перш ніж скидати стан для USR!
+      await stopBleScanNode();
+
+      clearScanNode(
+        statusMsg: "Переключено на ${newDeviceType.label}. Запуск пошуку USR...",
+        isFromHttpToBle: false,
+      );
+
+      runSetupSequence(null);
+    }
+  }
+
+  /// Скидає стан Node-клієнта для BLE
+  void clearScanNodeBle({String? statusMsg, bool? isFromHttpToBle}) {
+    clearScanNode(statusMsg: statusMsg, isFromHttpToBle: isFromHttpToBle);
+    setState(() {
+      selectedBleDevice = null;
+      discoveredBleDevices.clear();
+      isLoading = true;
+    });
+  }
+
+  /// Скидає стан Node-клієнта
+  void clearScanNode({String? statusMsg, bool? isFromHttpToBle}) {
+    debugPrint(statusMsg);
+    final deviceTypeNode = UsrClientNodeType.fromPrefix(selectedPrefix);
+
+    setState(() {
+      networks.clear();
+      nodeClient.mac = null;
+      nodeClient.ssidName = null;
+
+      macController.clear();
+      ssidNameController.text = deviceTypeNode.prefix;
+
+      if (statusMsg != null) {
+        status = statusMsg;
+      }
+
+      if (deviceTypeNode.isBleSupported) {
         if (selectedUartType == ConnectInterfaceType.rxTx) {
           selectedUartType = ConnectInterfaceType.rs485;
         }
@@ -380,40 +492,6 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
         if (selectedUartType == ConnectInterfaceType.ble) {
           selectedUartType = ConnectInterfaceType.rs485;
         }
-      }
-    });
-
-    if (!oldDeviceType.isBleSupported && newDeviceType.isBleSupported) {
-      debugPrint("Перехід USR -> BLE Node: Зупиняємо HTTP, відкриваємо BLE");
-
-      stopHttpScanNode(
-        statusMsg: "Переключено на ${newDeviceType.label}. Запуск BLE...",
-      );
-
-      startBleScanNode();
-
-    } else if (oldDeviceType.isBleSupported && !newDeviceType.isBleSupported) {
-      debugPrint("Перехід BLE -> USR Node: Зупиняємо BLE, повертаємо HTTP");
-
-      stopBleScanNode();
-
-      setState(() {
-        status = "Переключено на ${newDeviceType.label}. Запуск пошуку USR...";
-      });
-
-      runSetupSequence(null);
-    }
-  }
-
-  /// Зупиняє HTTP-сканування та скидає стан HTTP Node-клієнта
-  void stopHttpScanNode({String? statusMsg}) {
-    setState(() {
-      networks.clear();
-      nodeClient.mac = null;
-      nodeClient.ssidName = null;
-      isLoading = false;
-      if (statusMsg != null) {
-        status = statusMsg;
       }
     });
   }

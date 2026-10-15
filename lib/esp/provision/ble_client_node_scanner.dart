@@ -1,12 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../page/usr_wifi/provision/client/usr_client_node_type.dart';
 
 /// Клас для представлення знайденого BLE пристрою
 class BleClientNodeDiscovered {
-  final String id; // MAC-адреса або UUID
-  final String name; // Назва пристрою (наприклад, ESP-1A2B)
+  final String id; // MAC-адреса
+  final String name; // Назва пристрою
   final int rssi; // Рівень сигналу
   final UsrClientNodeType clientNodeType;
 
@@ -18,7 +19,7 @@ class BleClientNodeDiscovered {
   });
 }
 
-/// Сервіс сканування BLE-ефіру для пошуку ESP32 / BL602
+/// Сервіс сканування та підключення BLE-ефіру для пошуку ESP32 / BL602
 class BleClientNodeScanner {
   final _scanController = StreamController<List<BleClientNodeDiscovered>>.broadcast();
   final List<BleClientNodeDiscovered> _discoveredDevices = [];
@@ -28,7 +29,7 @@ class BleClientNodeScanner {
   List<BleClientNodeDiscovered> get discoveredDevices => List.unmodifiable(_discoveredDevices);
   bool get isScanning => _isScanning;
 
-  /// Запуск сканування BLE-ефіру у Linux через bluetoothctl
+  /// Надійне сканування BLE через читання реального stdout потоку bluetoothctl
   Future<void> startScan({Duration timeout = const Duration(seconds: 5)}) async {
     if (_isScanning) return;
     _isScanning = true;
@@ -39,14 +40,29 @@ class BleClientNodeScanner {
       debugPrint("Запуск BLE сканування...");
 
       if (Platform.isLinux) {
-        // 1. Запускаємо сканування BLE на вказаний час
-        await Process.run('bluetoothctl', ['--', 'timeout', '${timeout.inSeconds}', 'scan', 'on']);
-
-        // 2. Отримуємо накопичений перелік пристроїв
+        // 1. Спочатку читаємо вже відомі пристрої з системи
         final devicesResult = await Process.run('bluetoothctl', ['devices']);
         if (devicesResult.exitCode == 0) {
           _parseDevicesOutput(devicesResult.stdout.toString());
         }
+
+        // 2. Запускаємо фоновий процес сканування і перехоплюємо live-stdout
+        final process = await Process.start('bluetoothctl', ['scan', 'on']);
+
+        final subscription = process.stdout
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .listen((line) {
+          _parseScanLine(line);
+        });
+
+        // Чекаємо заданий таймаут сканування
+        await Future.delayed(timeout);
+
+        // Зупиняємо фоновий процес сканування
+        await subscription.cancel();
+        process.kill();
+        await Process.run('bluetoothctl', ['scan', 'off']);
       }
     } catch (e) {
       debugPrint("Помилка BLE сканування: $e");
@@ -57,23 +73,28 @@ class BleClientNodeScanner {
     }
   }
 
-  /// Парсинг виводу 'bluetoothctl devices'
+  /// Парсинг рядків виводу bluetoothctl (наприклад, [NEW] Device 80:65:99:XX:XX:XX ESP-1A2B)
+  void _parseScanLine(String line) {
+    final regExp = RegExp(r'(?:Device|\[NEW\]\s+Device)\s+([0-9A-Fa-f:]{17})\s+(.+)');
+    final match = regExp.firstMatch(line.trim());
+
+    if (match != null) {
+      final mac = match.group(1) ?? '';
+      final name = (match.group(2) ?? '').trim();
+
+      handleDiscoveredDevice(
+        id: mac,
+        name: name,
+        rssi: -60,
+      );
+    }
+  }
+
+  /// Парсинг статичного списку 'bluetoothctl devices'
   void _parseDevicesOutput(String output) {
     final lines = output.split('\n');
-    final regExp = RegExp(r'^Device\s+([0-9A-Fa-f:]{17})\s+(.+)');
-
     for (var line in lines) {
-      final match = regExp.firstMatch(line.trim());
-      if (match != null) {
-        final mac = match.group(1) ?? '';
-        final name = (match.group(2) ?? '').trim();
-
-        handleDiscoveredDevice(
-          id: mac,
-          name: name,
-          rssi: -60,
-        );
-      }
+      _parseScanLine(line);
     }
   }
 
@@ -85,14 +106,17 @@ class BleClientNodeScanner {
     debugPrint("Зупинка BLE сканування.");
   }
 
-  /// Обробка знайденого пристрою (викликається під час BLE-подій)
+  /// Обробка знайденого пристрою
   void handleDiscoveredDevice({
     required String id,
     required String name,
     required int rssi,
   }) {
-    final isEsp = name.startsWith(UsrClientNodeType.esp.prefix);
-    final isBl602 = name.startsWith(UsrClientNodeType.bl602.prefix);
+    if (name.isEmpty || name == "[unknown]") return;
+
+    final nameUpper = name.toUpperCase();
+    final isEsp = nameUpper.startsWith(UsrClientNodeType.esp.prefix.toUpperCase());
+    final isBl602 = nameUpper.startsWith(UsrClientNodeType.bl602.prefix.toUpperCase());
 
     if (!isEsp && !isBl602) return;
 

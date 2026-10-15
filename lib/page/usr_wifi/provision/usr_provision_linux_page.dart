@@ -23,36 +23,22 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
   late final provision = UsrProvisionLinux();
 
   final BleClientNodeScanner _bleNodeScanner = BleClientNodeScanner();
-  List<BleClientNodeDiscovered> discoveredBleDevices = [];
-  BleClientNodeDiscovered? selectedBleDevice;
   bool isBleScanning = false;
 
   /// Реалізація запуск BLE сканера для Linux
   @override
   Future<void> startBleScanNode() async {
-    final deviceType = UsrClientNodeType.fromPrefix(selectedPrefix);
+    final deviceTypeNode = UsrClientNodeType.fromPrefix(selectedPrefix);
 
     setState(() {
-      networks.clear();
-      nodeClient = BleClientNode(deviceType: deviceType);
-      nodeClient.mac = null;
-      nodeClient.ssidName = null;
-
-      macController.clear();
-      ssidNameController.text = deviceType.prefix;
-
+      nodeClient = BleClientNode(deviceType: deviceTypeNode);
+      ssidNameController.text = deviceTypeNode.prefix;
       selectedBleDevice = null;
       discoveredBleDevices.clear();
       isBleScanning = true;
       isLoading = true;
       status = "Запуск BLE сканування ефіру...";
     });
-
-    if (selectedUartType.name == 'rxTx') {
-      setState(() {
-        selectedUartType = ConnectInterfaceType.rs485;
-      });
-    }
 
     await _bleNodeScanner.startScan(timeout: const Duration(seconds: 5));
 
@@ -63,10 +49,10 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
       isBleScanning = false;
       isLoading = false;
 
-      if (selectedBleDevice == null) {
-        status = "Відсутній коннект Client node в режимі BLE";
+      if (discoveredBleDevices.isEmpty) {
+        status = "BLE-node не знайдено в ефірі";
       } else {
-        status = "Підключено до MAC: ${selectedBleDevice!.id.toUpperCase()}";
+        status = "Знайдено node: ${discoveredBleDevices.length}. Оберіть зі списку.";
       }
     });
   }
@@ -75,41 +61,10 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
   @override
   Future<void> stopBleScanNode() async {
     await _bleNodeScanner.stopScan();
-
     if (!mounted) return;
-
     setState(() {
       isBleScanning = false;
-      discoveredBleDevices.clear();
-      selectedBleDevice = null;
-      status = "Переключено на USR. Пошук мереж...";
     });
-
-    if (selectedUartType.name == 'ble') {
-      setState(() {
-        selectedUartType = ConnectInterfaceType.rs485;
-      });
-    }
-  }
-
-  /// Вибір BLE-node зі списку
-  void _onSelectBleClientNode(BleClientNodeDiscovered clientNode) {
-    setState(() {
-      selectedBleDevice = clientNode;
-
-      macController.text = clientNode.id.toUpperCase();
-      ssidNameController.text = clientNode.name;
-
-      if (nodeClient is BleClientNode) {
-        final bleClient = nodeClient as BleClientNode;
-        bleClient.mac = clientNode.id.toUpperCase();
-        bleClient.ssidName = clientNode.name;
-      }
-
-      status = "Підключено до MAC: ${clientNode.id.toUpperCase()}";
-    });
-
-    validateFormInternal();
   }
 
   @override
@@ -160,7 +115,7 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
   @override
   Widget build(BuildContext context) {
     final widgets = UsrProvisionWidgets(this);
-    final deviceType = UsrClientNodeType.fromPrefix(selectedPrefix);
+    final deviceTypeNode = UsrClientNodeType.fromPrefix(selectedPrefix);
 
     return Scaffold(
       appBar: AppBar(
@@ -173,7 +128,7 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
       body: widgets.buildCommonForm(
         networkSelector: Column(
           children: [
-            if (deviceType.isBleSupported) _buildBleNodeSelector(),
+            if (deviceTypeNode.isBleSupported) _buildBleNodeSelector(),
             _buildNetworkSelector(),
           ],
         ),
@@ -242,7 +197,7 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
                           trailing: isSelected
                               ? const Icon(Icons.check_circle, color: Colors.green, size: 22)
                               : Text("${device.rssi} dBm", style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                          onTap: () => _onSelectBleClientNode(device),
+                          onTap: () => onSelectBleClientNode(device),
                         );
                       },
                     ),
@@ -258,15 +213,15 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
   Widget _buildNetworkSelector() {
     if (isLoading) return const SizedBox.shrink();
 
-    final deviceType = UsrClientNodeType.fromPrefix(selectedPrefix);
+    final deviceTypeNode = UsrClientNodeType.fromPrefix(selectedPrefix);
     if (networks.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(12.0),
         child: Text(
-          deviceType.isBleSupported
+          deviceTypeNode.isBleSupported
               ? "Wi-Fi мережі (Provisioning) — очікування..."
               : "WiFi Мереж не знайдено",
-          style: TextStyle(color: deviceType.isBleSupported ? Colors.grey : Colors.red, fontSize: 11),
+          style: TextStyle(color: deviceTypeNode.isBleSupported ? Colors.grey : Colors.red, fontSize: 11),
         ),
       );
     }
