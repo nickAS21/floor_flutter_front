@@ -4,6 +4,7 @@ import 'package:floor_front/helpers/app_helper.dart';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_base.dart';
 import 'package:flutter/cupertino.dart';
 
+import '../../../esp/provision/ble_client_node.dart';
 import 'client/usr_client.dart';
 
 class UsrProvisionLinux extends UsrProvisionBase {
@@ -30,8 +31,14 @@ class UsrProvisionLinux extends UsrProvisionBase {
             // Якщо getScanResults не відповість за 5 секунд, вилетить TimeoutException
             // і ми нарешті потрапимо в блок catch, а потім на наступне коло while
             return await usrClient.getScanResults().timeout(
-              const Duration(seconds: 5),
-              onTimeout: () => throw TimeoutException("USR module not responding"),
+              const Duration(seconds: 30),
+              onTimeout: () {
+                final isBle = usrClient is BleClientNode;
+                final errorMsg = isBle
+                    ? "BLE Node module not responding"
+                    : "USR module not responding";
+                throw TimeoutException(errorMsg);
+              },
             );
 
           } catch (e) {

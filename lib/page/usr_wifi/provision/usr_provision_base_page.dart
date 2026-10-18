@@ -57,28 +57,6 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   Future<void> startBleScanNode() async {}
   Future<void> stopBleScanNode() async {}
 
-  /// Перевірка BLE Node та встановлення префікса (ESP / BL602)
-  Future<bool> verifyClientNodeConnection(BleClientNodeDiscovered clientNode) async {
-    if (clientNode.id.isEmpty) return false;
-
-    nodeClient.mac = clientNode.id;
-    nodeClient.ssidName = clientNode.name;
-
-    // Чітка й проста перевірка
-    final bool isBl602 = clientNode.name.toUpperCase().contains(UsrClientNodeType.bl602.label);
-
-    final String newPrefix = isBl602
-        ? UsrClientNodeType.bl602.prefix
-        : UsrClientNodeType.esp.prefix;
-
-    if (selectedPrefix != newPrefix) {
-      setState(() {
-        selectedPrefix = newPrefix;
-      });
-    }
-    return true;
-  }
-
   /// Вибір BLE-node зі списку
   Future<void> onSelectBleClientNode(BleClientNodeDiscovered clientNode) async {
     if (isLoading) return;

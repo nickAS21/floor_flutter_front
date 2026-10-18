@@ -46,6 +46,7 @@ class BleClientNode implements UsrClient {
 
   /// Сканування Wi-Fi мереж через BLE D-Bus
   Future<List<Map<String, dynamic>>> getScanResults() async {
+    debugPrint('[BLE][WIFI_SCAN - START');
     try {
       final scanCommand = BleHelperBl602.buildWifiScanCommand();
 
@@ -54,9 +55,6 @@ class BleClientNode implements UsrClient {
       if (!await _writeToBleCharacteristic(scanCommand)) {
         throw StateError('Не вдалося надіслати CMD_WIFI_SCAN.');
       }
-
-      // Чекаємо завершення Wi-Fi scan на BL602.
-      await Future.delayed(const Duration(seconds: 5));
 
       final networks = <Map<String, dynamic>>[];
       final seenBssids = <String>{};
