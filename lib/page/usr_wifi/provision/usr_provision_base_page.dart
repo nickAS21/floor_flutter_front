@@ -65,7 +65,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     nodeClient.ssidName = clientNode.name;
 
     // Чітка й проста перевірка
-    final bool isBl602 = clientNode.name.toUpperCase().contains('BL602');
+    final bool isBl602 = clientNode.name.toUpperCase().contains(UsrClientNodeType.bl602.label);
 
     final String newPrefix = isBl602
         ? UsrClientNodeType.bl602.prefix
@@ -80,37 +80,66 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   }
 
   /// Вибір BLE-node зі списку
-  void onSelectBleClientNode(BleClientNodeDiscovered clientNode) async {
+  Future<void> onSelectBleClientNode(BleClientNodeDiscovered clientNode) async {
+    if (isLoading) return;
+
+    final selectedMac = clientNode.id.toUpperCase();
+
     setState(() {
       selectedBleDevice = clientNode;
-
-      macController.text = clientNode.id.toUpperCase();
+      macController.text = selectedMac;
       ssidNameController.text = clientNode.name;
 
       if (nodeClient is BleClientNode) {
         final bleClient = nodeClient as BleClientNode;
-        bleClient.mac = clientNode.id.toUpperCase();
+        bleClient.deviceType = clientNode.clientNodeType;
+        bleClient.mac = selectedMac;
         bleClient.ssidName = clientNode.name;
       }
 
-      status = "Перевірка з'єднання з Node: ${clientNode.name}...";
+      status = 'Підключено до MAC: $selectedMac. Отримання Wi-Fi...';
       isLoading = true;
+      networks = [];
     });
 
-    validateFormInternal();
+    try {
+      // 1. Отримуємо мережі через виклик scanNetworks
+      final results = await provision.scanNetworks(null, nodeClient);
 
-    final isConnected = await verifyClientNodeConnection(clientNode);
+      if (!mounted) return;
 
-    if (mounted) {
-      setState(() {
-        isLoading = false;
-        if (isConnected) {
-          status = "Підключено до MAC: ${clientNode.id.toUpperCase()}";
-        } else {
-          status = "Помилка підключення до Node: ${clientNode.name}";
+      // 2. Фільтруємо унікальні мережі
+      final Map<String, Map<String, dynamic>> uniqueMap = {};
+      for (final net in results) {
+        final ssid = (net['ssid'] ?? '').toString().trim();
+        if (ssid.isEmpty) continue;
+
+        final level = int.tryParse('${net['level'] ?? 0}') ?? 0;
+        if (!uniqueMap.containsKey(ssid) || level > (uniqueMap[ssid]!['level'] ?? 0)) {
+          uniqueMap[ssid] = Map<String, dynamic>.from(net);
         }
+      }
+
+      final sortedNetworks = uniqueMap.values.toList()
+        ..sort((a, b) => (b['level'] ?? 0).compareTo(a['level'] ?? 0));
+
+      // 3. Стоп сканування та заповнення переліку у Flutter
+      setState(() {
+        networks = sortedNetworks;
+        status = sortedNetworks.isEmpty
+            ? 'Wi-Fi мереж від BLE Node не отримано'
+            : 'Знайдено Wi-Fi мереж: ${sortedNetworks.length}';
       });
-      validateFormInternal();
+
+    } catch (e) {
+      if (mounted) {
+        setState(() => status = 'Помилка сканування Wi-Fi: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+        validateFormInternal();
+      }
     }
   }
 

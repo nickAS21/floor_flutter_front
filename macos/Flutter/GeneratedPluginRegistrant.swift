@@ -7,7 +7,7 @@ import Foundation
 
 import connectivity_plus
 import file_picker
-import flutter_blue_plus
+import flutter_blue_plus_darwin
 import package_info_plus
 import screen_retriever_macos
 import shared_preferences_foundation
