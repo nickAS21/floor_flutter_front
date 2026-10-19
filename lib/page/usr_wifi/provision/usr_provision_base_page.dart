@@ -68,12 +68,11 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       macController.text = selectedMac;
       ssidNameController.text = clientNode.name;
 
-      if (nodeClient is BleClientNode) {
-        final bleClient = nodeClient as BleClientNode;
-        bleClient.deviceType = clientNode.clientNodeType;
-        bleClient.mac = selectedMac;
-        bleClient.ssidName = clientNode.name;
-      }
+      final bleClient = nodeClient as BleClientNode;
+      bleClient.deviceType = clientNode.clientNodeType;
+      bleClient.mac = selectedMac;
+      bleClient.ssidName = clientNode.name;
+      selectedPrefix = bleClient.deviceType.prefix;
 
       status = 'Підключено до MAC: $selectedMac. Отримання Wi-Fi...';
       isLoading = true;
