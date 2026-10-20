@@ -356,6 +356,64 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     }
   }
 
+  /// Метод збереження та перезапуску для BLE Node (BL602 / ESP)
+  void onSaveBleUpdate(LocationType selectedLocation) async {
+    if (selectedBleDevice == null && (nodeClient.mac == null || nodeClient.mac!.isEmpty)) {
+      setState(() => status = "Помилка: не обрано BLE Node");
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      status = "Запис параметрів через BLE...";
+    });
+
+    try {
+      final bleClient = nodeClient as BleClientNode;
+
+      // 1. Надсилаємо параметри Wi-Fi Provisioning та Settings через BLE
+      await bleClient.onSaveUpdate(
+        targetSsid: targetSsidController.text,
+        targetPass: passController.text,
+        moduleSsid: ssidNameController.text,
+        ipA: ipAController.text,
+        portA: int.tryParse(portAController.text) ?? 0,
+        ipB: ipBController.text,
+        portB: int.tryParse(portBController.text) ?? 0,
+        bitrate: int.tryParse(bitrateController.text) ?? UsrProvisionHelper.bitrateDef,
+        isRs485Enabled: selectedUartType.isRs485Enabled,
+      );
+
+      // 2. Зберігаємо інформацію про вузол у локальну БД додатка
+      final infoBms = await _onUpdateDataUsrWiFiInfo(selectedLocation);
+
+      // 3. Зберігаємо налаштування у SharedPreferences
+      await _savePreferences();
+
+      setState(() {
+        isLoading = false;
+        status = "Успіх! Налаштування BLE збережено. Модуль перезавантажується...";
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Оновлено через BLE: $infoBms. Рестарт модулю..."),
+            backgroundColor: Colors.green,
+          ),
+        );
+        resetProvisioningState(false, "Оновлення BLE пристрою завершено");
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          status = "Помилка запису BLE: $e";
+          isLoading = false;
+        });
+      }
+    }
+  }
+
   void onLoadDefault() async {
     setState(() { isLoading = true; status = "Скидання..."; });
     try {
@@ -445,7 +503,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
 
     if (!oldDeviceType.isBleSupported && newDeviceType.isBleSupported) {
       clearScanNodeBle(
-        statusMsg: "Переключено на ${newDeviceType.label}. Запуск BLE...",
+        statusMsg: "КРОК 5: Переключено на ${newDeviceType.label}. Запуск BLE...",
         isFromHttpToBle: true,
       );
       await startBleScanNode();

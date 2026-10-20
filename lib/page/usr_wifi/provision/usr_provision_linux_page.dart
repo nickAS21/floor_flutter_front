@@ -133,7 +133,13 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
           ],
         ),
         actionButtons: widgets.buildActionButtons(
-          onSave: () => onSaveHttpUpdate(widget.selectedLocation),
+          onSave: () {
+            if (deviceTypeNode.isBleSupported) {
+              onSaveBleUpdate(widget.selectedLocation);
+            } else {
+              onSaveHttpUpdate(widget.selectedLocation);
+            }
+          },
           saveLabel: "ЗБЕРЕГТИ ТА РЕСТАРТ",
         ),
       ),

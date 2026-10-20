@@ -46,11 +46,10 @@ class BleClientNode implements UsrClient {
 
   /// Сканування Wi-Fi мереж через BLE D-Bus
   Future<List<Map<String, dynamic>>> getScanResults() async {
-    debugPrint('[BLE][WIFI_SCAN - START');
     try {
       final scanCommand = BleHelperBl602.buildWifiScanCommand();
 
-      debugPrint('[BLE][WIFI_SCAN][TX] CMD_WIFI_SCAN');
+      debugPrint('КРОК 5.: [BLE][WIFI_SCAN][TX] CMD_WIFI_SCAN (9) - START');
 
       if (!await _writeToBleCharacteristic(scanCommand)) {
         throw StateError('Не вдалося надіслати CMD_WIFI_SCAN.');
@@ -65,7 +64,8 @@ class BleClientNode implements UsrClient {
         final command = BleHelperBl602.buildWifiDataGetCommand();
 
         if (!await _writeToBleCharacteristic(command)) {
-          throw StateError('Не вдалося надіслати CMD_WIFI_DATA_GET.');
+          debugPrint('[BLE][WIFI_SCAN][ABORT] Запис не удався. Зупинка циклу.');
+          break; // ЗУПИНЯЄМО ЦИКЛ ОДРАЗУ, НЕ КРУТИМО 50 РАЗІВ!
         }
 
         final response = await _readBleCharacteristic();
@@ -78,8 +78,6 @@ class BleClientNode implements UsrClient {
         final network = BleHelperBl602.parseWifiDataResponse(response);
 
         if (network == null) {
-          // Відповідь без JSON не є достатньою підставою
-          // завершувати читання результатів сканування.
           await Future.delayed(const Duration(milliseconds: 200));
           continue;
         }
@@ -92,7 +90,6 @@ class BleClientNode implements UsrClient {
           continue;
         }
 
-        // Не додаємо повторно ту саму точку доступу.
         final key = bssid.isNotEmpty ? bssid : ssid;
 
         if (seenBssids.add(key)) {
@@ -121,7 +118,6 @@ class BleClientNode implements UsrClient {
     }
   }
 
-
   /// Підключення до BLE Node та пошук GATT-характеристики за UUID
   Future<String?> _findCharacteristicPath(
       DBusClient client,
@@ -133,8 +129,8 @@ class BleClientNode implements UsrClient {
     const characteristicInterface = 'org.bluez.GattCharacteristic1';
 
     final targetUuid = forWrite
-        ? '0000ff01-0000-1000-8000-00805f9b34fb'
-        : '0000ff02-0000-1000-8000-00805f9b34fb';
+        ? BleHelperBl602.BASE_UUID_HOST_WRITE
+        : BleHelperBl602.BASE_UUID_HOST_READ;
 
     final deviceMac = devicePath.split('dev_').last.replaceAll('_', ':');
 
@@ -169,27 +165,19 @@ class BleClientNode implements UsrClient {
         if (variant is DBusVariant && variant.value is DBusBoolean) {
           return (variant.value as DBusBoolean).value;
         }
-
-        debugPrint(
-          '[BLE][PROPERTY][ERROR] MAC=$deviceMac, '
-              'Connected має неочікуваний тип.',
-        );
-      } catch (e, stackTrace) {
-        debugPrint(
-          '[BLE][PROPERTY][ERROR] MAC=$deviceMac, '
-              'property=Connected, error=$e',
-        );
-        debugPrintStack(stackTrace: stackTrace);
+      } catch (e) {
+        if (e.toString().contains('UnknownObject')) {
+          return false;
+        }
+        debugPrint('[BLE][PROPERTY][ERROR] MAC=$deviceMac, property=Connected, error=$e');
       }
 
       return null;
     }
 
     try {
-      // 1. Перевіряємо поточне підключення.
       var connected = await getConnected() ?? false;
 
-      // 2. Підключаємося, якщо пристрій ще не підключений.
       if (!connected) {
         debugPrint('[BLE][CONNECT] MAC=$deviceMac: підключення...');
 
@@ -200,15 +188,12 @@ class BleClientNode implements UsrClient {
             [],
           );
         } catch (e) {
-          // Connect може повернути помилку, якщо підключення
-          // вже встановлюється або пристрій уже підключений.
           debugPrint(
             '[BLE][CONNECT][INFO] MAC=$deviceMac, result=$e',
           );
         }
       }
 
-      // 3. Очікуємо Connected=true.
       final connectDeadline =
       DateTime.now().add(const Duration(seconds: 15));
 
@@ -231,8 +216,6 @@ class BleClientNode implements UsrClient {
 
       debugPrint('[BLE][CONNECT][OK] MAC=$deviceMac');
 
-      // 4. Очікуємо появи потрібної GATT-характеристики.
-      // GattServicesResolved тут не використовується.
       final discoveryDeadline =
       DateTime.now().add(const Duration(seconds: 15));
 
@@ -241,8 +224,8 @@ class BleClientNode implements UsrClient {
 
         if (!connected) {
           debugPrint(
-              '[BLE][GATT][ERROR] MAC=$deviceMac: '
-                  'з`єднання втрачено під час пошуку характеристики.',
+            '[BLE][GATT][ERROR] MAC=$deviceMac: '
+                'з`єднання втрачено під час пошуку характеристики.',
           );
           return null;
         }
@@ -268,31 +251,21 @@ class BleClientNode implements UsrClient {
               final interfaces = entry.value as DBusDict;
 
               final characteristicValue =
-              interfaces.children[
-              const DBusString(characteristicInterface)
-              ];
+              interfaces.children[const DBusString(characteristicInterface)];
 
               if (characteristicValue is! DBusDict) {
                 continue;
               }
 
-              final uuidValue = characteristicValue.children[
-              const DBusString('UUID')
-              ];
+              final uuidValue = characteristicValue.children[const DBusString('UUID')];
 
-              if (uuidValue is! DBusVariant ||
-                  uuidValue.value is! DBusString) {
+              if (uuidValue is! DBusVariant || uuidValue.value is! DBusString) {
                 continue;
               }
 
-              final uuid =
-              (uuidValue.value as DBusString).value.toLowerCase();
+              final uuid = (uuidValue.value as DBusString).value.toLowerCase();
 
               if (uuid == targetUuid) {
-                debugPrint(
-                  '[BLE][GATT][OK] MAC=$deviceMac, UUID=$targetUuid, '
-                      'path=$objectPath',
-                );
                 return objectPath;
               }
             }
@@ -323,12 +296,8 @@ class BleClientNode implements UsrClient {
     }
   }
 
-
   /// Запис байтів у BLE GATT-характеристику FF01 через D-Bus
   Future<bool> _writeToBleCharacteristic(Uint8List bytes) async {
-    const characteristicUuid =
-        '0000ff01-0000-1000-8000-00805f9b34fb';
-
     if (bytes.isEmpty) {
       debugPrint('[BLE][WRITE][ERROR] Дані для запису порожні.');
       return false;
@@ -356,9 +325,7 @@ class BleClientNode implements UsrClient {
 
       if (characteristicPath == null) {
         debugPrint(
-          '[BLE][WRITE][ERROR] '
-              'MAC=$deviceMac, UUID=$characteristicUuid: '
-              'характеристику не знайдено.',
+          '[BLE][WRITE][ERROR] MAC=$deviceMac: Характеристику не знайдено / пристрій відключився.',
         );
         return false;
       }
@@ -367,6 +334,11 @@ class BleClientNode implements UsrClient {
         client,
         name: 'org.bluez',
         path: DBusObjectPath(characteristicPath),
+      );
+
+      debugPrint(
+        '[BLE][WRITE][TX] length=${bytes.length}, '
+            'hex=${bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}',
       );
 
       await object.callMethod(
@@ -378,35 +350,19 @@ class BleClientNode implements UsrClient {
         ],
       );
 
-      debugPrint(
-        '[BLE][WRITE][OK] '
-            'MAC=$deviceMac, UUID=$characteristicUuid, '
-            'bytes=${bytes.length}',
-      );
+      debugPrint('[BLE][WRITE][OK] length=${bytes.length}');
 
       return true;
-    } catch (e, stackTrace) {
-      debugPrint(
-        '[BLE][WRITE][ERROR] '
-            'MAC=$deviceMac, UUID=$characteristicUuid, error=$e',
-      );
-      debugPrintStack(stackTrace: stackTrace);
+    } catch (e) {
+      debugPrint('[BLE][WRITE][ERROR] MAC=$deviceMac, error=$e');
       return false;
     } finally {
-      if (client != null) {
-        try {
-          await client.close();
-        } catch (e, stackTrace) {
-          debugPrint('[BLE][DBUS][CLOSE][ERROR] MAC=$deviceMac, error=$e');
-          debugPrintStack(stackTrace: stackTrace);
-        }
-      }
+      await client?.close();
     }
   }
 
   /// Очікування байтів із BLE GATT-характеристики FF02 через Notifications
   Future<Uint8List> _readFromBleCharacteristic() async {
-    const characteristicUuid = '0000ff02-0000-1000-8000-00805f9b34fb';
     final deviceMac = mac;
 
     if (deviceMac == null || deviceMac.isEmpty) {
@@ -418,7 +374,7 @@ class BleClientNode implements UsrClient {
 
     if (completer == null) {
       debugPrint(
-        '[BLE][READ][ERROR] MAC=$deviceMac, UUID=$characteristicUuid: '
+        '[BLE][READ][ERROR] MAC=$deviceMac, UUID=${BleHelperBl602.BASE_UUID_HOST_READ}: '
             'Notifications не запущені.',
       );
       return Uint8List(0);
@@ -430,7 +386,7 @@ class BleClientNode implements UsrClient {
         onTimeout: () {
           debugPrint(
             '[BLE][NOTIFY][TIMEOUT] '
-                'MAC=$deviceMac, UUID=$characteristicUuid: '
+                'MAC=$deviceMac, UUID=${BleHelperBl602.BASE_UUID_HOST_READ}: '
                 'відповідь не отримано за 20 секунд.',
           );
           return Uint8List(0);
@@ -438,7 +394,7 @@ class BleClientNode implements UsrClient {
       );
 
       debugPrint(
-        '[BLE][READ][OK] MAC=$deviceMac, UUID=$characteristicUuid, '
+        '[BLE][READ][OK] MAC=$deviceMac, UUID=${BleHelperBl602.BASE_UUID_HOST_READ}, '
             'bytes=${bytes.length}, '
             'hex=${bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}',
       );
@@ -446,7 +402,7 @@ class BleClientNode implements UsrClient {
       return bytes;
     } catch (e, stackTrace) {
       debugPrint(
-        '[BLE][READ][ERROR] MAC=$deviceMac, UUID=$characteristicUuid, error=$e',
+        '[BLE][READ][ERROR] MAC=$deviceMac, UUID=${BleHelperBl602.BASE_UUID_HOST_READ}, error=$e',
       );
       debugPrintStack(stackTrace: stackTrace);
       return Uint8List(0);
@@ -465,48 +421,47 @@ class BleClientNode implements UsrClient {
     required int bitrate,
     bool isRs485Enabled = true,
   }) async {
-    // 1. Відправка Wi-Fi credentials
-    final Uint8List wifiPayload = deviceType == UsrClientNodeType.esp
-        ? BleHelperEsp.buildWifiCredentialsPayload(targetSsid, targetPass)
-        : BleHelperBl602.buildWifiCredentialsPayload(targetSsid, targetPass);
-
-    final wifiSuccess = await _writeToBleCharacteristic(wifiPayload);
-    if (!wifiSuccess) {
-      throw Exception("Помилка відправки Wi-Fi реквізитів на пристрій.");
+    if (deviceType == UsrClientNodeType.esp) {
+      // TODO: Реалізувати для ESP32
+      return;
     }
-    await Future.delayed(const Duration(milliseconds: 500));
 
-    // 2. Відправка налаштувань
-    final Uint8List settingsPayload = deviceType == UsrClientNodeType.esp
-        ? BleHelperEsp.buildSettingsPayload(
-      moduleSsid: moduleSsid,
-      ipA: ipA,
-      portA: portA,
-      ipB: ipB,
-      portB: portB,
-      bitrate: bitrate,
-    )
-        : BleHelperBl602.buildSettingsPayload(
-      moduleSsid: moduleSsid,
-      ipA: ipA,
-      portA: portA,
-      ipB: ipB,
-      portB: portB,
-      bitrate: bitrate,
+    // 1. Увімкнути сповіщення FF02
+    if (!await _startBleNotifications()) {
+      throw Exception('Не вдалося запустити BLE Notifications (FF02).');
+    }
+
+    // 2. Передати SSID
+    final ssidSent = await _writeToBleCharacteristic(
+      BleHelperBl602.buildWifiSsidPacket(targetSsid),
     );
 
-    final settingsSuccess = await _writeToBleCharacteristic(settingsPayload);
-    if (!settingsSuccess) {
-      throw Exception("Помилка відправки системних налаштувань на пристрій.");
+    if (!ssidSent) {
+      throw Exception('Не вдалося передати SSID через BLE.');
     }
-    await Future.delayed(const Duration(milliseconds: 500));
 
-    // 3. Перезавантаження виконується тільки при успішному записі попередніх кроків
-    final restartResult = await postRestart();
+    // 3. Передати пароль
+    final passwordSent = await _writeToBleCharacteristic(
+      BleHelperBl602.buildWifiPasswordPacket(targetPass),
+    );
 
-    if (restartResult != 'ok') {
-      throw Exception('Помилка перезавантаження пристрою: $restartResult');
+    if (!passwordSent) {
+      throw Exception('Не вдалося передати пароль через BLE.');
     }
+
+    // 4. Запустити підключення до Wi-Fi
+    final connectSent = await _writeToBleCharacteristic(
+      BleHelperBl602.buildWifiConnectSetCommand(),
+    );
+
+    if (!connectSent) {
+      throw Exception('Не вдалося надіслати CMD_CONNECT_WIFI.');
+    }
+
+    debugPrint(
+      '[BLE][WIFI_CONNECT] SSID і пароль передані, '
+          'CMD_CONNECT_WIFI надіслано.',
+    );
   }
 
   @override
@@ -538,8 +493,6 @@ class BleClientNode implements UsrClient {
   }
 
   Future<bool> _startBleNotifications() async {
-    const characteristicUuid = '0000ff02-0000-1000-8000-00805f9b34fb';
-
     final deviceMac = mac;
     if (deviceMac == null || deviceMac.isEmpty) {
       debugPrint('[BLE][NOTIFY][ERROR] MAC не задано.');
@@ -564,7 +517,7 @@ class BleClientNode implements UsrClient {
       if (charPath == null) {
         debugPrint(
           '[BLE][NOTIFY][ERROR] '
-              'MAC=$deviceMac, UUID=$characteristicUuid: характеристику не знайдено.',
+              'MAC=$deviceMac, UUID=${BleHelperBl602.BASE_UUID_HOST_READ}: характеристику не знайдено.',
         );
         await _stopBleNotifications();
         return false;
@@ -639,12 +592,12 @@ class BleClientNode implements UsrClient {
       await charObject.callMethod(
         'org.bluez.GattCharacteristic1',
         'StartNotify',
-        []
+        [],
       );
 
       debugPrint(
         '[BLE][NOTIFY][OK] MAC=$deviceMac, '
-            'UUID=$characteristicUuid, path=$charPath',
+            'UUID=${BleHelperBl602.BASE_UUID_HOST_READ}, path=$charPath',
       );
 
       return true;
@@ -700,9 +653,6 @@ class BleClientNode implements UsrClient {
 
   /// Читає відповідь із FF02 через GATT ReadValue.
   Future<Uint8List> _readBleCharacteristic() async {
-    const characteristicUuid =
-        '0000ff02-0000-1000-8000-00805f9b34fb';
-
     final deviceMac = mac;
     if (deviceMac == null || deviceMac.isEmpty) {
       throw StateError('BLE MAC-адреса не задана.');
@@ -722,7 +672,7 @@ class BleClientNode implements UsrClient {
 
       if (characteristicPath == null) {
         throw StateError(
-          'BLE characteristic $characteristicUuid не знайдена.',
+          'BLE characteristic ${BleHelperBl602.BASE_UUID_HOST_READ} не знайдена.',
         );
       }
 
@@ -752,15 +702,57 @@ class BleClientNode implements UsrClient {
         }
       }
 
-      debugPrint(
-        '[BLE][READ][RX] MAC=$deviceMac, '
-            'bytes=${bytes.length}, '
-            'hex=${bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}',
-      );
-
       return Uint8List.fromList(bytes);
     } finally {
       await client.close();
     }
+  }
+
+  void _resetNotifyCompleter() {
+    _notifyCompleter = Completer<Uint8List>();
+  }
+
+  Future<bool> connectWifiViaBle({
+    required String ssid,
+    required String password,
+  }) async {
+    final command = 'wifi_sta_connect $ssid $password\r\n';
+    final bytes = Uint8List.fromList(command.codeUnits);
+
+    debugPrint('[BLE][WIFI_CONNECT][TX] $command');
+
+    final result = await _writeToBleCharacteristic(bytes);
+
+    debugPrint('[BLE][WIFI_CONNECT][RESULT] success=$result');
+
+    return result;
+  }
+
+  /// Очікує підключення BL602 до Wi-Fi (стан state = 4 / wifiConnected_IPOK)
+  Future<bool> _waitForWifiConnected({int timeoutSeconds = 15}) async {
+    final stateCommand = BleHelperBl602.buildWifiStateGetCommand();
+
+    for (var attempt = 1; attempt <= timeoutSeconds; attempt++) {
+      await Future.delayed(const Duration(seconds: 1));
+
+      _resetNotifyCompleter();
+
+      final reqSent = await _writeToBleCharacteristic(stateCommand);
+      if (!reqSent) continue;
+
+      final response = await _readFromBleCharacteristic();
+      if (response.isEmpty) continue;
+
+      final info = BleHelperBl602.parseWifiDataResponse(response);
+      final state = info?['state'] ?? -1;
+
+      debugPrint('[BLE][WIFI_STATE] Спроба $attempt/$timeoutSeconds, state=$state');
+
+      if (state == 4) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }

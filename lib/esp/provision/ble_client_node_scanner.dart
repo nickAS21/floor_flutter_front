@@ -69,7 +69,7 @@ class BleClientNodeScanner {
     } finally {
       _isScanning = false;
       _scanController.add(List.from(_discoveredDevices));
-      debugPrint("Зупинка BLE сканування. Знайдено: ${_discoveredDevices.length}");
+      debugPrint("КРОК 5.1: Зупинка BLE сканування. Знайдено: ${_discoveredDevices.length}");
     }
   }
 

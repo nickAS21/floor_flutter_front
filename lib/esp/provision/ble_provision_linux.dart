@@ -8,13 +8,8 @@ import 'ble_client_node.dart';
 import 'ble_helper_bl602.dart';
 
 class BleProvisionLinux extends UsrProvisionBase {
-  final String serviceUuid;
-  final String writeCharUuid;
 
-  BleProvisionLinux({
-    this.serviceUuid = "0000ffff-0000-1000-8000-00805f9b34fb",
-    this.writeCharUuid = "0000ff01-0000-1000-8000-00805f9b34fb",
-  });
+  BleProvisionLinux();
 
   @override
   Future<String?> getActiveSsid() async {
