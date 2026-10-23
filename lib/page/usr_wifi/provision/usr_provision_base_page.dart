@@ -40,6 +40,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
   List<Map<String, dynamic>> networks = [];
   bool scanSuccess = false;
   String? selectedSsid;
+  String? selectedBssid;
   String selectedPrefix = UsrClientNodeType.a2.prefix;
 
   // BLE Node стани
@@ -325,6 +326,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
     try {
       await nodeClient.onSaveUpdate(
         targetSsid: targetSsidController.text,
+        targetBssid: selectedBssid ?? '',
         targetPass: passController.text,
         moduleSsid: ssidNameController.text,
         ipA: ipAController.text,
@@ -374,6 +376,7 @@ abstract class UsrProvisionBasePage<T extends StatefulWidget> extends State<T> {
       // 1. Надсилаємо параметри Wi-Fi Provisioning та Settings через BLE
       await bleClient.onSaveUpdate(
         targetSsid: targetSsidController.text,
+        targetBssid: selectedBssid ?? '',
         targetPass: passController.text,
         moduleSsid: ssidNameController.text,
         ipA: ipAController.text,

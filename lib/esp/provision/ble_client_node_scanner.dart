@@ -37,7 +37,7 @@ class BleClientNodeScanner {
     _scanController.add([]);
 
     try {
-      debugPrint("Запуск BLE сканування...");
+      debugPrint("КРОК 5.1: Запуск BLE сканування...");
 
       if (Platform.isLinux) {
         // 1. Спочатку читаємо вже відомі пристрої з системи
@@ -69,7 +69,7 @@ class BleClientNodeScanner {
     } finally {
       _isScanning = false;
       _scanController.add(List.from(_discoveredDevices));
-      debugPrint("КРОК 5.1: Зупинка BLE сканування. Знайдено: ${_discoveredDevices.length}");
+      debugPrint("КРОК 5.2: Зупинка BLE сканування. Знайдено: ${_discoveredDevices.length}");
     }
   }
 

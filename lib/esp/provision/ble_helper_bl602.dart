@@ -2,6 +2,49 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/cupertino.dart';
 
+import 'bl602_wifi_network.dart';
+
+/// Стани Wi-Fi підключення BL602
+enum Bl602BleWifiState {
+  WIFI_STATE_UNKNOWN(0x00),
+  WIFI_STATE_IDLE(0x01),
+  WIFI_STATE_CONNECTING(0x02),
+  WIFI_STATE_CONNECTED_IP_GETTING(0x03),
+  WIFI_STATE_CONNECTED_IP_GOT(0x04),
+  WIFI_STATE_DISCONNECT(0x05),
+  WIFI_STATE_WITH_AP_IDLE(0x11),
+  WIFI_STATE_WITH_AP_CONNECTING(0x12),
+  WIFI_STATE_WITH_AP_CONNECTED_IP_GETTING(0x13),
+  WIFI_STATE_WITH_AP_CONNECTED_IP_GOT(0x14),
+  WIFI_STATE_WITH_AP_DISCONNECT(0x15),
+  WIFI_STATE_IFDOWN(0x06),
+  WIFI_STATE_SNIFFER(0x07),
+  WIFI_STATE_PSK_ERROR(0x08),
+  WIFI_STATE_NO_AP_FOUND(0x09);
+
+  final int rawValue;
+  const Bl602BleWifiState(this.rawValue);
+
+  /// Конвертація з чисельного значення від C-коду BL602
+  factory Bl602BleWifiState.fromRaw(int value) {
+    return Bl602BleWifiState.values.firstWhere(
+          (e) => e.rawValue == value,
+      orElse: () => Bl602BleWifiState.WIFI_STATE_UNKNOWN,
+    );
+  }
+
+  /// Чи підключено та отримано IP (state = 0x04 або 0x14)
+  bool get isConnected =>
+      this == Bl602BleWifiState.WIFI_STATE_CONNECTED_IP_GOT ||
+          this == Bl602BleWifiState.WIFI_STATE_WITH_AP_CONNECTED_IP_GOT;
+
+  /// Помилки авторизації чи відсутності AP
+  bool get isErrorPwd =>
+      this == Bl602BleWifiState.WIFI_STATE_PSK_ERROR;
+  bool get isErrorNoAp =>
+      this == Bl602BleWifiState.WIFI_STATE_NO_AP_FOUND;
+}
+
 /// Повний список типів даних/полів BLE-протоколу BL602 (1:1 з C-enum у прошивці)
 enum Bl602BleData {
   DATA_ACK(0x00),
@@ -55,9 +98,11 @@ class BleHelperBl602 {
   static const int PROTOCOL_TYPE_DATA = 0x01;
   static const int PRO_CTRL_TYPE_BIT = 4;
   static const int PRO_CTRL_TYPE_MASK = 0x30;
+
   static const String BASE_UUID_HOST_SERVER = "0000ffff-0000-1000-8000-00805f9b34fb";
   static const String BASE_UUID_HOST_READ = "0000ff02-0000-1000-8000-00805f9b34fb";
   static const String BASE_UUID_HOST_WRITE = "0000ff01-0000-1000-8000-00805f9b34fb";
+  static const int WIFI_SCAN_ITEMS_MAX = 50;
 
   // === CLI КОМАНДИ BL602 ===
   static const String cmdWifiScan = "wifi_scan\r\n";
@@ -121,11 +166,12 @@ class BleHelperBl602 {
     packet[16] = bytes.length;
     packet[17] = dataType.rawValue;
     packet.setRange(18, 18 + bytes.length, bytes);
-    debugPrint(
-      '[BLE][DATA][TX] type=${dataType.rawValue}, '
-          'length=${packet.length}, '
-          'hex=${packet.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}',
-    );
+    // TODO Debug
+    // debugPrint(
+    //   '[BLE][DATA][TX] type=${dataType.rawValue}, '
+    //       'length=${packet.length}, '
+    //       'hex=${packet.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}',
+    // );
     return packet;
   }
 
@@ -170,36 +216,47 @@ class BleHelperBl602 {
   }
 
   // === ПАРСИНГ ВІДПОВІДЕЙ ===
-  // === ПАРСИНГ ВІДПОВІДЕЙ ===
-  static Map<String, dynamic>? parseWifiDataResponse(Uint8List data) {
-    if (data.length < 18) return null;
 
-    final payloadLength = data[4] | (data[5] << 8);
-    if (payloadLength == 0 || data.length < 18 + payloadLength) return null;
+  /// Базовий хелпер для витягування JSON з TLV-пакета BL602 (18 байт заголовок)
+  static Map<String, dynamic>? _extractJsonPayload(Uint8List response, String moduleTag) {
+    if (response.length < 18) return null;
 
-    try {
-      final jsonText = utf8.decode(data.sublist(18, 18 + payloadLength));
-      final decoded = jsonDecode(jsonText);
-      if (decoded is! Map<String, dynamic>) return null;
+    final payloadLength = response[4] | (response[5] << 8);
+    const jsonStart = 18;
 
-      return {
-        'state': decoded['state'] ?? -1, // <--- Додано стан
-        'ssid': decoded['ssid'] ?? '',
-        'bssid': decoded['bssid'] ?? '',
-        'level': decoded['rssi'] ?? -100,
-        'rssi': decoded['rssi'] ?? -100,
-        'channel': decoded['chan'] ?? 0,
-        'auth': decoded['auth'] ?? 255,
-      };
-    } catch (e) {
-      debugPrint('[BL602][WIFI_SCAN][PARSE][ERROR] $e');
+    if (payloadLength <= 0 || response.length < jsonStart + payloadLength) {
       return null;
     }
+
+    try {
+      final jsonString = utf8.decode(
+        response.sublist(jsonStart, jsonStart + payloadLength),
+      );
+
+      final decoded = jsonDecode(jsonString);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    } catch (e) {
+      debugPrint('[BL602][$moduleTag][PARSE_ERROR] $e');
+    }
+
+    return null;
   }
 
-  static List<Map<String, dynamic>> parseWifiScanResults(Uint8List data) {
-    final item = parseWifiDataResponse(data);
-    return item == null ? [] : [item];
+  /// Парсинг результату сканування (CMD_WIFI_DATA_GET) у строгу модель
+  static Bl602WifiNetwork? parseWifiDataResponse(Uint8List data) {
+    final decoded = _extractJsonPayload(data, 'WIFI_SCAN');
+    if (decoded == null) return null;
+
+    return Bl602WifiNetwork.fromJson(decoded);
   }
 
+  /// Парсинг стану підключення (CMD_WIFI_STATE_GET) у строгу модель
+  static Bl602WifiNetwork? parseWifiStateResponse(Uint8List response) {
+    final decoded = _extractJsonPayload(response, 'WIFI_STATE');
+    if (decoded == null) return null;
+
+    return Bl602WifiNetwork.fromJson(decoded);
+  }
 }

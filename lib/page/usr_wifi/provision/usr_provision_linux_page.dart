@@ -293,6 +293,7 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
 
   void onNetworkTap(Map<String, dynamic> network) {
     final String ssid = network['ssid'] ?? "";
+    final String bssid = network['bssid'] ?? "";
 
     if (nodeClient.mac == null) {
       final isModule = ssid.toUpperCase().contains("USR-WIFI232") ||
@@ -321,7 +322,10 @@ class _UsrProvisionLinuxPageState extends UsrProvisionBasePage<UsrProvisionLinux
       }
     }
 
-    setState(() => targetSsidController.text = ssid);
+    setState(() {
+        targetSsidController.text = ssid;
+        selectedBssid = bssid;
+      });
     validateFormInternal();
   }
 }

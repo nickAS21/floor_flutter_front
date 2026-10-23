@@ -4,7 +4,9 @@ import 'package:floor_front/helpers/app_helper.dart';
 import 'package:floor_front/page/usr_wifi/provision/usr_provision_base.dart';
 import 'package:flutter/cupertino.dart';
 
+import '../../../esp/provision/bl602_wifi_network.dart';
 import '../../../esp/provision/ble_client_node.dart';
+import '../../../esp/provision/ble_helper_bl602.dart';
 import 'client/usr_client.dart';
 
 class UsrProvisionLinux extends UsrProvisionBase {
@@ -55,16 +57,8 @@ class UsrProvisionLinux extends UsrProvisionBase {
     return found;
   }
 
-  // String _formatBssid(String raw) {
-  //   if (raw.length != 12) return raw.toUpperCase();
-  //   return raw
-  //       .replaceAllMapped(RegExp(r".{2}"), (match) => "${match.group(0)}:")
-  //       .substring(0, 17)
-  //       .toUpperCase();
-  // }
-
   Future<List<Map<String, dynamic>>> getLinuxWifi() async {
-    List<Map<String, dynamic>> found = [];
+    final List<Bl602WifiNetwork> foundModels = [];
     final result = await Process.run('nmcli', [
       '-t',
       '-f', 'SSID,SIGNAL,BSSID',
@@ -73,41 +67,47 @@ class UsrProvisionLinux extends UsrProvisionBase {
 
     if (result.exitCode == 0) {
       final lines = result.stdout.toString().split('\n');
-      final Map<String, Map<String, dynamic>> uniqueNetworks = {};
+      final Map<String, Bl602WifiNetwork> uniqueNetworks = {};
 
       for (var line in lines) {
-        if (line.isEmpty) continue;
+        if (line.trim().isEmpty) continue;
 
+        // MAC-адреса BSSID завжди займає останні 17 символів (XX:XX:XX:XX:XX:XX)
+        // Використання розділення з кінця захищає від двокрапок усередині SSID
         final parts = line.split(':');
-        // Оскільки в MAC-адресі 5 двокрапок (напр. AA:BB:CC:DD:EE:FF),
-        // nmcli -t розіб'є її на 6 частин.
-        // Структура рядка буде: [SSID, SIGNAL, MAC1, MAC2, MAC3, MAC4, MAC5, MAC6]
         if (parts.length >= 8) {
-          final String ssid = parts[0].trim();
-          final int signal = int.tryParse(parts[1]) ?? 0;
+          // BSSID складається з останніх 6 сегментів
+          final bssid = parts.sublist(parts.length - 6).join(':').trim().toUpperCase();
 
-          // Збираємо MAC назад, об'єднуючи елементи з 2-го до кінця
-          final String bssid = parts
-              .sublist(2)
-              .join(':')
-              .trim()
-              .toUpperCase();
+          // SIGNAL — це передостанній елемент перед BSSID (індекс length - 7)
+          final signal = int.tryParse(parts[parts.length - 7]) ?? -100;
+
+          // SSID — все, що йде до SIGNAL
+          final ssid = parts.sublist(0, parts.length - 7).join(':').trim();
 
           if (ssid.isNotEmpty && ssid != "--") {
+            final network = Bl602WifiNetwork(
+              ssid: ssid,
+              bssid: bssid,
+              rssi: signal,
+              channel: 0,
+              auth: 0,
+              state: Bl602BleWifiState.WIFI_STATE_UNKNOWN,
+            );
+
+            // Фільтрація дублікатів за найсильнішим сигналом
             if (!uniqueNetworks.containsKey(ssid) ||
-                signal > (uniqueNetworks[ssid]!['level'] ?? 0)) {
-              uniqueNetworks[ssid] = {
-                'ssid': ssid,
-                'level': signal,
-                'bssid': bssid,
-              };
+                signal > uniqueNetworks[ssid]!.rssi) {
+              uniqueNetworks[ssid] = network;
             }
           }
         }
       }
-      found = uniqueNetworks.values.toList();
+      foundModels.addAll(uniqueNetworks.values);
     }
-    return found;
+
+    // Конвертуємо в Map для сумісності з UsrClient
+    return foundModels.map((network) => network.toJson()).toList();
   }
   
   Future<List<Map<String, dynamic>>> connectDeviceApWiFiToLinux(String ssid) async {

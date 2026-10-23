@@ -79,6 +79,7 @@ class UsrS100HttpClient implements UsrClient {
   @override
   Future<void> onSaveUpdate({
     required String targetSsid,
+    required String targetBssid,
     required String targetPass,
     required String moduleSsid,
     required String ipA,

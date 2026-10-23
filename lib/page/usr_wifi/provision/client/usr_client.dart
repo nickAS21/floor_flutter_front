@@ -9,6 +9,7 @@ abstract class UsrClient {
   // Приймаємо готові значення з полів
   Future<void> onSaveUpdate({
     required String targetSsid,
+    required String targetBssid,
     required String targetPass,
     required String moduleSsid,
     required String ipA,

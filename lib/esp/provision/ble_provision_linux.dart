@@ -32,16 +32,14 @@ class BleProvisionLinux extends UsrProvisionBase {
     final macAddress = usrClient.mac;
 
     if (macAddress == null || macAddress.isEmpty) {
-      debugPrint(
-        '[BLE][WIFI][ERROR] '
-            'MAC-адреса відсутня в ${usrClient.runtimeType}.',
-      );
+      debugPrint('[BLE][WIFI][ERROR] MAC-адреса відсутня в ${usrClient.runtimeType}.');
       return [];
     }
 
     try {
       debugPrint('[BLE][WIFI] Отримання результатів для MAC=$macAddress');
 
+      // final results = await usrClient.getScanResults();
       final results = await usrClient.getScanResults();
 
       debugPrint(
@@ -53,40 +51,6 @@ class BleProvisionLinux extends UsrProvisionBase {
       debugPrint('[BLE][WIFI][ERROR] MAC=$macAddress, error=$e');
       debugPrintStack(stackTrace: stackTrace);
       rethrow;
-    }
-  }
-
-  /// Використовує контракт UsrClient.onSaveUpdate без створення подвійного коду
-  /// Надсилає лише нові Wi-Fi SSID та пароль через BLE
-  Future<bool> sendWifiCredentials({
-    required UsrClient usrClient,
-    required String targetSsid,
-    required String targetPassword,
-  }) async {
-    if (targetSsid.isEmpty) {
-      debugPrint('[BLE][WIFI][ERROR] SSID не може бути порожнім.');
-      return false;
-    }
-
-    try {
-      final payload = BleHelperBl602.buildWifiCredentialsPayload(
-        targetSsid,
-        targetPassword,
-      );
-
-      if (usrClient is! BleClientNode) {
-        debugPrint(
-          '[BLE][WIFI][ERROR] '
-              'Очікувався BleClientNode, отримано ${usrClient.runtimeType}.',
-        );
-        return false;
-      }
-
-      return await usrClient.sendWifiCredentialsPayload(payload);
-    } catch (e, stackTrace) {
-      debugPrint('[BLE][WIFI][ERROR] MAC=${usrClient.mac}, error=$e');
-      debugPrintStack(stackTrace: stackTrace);
-      return false;
     }
   }
 
