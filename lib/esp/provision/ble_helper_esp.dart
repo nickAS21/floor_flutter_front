@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 class BleHelperEsp {
@@ -9,15 +10,8 @@ class BleHelperEsp {
     return Uint8List.fromList([]);
   }
 
-  static Uint8List buildSettingsPayload({
-    required String moduleSsid,
-    required String ipA,
-    required int portA,
-    required String ipB,
-    required int portB,
-    required int bitrate,
-  }) {
-    return Uint8List.fromList([]);
+  static Uint8List buildSettingsPayload(String jsonPayload) {
+    return Uint8List.fromList(utf8.encode(jsonPayload));
   }
 
   static Uint8List buildRebootCommand() {

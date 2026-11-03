@@ -124,19 +124,8 @@ class BleHelperBl602 {
     return Uint8List.fromList(utf8.encode(cmdWifiConnect(ssid, pass)));
   }
 
-  static Uint8List buildSettingsPayload({
-    required String moduleSsid,
-    required String ipA,
-    required int portA,
-    required String ipB,
-    required int portB,
-    required int bitrate,
-  }) {
-    final buffer = StringBuffer()
-      ..write(cmdSetDeviceName(moduleSsid))
-      ..write("wifi_sta_ip_set $ipA 255.255.255.0 192.168.1.1 8.8.8.8 8.8.4.4\r\n")
-      ..write("set_bitrate $bitrate\r\n");
-    return Uint8List.fromList(utf8.encode(buffer.toString()));
+  static Uint8List buildSettingsPayload(String jsonPayload) {
+    return buildDataPacket(Bl602BleData.DATA_CUSTOM_DATA, jsonPayload);
   }
 
   static Uint8List buildRebootCommand() {

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dbus/dbus.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../page/usr_wifi/info/data_usr_wifi_info.dart';
 import '../../page/usr_wifi/provision/client/usr_client.dart';
 import '../../page/usr_wifi/provision/client/usr_client_node_type.dart';
 import '../info/data_esp_bms_info.dart';
@@ -318,48 +319,61 @@ class BleClientNode implements UsrClient {
     required int bitrate,
     bool isRs485Enabled = true,
   }) async {
-    if (deviceType == UsrClientNodeType.esp) {
-      // TODO: Реалізувати для ESP32
-      return;
-    }
-
-    // 1. Увімкнути сповіщення FF02
+    // 1. Запуск сповіщень FF02 (строго по mac)
     if (!await _startBleNotifications()) {
       throw Exception('Не вдалося запустити BLE Notifications (FF02).');
     }
 
-    // 2. Передати SSID
+    // 2. Передача Target Wi-Fi SSID
     final ssidSent = await _writeToBleCharacteristic(
-      BleHelperBl602.buildWifiSsidPacket(targetSsid),
+      deviceType == UsrClientNodeType.esp
+          ? BleHelperEsp.buildWifiCredentialsPayload(targetSsid, "")
+          : BleHelperBl602.buildWifiSsidPacket(targetSsid),
     );
+    if (!ssidSent) throw Exception('Не вдалося передати SSID через BLE.');
 
-    if (!ssidSent) {
-      throw Exception('Не вдалося передати SSID через BLE.');
-    }
-
-    // 3. Передати пароль
+    // 3. Передача Target Wi-Fi Password
     final passwordSent = await _writeToBleCharacteristic(
-      BleHelperBl602.buildWifiPasswordPacket(targetPass),
+      deviceType == UsrClientNodeType.esp
+          ? BleHelperEsp.buildWifiCredentialsPayload("", targetPass)
+          : BleHelperBl602.buildWifiPasswordPacket(targetPass),
     );
-    debugPrint('КРОК 5.5: [BLE][CMD_CONNECT_WIFI] -> (3) - SSID=$targetSsid і пароль=$targetPass надіслано.');
+    if (!passwordSent) throw Exception('Не вдалося передати пароль через BLE.');
 
-    if (!passwordSent) {
-      throw Exception('Не вдалося передати пароль через BLE.');
+    // 4. Формування та відправка JSON-конфігурації ноди (Settings Provisioning)
+    final nodeInfo = DataUsrWiFiInfo(
+      bssidMac: mac ?? '',
+      ssidWifiBms: moduleSsid,
+      netIpA: ipA,
+      netAPort: portA,
+      netIpB: ipB,
+      netBPort: portB,
+      bitrate: bitrate,
+      bmsList: bmsList,
+    );
+
+    final jsonPayload = nodeInfo.toNodeConfigJson();
+    final settingsPacket = deviceType == UsrClientNodeType.esp
+        ? BleHelperEsp.buildSettingsPayload(jsonPayload)
+        : BleHelperBl602.buildSettingsPayload(jsonPayload);
+
+    final settingsSent = await _writeToBleCharacteristic(settingsPacket);
+    if (!settingsSent) {
+      throw Exception('Не вдалося записати налаштування ноди (${deviceType.name}).');
     }
+    debugPrint('[BLE][SETTINGS] Конфігурацію успішно передано: $jsonPayload');
 
-    // 4. Запустити підключення до Wi-Fi
-    debugPrint('КРОК 5.5.1: [BLE][CMD_CONNECT_WIFI] -> (3) - почато приєднання до мережи SSID=$targetSsid.');
-    final connectSent = await _writeToBleCharacteristic(BleHelperBl602.buildWifiConnectSetCommand());
+    // 5. Запуск підключення до Wi-Fi
+    final connectSent = await _writeToBleCharacteristic(
+      deviceType == UsrClientNodeType.esp
+          ? BleHelperEsp.buildWifiScanCommand() // або відповідна команда ESP
+          : BleHelperBl602.buildWifiConnectSetCommand(),
+    );
+    if (!connectSent) throw Exception('Не вдалося надіслати команду підключення до Wi-Fi.');
 
-    if (!connectSent) {
-      throw Exception('Не вдалося надіслати CMD_CONNECT_WIFI.');
-    }
-
-
-
-    // 5. Дочекатися підключення та отримати фактичний SSID
+    // 6. Очікування статусу підключення
     final connectedSsid = await _waitForWifiConnected(targetSsid, targetPass, targetBssid);
-    debugPrint('КРОК 5.6: [BLE][CMD_WIFI_DATA_GET] -> (11) - Підключено до SSID=$connectedSsid');
+    debugPrint('Підключено до SSID=$connectedSsid');
   }
 
   @override
