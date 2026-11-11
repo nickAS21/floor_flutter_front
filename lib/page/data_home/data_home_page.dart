@@ -94,6 +94,8 @@ class _HomePageState extends RefreshableState<HomePage> with SingleTickerProvide
     try {
       final response = await http.get(Uri.parse(apiUrl), headers: {'Authorization': 'Bearer $token'});
       if (response.statusCode == 200 && mounted) {
+        debugPrint("=== URL: $apiUrl ===");
+        debugPrint("=== RAW BODY: ${response.body} ===");
         final dynamic decoded = json.decode(response.body);
         setState(() {
           if (decoded is List && decoded.isNotEmpty) {
@@ -178,7 +180,7 @@ class _HomePageState extends RefreshableState<HomePage> with SingleTickerProvide
     } else if (!_dataHome!.gridStatusRealTimeSwitch) {
       powerPart = "Off$voltageInfo";
     } else {
-      powerPart = "${_dataHome!.gridPower.toInt()} W$voltageInfo";
+      powerPart = "On\n${_dataHome!.gridPower.toInt()} W$voltageInfo";
     }
 
     return Scaffold(
