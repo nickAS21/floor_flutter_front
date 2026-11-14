@@ -300,7 +300,13 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
     );
   }
 
-  LineChartBarData _buildLineData(List<AnalyticModel> data, double Function(AnalyticModel) getValue, Color color, {bool hasArea = false, double opacity = 0.1}) {
+  LineChartBarData _buildLineData(
+      List<AnalyticModel> data,
+      double Function(AnalyticModel) getValue,
+      Color color, {
+        bool hasArea = false,
+        double opacity = 0.1,
+      }) {
     return LineChartBarData(
       spots: data.map((m) {
         double xValue;
@@ -313,10 +319,21 @@ class _AnalyticsSocPowerPageState extends RefreshableState<AnalyticsSocPowerPage
         }
         return FlSpot(xValue, getValue(m));
       }).toList(),
-      isCurved: true,
+      // 1. Прибираємо сплайн (isCurved: true), щоб крива не "з'їдала" і не викривляла сусідні точки
+      isCurved: false,
       color: color,
-      barWidth: 2,
-      dotData: const FlDotData(show: false),
+      barWidth: 1.5,
+      // 2. Вмикаємо відображення реальних точок з масиву
+      dotData: FlDotData(
+        show: true,
+        getDotPainter: (spot, percent, barData, index) {
+          return FlDotCirclePainter(
+            radius: _chartScale >= 2.0 ? 2.5 : 1.5,
+            color: color,
+            strokeWidth: 0,
+          );
+        },
+      ),
       belowBarData: BarAreaData(show: hasArea, color: color.withValues(alpha: opacity)),
     );
   }

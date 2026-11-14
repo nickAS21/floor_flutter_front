@@ -12,13 +12,11 @@ class ChartScaleSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Форматуємо масштаб у відсотки (наприклад, 1.0 -> "100%", 1.5 -> "150%")
-    final String scalePercent = "${(currentScale * 100).toInt()}%";
+    final String scalePercent = "${(currentScale * 100).round()}%";
 
     return PopupMenuButton<double>(
       initialValue: currentScale,
       onSelected: onScaleChanged,
-      // Відображаємо лупу та текст масштабу в одній кнопці
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Row(
@@ -39,6 +37,8 @@ class ChartScaleSelector extends StatelessWidget {
         const PopupMenuItem<double>(value: 1.5, child: Text('150%')),
         const PopupMenuItem<double>(value: 2.0, child: Text('200%')),
         const PopupMenuItem<double>(value: 3.0, child: Text('300%')),
+        const PopupMenuItem<double>(value: 5.0, child: Text('500%')),
+        const PopupMenuItem<double>(value: 10.0, child: Text('1000%')),
       ],
     );
   }
