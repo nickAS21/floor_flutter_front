@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../helpers/api_server_helper.dart';
 import '../../helpers/app_helper.dart';
@@ -52,7 +56,6 @@ class _LogsPageState extends RefreshableState<LogsPage> {
   Future<void> _fetchData() async {
     if (!mounted) return;
 
-    // 1. Вмикаємо завантаження одразу
     setState(() => _isLoading = true);
 
     try {
@@ -62,7 +65,7 @@ class _LogsPageState extends RefreshableState<LogsPage> {
       final response = await http.get(
         Uri.parse(_getApiUrl()),
         headers: {"Authorization": "Bearer $token"},
-      ).timeout(const Duration(seconds: 30)); // Додаємо таймаут для надійності
+      ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         if (mounted) {
@@ -71,7 +74,6 @@ class _LogsPageState extends RefreshableState<LogsPage> {
           });
         }
       } else {
-        // Викидаємо помилку, щоб вона потрапила в catch
         throw Exception("Статус сервера: ${response.statusCode}");
       }
     } catch (e) {
@@ -82,10 +84,61 @@ class _LogsPageState extends RefreshableState<LogsPage> {
         });
       }
     } finally {
-      // 2. ГАРАНТОВАНЕ ВИМКНЕННЯ ЛОАДЕРА
-      // Виконується завжди: і при успіху, і при помилці
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<Directory?> _getDownloadsDirectory() async {
+    if (Platform.isLinux) {
+      return await getDownloadsDirectory();
+    } else if (Platform.isAndroid) {
+      final dir = Directory('/storage/emulated/0/Download');
+      if (await dir.exists()) {
+        return dir;
+      }
+      return await getExternalStorageDirectory();
+    }
+    return await getDownloadsDirectory();
+  }
+
+  Future<void> _exportLogsToFile() async {
+    if (_appLogs.trim().isEmpty ||
+        _appLogs == "Завантаження..." ||
+        _appLogs == "Оновлення...") {
+      return;
+    }
+
+    try {
+      final dir = await _getDownloadsDirectory();
+      if (dir == null) {
+        throw Exception("Не вдалося визначити папку Downloads");
+      }
+
+      final timestamp = DateFormat('yyyy-MM-dd_HH-mm-ss').format(DateTime.now());
+      final fileName = 'logs_${widget.location.name}_$timestamp.log';
+      final file = File('${dir.path}/$fileName');
+
+      await file.writeAsString(_appLogs);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Збережено: ${file.path}"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Export logs error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Помилка збереження: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -95,7 +148,34 @@ class _LogsPageState extends RefreshableState<LogsPage> {
     return Scaffold(
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _buildAppTerminal(),
+          : Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Logs (${_appLogs.split('\n').where((l) => l.trim().isNotEmpty).length} рядків)",
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                TextButton.icon(
+                  onPressed: _exportLogsToFile,
+                  icon: const Icon(Icons.download, size: 18),
+                  label: const Text("Export to file", style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(child: _buildAppTerminal()),
+        ],
+      ),
     );
   }
 
@@ -109,7 +189,7 @@ class _LogsPageState extends RefreshableState<LogsPage> {
       decoration: const BoxDecoration(color: Colors.black),
       child: SelectionArea(
         child: ListView.builder(
-          reverse: true, // Нові записи внизу
+          reverse: true,
           itemCount: lines.length,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           itemBuilder: (context, index) {
